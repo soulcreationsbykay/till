@@ -764,9 +764,12 @@
   }
 
   /* ---- Clean Modern theme ---- */
+  /* Primary colour is Kay's purple (28 Sept 2026): --moss is the lotus (#683090),
+     --moss-dark her lettering (#401070). Was red in the Soulful Angels copy.
+     Red now means only danger (--danger), so the two no longer look alike. */
   :root{
     --ink:#1e293b; --paper:#f1f5f9; --panel:#ffffff; --line:#e2e8f0;
-    --moss:#dc2626; --moss-dark:#b91c1c; --clay:#0ea5e9; --clay-dark:#0284c7;
+    --moss:#683090; --moss-dark:#401070; --clay:#0ea5e9; --clay-dark:#0284c7;
     --muted:#64748b; --danger:#991b1b; --radius:16px;
   }
   header{
@@ -791,13 +794,13 @@
   .session-bar button{color:#fff;}
   .card,.modal{box-shadow:0 1px 3px rgba(15,23,42,.06),0 10px 28px rgba(15,23,42,.07);border-color:#eef2f7;}
   input,select,textarea{border-radius:12px;}
-  .count-badge{background:linear-gradient(135deg,#dc2626,#ef4444);}
-  .btn-primary{background:linear-gradient(135deg,#dc2626,#ef4444);box-shadow:0 4px 14px rgba(220,38,38,.3);}
-  .charge-btn{background:linear-gradient(135deg,#dc2626,#ef4444);box-shadow:0 6px 18px rgba(220,38,38,.35);}
-  .fab{background:linear-gradient(135deg,#dc2626,#ef4444);box-shadow:0 8px 24px rgba(220,38,38,.4);}
-  .change-due.ok{background:rgba(220,38,38,.1);color:var(--moss-dark);}
+  .count-badge{background:linear-gradient(135deg,#401070,#7a3fa6);}
+  .btn-primary{background:linear-gradient(135deg,#401070,#7a3fa6);box-shadow:0 4px 14px rgba(104,48,144,.3);}
+  .charge-btn{background:linear-gradient(135deg,#401070,#7a3fa6);box-shadow:0 6px 18px rgba(104,48,144,.35);}
+  .fab{background:linear-gradient(135deg,#401070,#7a3fa6);box-shadow:0 8px 24px rgba(104,48,144,.4);}
+  .change-due.ok{background:rgba(104,48,144,.1);color:var(--moss-dark);}
   .change-due.short{background:rgba(153,27,27,.1);color:var(--danger);}
-  .pay-method.sel{background:rgba(220,38,38,.08);}
+  .pay-method.sel{background:rgba(104,48,144,.08);}
   .refund-badge{background:rgba(153,27,27,.1);color:var(--danger);}
 
   /* ---- Branded header: logo left, titles centered ---- */
