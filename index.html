@@ -1603,6 +1603,13 @@
       <input type="checkbox" id="editLeadItem">
       <span>Show this photo on the shop list</span>
     </label>
+    <!-- Which photograph fronts this item's CATEGORY on the website's front page
+         (28 Sept 2026). One item per category; ticking here unticks the rest.
+         Only offered when the folder has a category, i.e. a second level. -->
+    <label class="web-check" id="editFrontWrap" for="editFront" style="display:none;margin-bottom:10px;">
+      <input type="checkbox" id="editFront">
+      <span>Use this photo for <b id="editFrontCat">its category</b> on the website's front page</span>
+    </label>
 
     <!-- The extra photographs. Saved the moment they are taken rather than on
          Save, because they are not part of the record - and because losing a
@@ -4513,6 +4520,35 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     });
   }
 
+  // WHICH PHOTOGRAPH FRONTS A CATEGORY on the website's front page.
+  //
+  // The category is the SECOND level of the folder (Kay/Crochet -> Crochet),
+  // exactly as shop-worker's categoryOf reads it, and compared the way it folds
+  // them: lowercase, a final "s" dropped, so "Special offer" and "Special
+  // offers" are one shelf. `front` is 1 on the chosen item and absent on every
+  // other; shop-worker publishes it as `front: true`. See SHARED.md.
+  function webCategoryOfFolder(folder){
+    const parts = normFolder(folder).split('/');
+    return parts.length > 1 ? parts[1] : '';
+  }
+  function webCategoryKey(folder){
+    return webCategoryOfFolder(folder).toLowerCase().replace(/s$/, '');
+  }
+
+  // Only one item can front a category. Ticking here has to untick there, for
+  // the same reason as clearGroupLead: otherwise the website quietly picks one
+  // and the tick on the other looks broken.
+  function clearCategoryFront(barcode){
+    const me = items[barcode];
+    const key = me ? webCategoryKey(me.folder) : '';
+    if(!key) return;
+    Object.keys(items).forEach(function(bc){
+      if(bc !== barcode && items[bc] && items[bc].front && webCategoryKey(items[bc].folder) === key){
+        delete items[bc].front;
+      }
+    });
+  }
+
   // Keep every item's key agreeing with its photo. Called from saveItems, so it
   // runs on every change to the stock -- a sale, an edit, a record arriving over
   // sync -- and no caller has to remember it.
@@ -6230,6 +6266,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         return;
       }
       input.value = pick.getAttribute('data-folder') || '';
+      // A picked folder is a typed folder as far as the rest of the form is
+      // concerned: the front-page tick names its category from this box.
+      if(which === 'edit') showFrontTick();
       // Chosen — fold it back up. The button now reads as the answer, and the
       // rest of the form is where it was before the list pushed it down.
       folderPicksOpen[which] = false;
@@ -6716,6 +6755,15 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   const editSetPhoto = setupPhotoField('editSetPhotoInput', 'editSetPhotoPreview', 'editSetPhotoRemove');
   // Two ticks, one answer. Ticking either unticks the other on the spot rather
   // than letting the form show a contradiction and resolving it quietly on Save.
+  // The front-page tick names the category it is for, and is only offered when
+  // the folder has one - worked out from the box as it is typed, not as saved.
+  function showFrontTick(){
+    const cat = webCategoryOfFolder(document.getElementById('editItemFolder').value);
+    document.getElementById('editFrontWrap').style.display = cat ? 'flex' : 'none';
+    document.getElementById('editFrontCat').textContent = cat || 'its category';
+  }
+  document.getElementById('editItemFolder').addEventListener('input', showFrontTick);
+
   document.getElementById('editLeadItem').addEventListener('change', function(){
     if(this.checked) document.getElementById('editLeadSet').checked = false;
   });
@@ -12220,6 +12268,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     document.getElementById('editLeadItemWrap').style.display = shares ? 'flex' : 'none';
     document.getElementById('editLeadItem').checked = shares && it.lead === 'item';
     document.getElementById('editLeadSet').checked = it.lead === 'set';
+    document.getElementById('editFront').checked = !!it.front;
+    showFrontTick();
 
     document.getElementById('editWebOn').checked = !!it.web;
     document.getElementById('editWebDesc').value = it.webDesc || '';
@@ -12347,6 +12397,16 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     else delete it.lead;
     // Only one member of a card can lead it.
     if(it.lead) clearGroupLead(savedBarcode, savedBarcode);
+
+    // The category's front-page picture. Read after the folder, so a tick on an
+    // item that has just moved category claims its NEW category. An item whose
+    // folder no longer has a category cannot front one.
+    if(document.getElementById('editFront').checked && webCategoryOfFolder(it.folder)){
+      it.front = 1;
+      clearCategoryFront(savedBarcode);
+    } else {
+      delete it.front;
+    }
 
     // The set's photograph, written the same way as the item's: the picture on
     // the record for reconcileSetPhotos to put away, and `setPhotoCleared` so a
