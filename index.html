@@ -83,6 +83,13 @@
   }
   .tab.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
 
+  .stall-list{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:8px;}
+  .stall-list:empty{display:none;}
+  .stall-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;}
+  .stall-when{min-width:58px;text-align:center;font-weight:700;color:var(--moss-dark);line-height:1.15;font-size:13px;}
+  .stall-what{flex:1;min-width:0;font-size:14px;}
+  .stall-what small{display:block;color:var(--muted);font-size:12px;overflow-wrap:anywhere;}
+  .stall-row button{flex:none;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:6px 9px;font-size:13px;cursor:pointer;}
   .card{
     background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
     padding:14px;margin-bottom:12px;
@@ -1087,6 +1094,35 @@
       <div class="storage-note" id="storageNote"></div>
       <button class="btn btn-secondary" id="tidySyncBtn" style="width:100%;margin-top:8px;">🧹 Tidy up old deleted records</button>
       <div class="storage-note" id="tidySyncNote"></div>
+    </div>
+    <!-- Stall dates for the website (29 Sept 2026). Shown on the front page under
+         "Where to find us"; shop-worker reads them from the team workspace, so
+         they reach the site within about a quarter of an hour of being saved
+         here, as long as Team sync is on. Past dates drop off by themselves. -->
+    <div class="card" id="stallsCard">
+      <div class="quick-sell-head">🎪 Stall dates for the website</div>
+      <div class="folder-hint" style="margin-bottom:10px;">
+        Markets, fairs and events where you will have a stall. They show on the
+        website's front page under <b>Where to find us</b> within about 15 minutes,
+        as long as Team sync is on. Past dates disappear by themselves.
+      </div>
+      <ul class="stall-list" id="stallList"></ul>
+      <div class="stall-form">
+        <label for="stallDate">Date</label>
+        <input type="date" id="stallDate">
+        <label for="stallTitle">Market or fair</label>
+        <input type="text" id="stallTitle" maxlength="80" placeholder="e.g. Christmas Craft Fair" autocomplete="off">
+        <label for="stallTime">Time (optional)</label>
+        <input type="text" id="stallTime" maxlength="40" placeholder="e.g. 10am – 4pm" autocomplete="off">
+        <label for="stallWhere">Where (optional)</label>
+        <input type="text" id="stallWhere" maxlength="120" placeholder="e.g. Town Hall, Market Street" autocomplete="off">
+        <label for="stallLink">Link to the event (optional)</label>
+        <input type="url" id="stallLink" maxlength="300" placeholder="https://…" autocomplete="off">
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="btn btn-secondary" id="stallCancel" type="button" style="display:none;">Cancel</button>
+          <button class="btn btn-primary" id="stallSave" type="button">Add stall</button>
+        </div>
+      </div>
     </div>
     <div class="card">
       <div class="quick-sell-head">Supplier payouts</div>
@@ -12958,6 +12994,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     { key: 'stockTakeStaff',       scope: 'shop'   },
     { key: 'stockTakePromos',      scope: 'shop'   },
     { key: 'posCardReaderUrl',     scope: 'shop'   },
+    { key: 'stockTakeStalls',      scope: 'shop'   },
     { key: 'posTillId',            scope: 'device' },
     { key: 'stockTakeSyncCfg',     scope: 'sync'   },
     { key: 'stockTakeSyncTeam',    scope: 'sync'   },
@@ -13349,7 +13386,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     var SDK_FS  ='https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js';
     var SDK_AUTH='https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js';
 
-    var app=null, db=null, itemsCol=null, salesCol=null, metaDoc=null;
+    var app=null, db=null, itemsCol=null, salesCol=null, metaDoc=null, stallsDoc=null;
     var listeners=[], connected=false, connecting=false;
     var persistenceOK=false;                // did the local cache switch on?
     var shadowItems={}, shadowSales={};     // last-known-synced serialization
@@ -13585,6 +13622,11 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
                     makers: makers, updatedAt: ts, by: clientId });
     }
 
+    function pushStalls(rec){
+      if(!stallsDoc || !rec) return;
+      stallsDoc.set({ events: rec.events || [], updatedAt: Number(rec.updatedAt)||Date.now(), by: clientId });
+    }
+
     // called by the wrapped savers whenever local data changes
     function onLocalItems(){ if(connected){ try{ pushItems(); pushMeta(); }catch(e){} } }
     function onLocalSales(){ if(connected){ try{ pushSales(); }catch(e){} } }
@@ -13615,6 +13657,16 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       }, onSnapErr));
       listeners.push(metaDoc.onSnapshot(function(doc){
         if(doc.exists && applyRemoteMeta(doc.data())){ saveTimes(); renderSession(); renderList(); renderSold(); }
+      }, onSnapErr));
+      // Stall dates: one document, newest wins. A list edited while offline is
+      // newer than what the workspace holds, so it goes up the moment this
+      // listener first hears back.
+      listeners.push(stallsDoc.onSnapshot(function(doc){
+        var remote = doc.exists ? doc.data() : null;
+        var local = readStalls();
+        var rt = remote ? Number(remote.updatedAt)||0 : 0;
+        if(rt > (Number(local.updatedAt)||0)) applyRemoteStalls(remote);
+        else if((Number(local.updatedAt)||0) > rt) pushStalls(local);
       }, onSnapErr));
     }
     function onSnapErr(e){ setStatus('connection problem — retrying', 'err'); }
@@ -13767,6 +13819,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         itemsCol = ws.collection('items');
         salesCol = ws.collection('sales');
         metaDoc  = ws.collection('meta').doc('session');
+        stallsDoc = ws.collection('meta').doc('stalls');
         await reconcile();
         attachListeners();
         connected=true; connecting=false;
@@ -13905,6 +13958,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     return {
       connect:connect, disconnect:disconnect, syncNow:syncNow,
       saveSettings:saveSettings, onLocalItems:onLocalItems, onLocalSales:onLocalSales,
+      onLocalStalls:function(rec){ if(connected){ try{ pushStalls(rec); }catch(e){} } },
       setStatus:setStatus, isOn:isOn, getCfg:getCfg, getTeam:getTeam, getPin:getPin, getEmail:getEmail,
       isConnected:function(){ return connected; },
       getIdToken:getIdToken,
@@ -13912,6 +13966,148 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       findTombstones:findTombstones, deleteTombstones:deleteTombstones
     };
 
+  })();
+
+  // ---- STALL DATES ----
+  //
+  // Kept on this device under stockTakeStalls as { events, updatedAt }, and in
+  // the team workspace as meta/stalls, which shop-worker reads for the website.
+  // Every event is rebuilt from named fields here, so nothing but these five
+  // ever reaches the site, and a link that is not https:// is dropped rather
+  // than trusted - the website draws it as a button.
+  const STALLS_KEY = 'stockTakeStalls';
+  const STALLS_MAX = 60;
+
+  function stallToday(now){
+    const d = now || new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
+  function normStall(raw){
+    if(!raw || typeof raw !== 'object') return null;
+    const cut = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
+    const date = cut(raw.date, 10);
+    const title = cut(raw.title, 80);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(Date.parse(date)) || !title) return null;
+    const out = { id: cut(raw.id, 40) || ('S' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)), date, title };
+    const time = cut(raw.time, 40), where = cut(raw.where, 120), link = cut(raw.link, 300);
+    if(time) out.time = time;
+    if(where) out.where = where;
+    if(/^https:\/\/[^\s]+$/i.test(link)) out.link = link;
+    return out;
+  }
+
+  // Tidy, today onwards, in date order, and never more than STALLS_MAX.
+  function cleanStalls(list, today){
+    const t = today || stallToday();
+    return (Array.isArray(list) ? list : [])
+      .map(normStall)
+      .filter(e => e && e.date >= t)
+      .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.title.localeCompare(b.title))
+      .slice(0, STALLS_MAX);
+  }
+
+  function readStalls(){
+    try{
+      const o = JSON.parse(localStorage.getItem(STALLS_KEY));
+      if(o && typeof o === 'object' && Array.isArray(o.events)) return { events: o.events, updatedAt: Number(o.updatedAt)||0 };
+    }catch(e){}
+    return { events: [], updatedAt: 0 };
+  }
+
+  function storeStalls(rec){
+    try{ localStorage.setItem(STALLS_KEY, JSON.stringify(rec)); return true; }catch(e){ return false; }
+  }
+
+  // A change made here: tidy, stamp, keep, and send to the workspace.
+  function writeStalls(events){
+    const rec = { events: cleanStalls(events), updatedAt: Date.now() };
+    if(!storeStalls(rec)) return null;
+    try{ Sync.onLocalStalls(rec); }catch(e){}
+    return rec;
+  }
+
+  // A change made on another device. Never sent back up: it came from there.
+  function applyRemoteStalls(remote){
+    const rec = { events: cleanStalls(remote && remote.events), updatedAt: Number(remote && remote.updatedAt)||0 };
+    storeStalls(rec);
+    try{ renderStalls(); }catch(e){}
+    return true;
+  }
+  // ---- END STALL DATES ----
+
+  let stallEditing = null;
+  function renderStalls(){
+    const list = document.getElementById('stallList');
+    if(!list) return;
+    list.innerHTML = '';
+    cleanStalls(readStalls().events).forEach(function(e){
+      const li = document.createElement('li');
+      li.className = 'stall-row';
+      const when = document.createElement('div');
+      when.className = 'stall-when';
+      const d = new Date(e.date + 'T12:00:00');
+      when.textContent = d.toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+      const what = document.createElement('div');
+      what.className = 'stall-what';
+      what.textContent = e.title;
+      const extra = [e.time, e.where].filter(Boolean).join(' · ');
+      if(extra){ const sm = document.createElement('small'); sm.textContent = extra; what.appendChild(sm); }
+      const edit = document.createElement('button');
+      edit.type = 'button'; edit.textContent = 'Edit';
+      edit.addEventListener('click', function(){ fillStallForm(e); });
+      const del = document.createElement('button');
+      del.type = 'button'; del.textContent = 'Delete';
+      del.addEventListener('click', function(){
+        if(!confirm('Delete "' + e.title + '" on ' + when.textContent + '?')) return;
+        writeStalls(readStalls().events.filter(x => x.id !== e.id));
+        if(stallEditing === e.id) fillStallForm(null);
+        renderStalls();
+        showToast('Stall deleted', 'success');
+      });
+      li.appendChild(when); li.appendChild(what); li.appendChild(edit); li.appendChild(del);
+      list.appendChild(li);
+    });
+  }
+
+  function fillStallForm(e){
+    stallEditing = e ? e.id : null;
+    document.getElementById('stallDate').value = e ? e.date : '';
+    document.getElementById('stallTitle').value = e ? e.title : '';
+    document.getElementById('stallTime').value = e ? (e.time || '') : '';
+    document.getElementById('stallWhere').value = e ? (e.where || '') : '';
+    document.getElementById('stallLink').value = e ? (e.link || '') : '';
+    document.getElementById('stallSave').textContent = e ? 'Save changes' : 'Add stall';
+    document.getElementById('stallCancel').style.display = e ? '' : 'none';
+    if(e) document.getElementById('stallsCard').scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+
+  (function(){
+    const save = document.getElementById('stallSave');
+    if(!save) return;
+    save.addEventListener('click', function(){
+      const raw = {
+        id: stallEditing || '',
+        date: document.getElementById('stallDate').value,
+        title: document.getElementById('stallTitle').value,
+        time: document.getElementById('stallTime').value,
+        where: document.getElementById('stallWhere').value,
+        link: document.getElementById('stallLink').value,
+      };
+      const e = normStall(raw);
+      if(!e){ showToast('A stall needs a date and the name of the market or fair', 'error'); return; }
+      if(e.date < stallToday()){ showToast('That date has already gone', 'error'); return; }
+      const typedLink = String(raw.link || '').trim();
+      if(typedLink && !e.link){ showToast('The link has to start with https://', 'error'); return; }
+      const others = readStalls().events.filter(x => x.id !== e.id);
+      if(!writeStalls(others.concat([e]))){ showToast('Could not save the stall', 'error'); return; }
+      const was = stallEditing;
+      fillStallForm(null);
+      renderStalls();
+      showToast(was ? 'Stall updated' : 'Stall added', 'success');
+    });
+    document.getElementById('stallCancel').addEventListener('click', function(){ fillStallForm(null); });
+    renderStalls();
   })();
 
   // ---- Settings -> Tidy up old deleted records ----
