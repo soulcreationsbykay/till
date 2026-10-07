@@ -1,6 +1,7 @@
 # Change register — Soulful Angels Till & Stock
 
-Every version published to https://iggy545.github.io/stock-take/ is recorded here.
+Every version published to https://soulcreationsbykay.github.io/till/ is recorded here.
+(Entries before 28 Sept 2026 are from the Soulful Angels till this was copied from.)
 The version at the top of this file is what the app's header shows, so you can tell
 at a glance which build a phone or till is running.
 
