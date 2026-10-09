@@ -1834,6 +1834,20 @@
       <button class="btn btn-secondary" id="cardWaitBack">Take cash instead</button>
       <button class="btn btn-primary" id="cardWaitRetry">Try the card again</button>
     </div>
+    <!-- No signal for the till, but the card machine can still take the
+         payment typed in by hand. Asked twice on purpose: this records money
+         the till never saw, so it must only be pressed once the machine itself
+         says approved. -->
+    <div class="btn-row" id="cardWaitManualRow" style="display:none;margin-top:8px;">
+      <button class="btn btn-secondary" id="cardWaitManual" style="width:100%;">💳 Took it on the card machine</button>
+    </div>
+    <div id="cardWaitManualAsk" style="display:none;margin-top:10px;">
+      <div class="due-banner" style="display:block;margin:0 0 8px;">Only record this once the card machine itself shows the payment of <b id="cardWaitManualAmount">£0.00</b> as approved. The sale is saved as a card sale with no SumUp reference.</div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="cardWaitManualNo">Back</button>
+        <button class="btn btn-primary" id="cardWaitManualYes">Approved — record card sale</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -4271,9 +4285,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.48.0';
-  const BUILD_DATE  = '6 Sept 2026';
-  const BUILD_TIME  = '18:34';
+  const APP_VERSION = '1.49.0';
+  const BUILD_DATE  = '9 Oct 2026';
+  const BUILD_TIME  = '19:58';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -8634,6 +8648,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       state('Sending to the reader…', '');
       document.getElementById('cardWaitCancelRow').style.display = 'flex';
       document.getElementById('cardWaitDoneRow').style.display = 'none';
+      document.getElementById('cardWaitManualRow').style.display = 'none';
+      document.getElementById('cardWaitManualAsk').style.display = 'none';
       document.getElementById('cardWaitModal').style.display = 'flex';
     }
     function state(text, kind){
@@ -8673,6 +8689,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       state(message, 'bad');
       document.getElementById('cardWaitCancelRow').style.display = 'none';
       document.getElementById('cardWaitDoneRow').style.display = 'flex';
+      document.getElementById('cardWaitManualRow').style.display = 'flex';
+      document.getElementById('cardWaitManualAsk').style.display = 'none';
     }
 
     // ---- the flow ----
@@ -8915,6 +8933,27 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   document.getElementById('cardWaitRetry').addEventListener('click', () => {
     document.getElementById('cardWaitModal').style.display='none';
     CardReader.start();
+  });
+  // The till could not get the payment through, but the card machine took it
+  // typed in by hand. Recorded exactly like a card sale made with no reader
+  // set up: no SumUp reference, and a refund goes through the SumUp app as
+  // usual. The pending payment is deliberately NOT forgotten - if the till's
+  // own attempt went through after all, the next load still says so, which is
+  // the one way to spot a customer charged twice.
+  function showManualAsk(on){
+    document.getElementById('cardWaitManualAmount').textContent = money(cartFigures().total);
+    document.getElementById('cardWaitDoneRow').style.display = on ? 'none' : 'flex';
+    document.getElementById('cardWaitManualRow').style.display = on ? 'none' : 'flex';
+    document.getElementById('cardWaitManualAsk').style.display = on ? 'block' : 'none';
+  }
+  document.getElementById('cardWaitManual').addEventListener('click', () => showManualAsk(true));
+  document.getElementById('cardWaitManualNo').addEventListener('click', () => showManualAsk(false));
+  document.getElementById('cardWaitManualYes').addEventListener('click', () => {
+    CardReader.stop();
+    document.getElementById('cardWaitModal').style.display = 'none';
+    const txn = completeSale('card', null, null, null);
+    document.getElementById('payModal').style.display = 'none';
+    openReceipt(txn.id, { fresh: true });
   });
   document.getElementById('cardWaitBack').addEventListener('click', () => {
     CardReader.stop();

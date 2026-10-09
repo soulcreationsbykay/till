@@ -10,6 +10,27 @@ fixes.
 
 ---
 
+## v1.49.0 - 9 October 2026, 19:58
+
+**A card payment taken on the card machine by hand can now be recorded on the till.**
+
+At a stall with no signal, the till cannot reach the card reader, but the card
+machine may still take the payment with the amount typed into it. Before this,
+the only choices were to try again or take cash, so the sale went unrecorded.
+
+- **When a card payment fails, there is a new button: Took it on the card
+  machine.** It asks once more, showing the amount, and records the sale only
+  after *Approved - record card sale* is pressed. Press it only once the card
+  machine itself shows the payment approved.
+- **The sale is saved as an ordinary card sale**, with stock taken off and a
+  receipt as usual, but with no SumUp reference, because the till never saw
+  the payment. A refund is done in the SumUp app, the same as any card refund.
+- **A payment the till started is still watched.** If the till's own attempt
+  went through after all, the next time the till opens it says so, which is how
+  a customer charged twice would be spotted.
+
+---
+
 ## v1.48.0 - 6 September 2026, 18:34
 
 **You can now read an offer in the stock list, and search for one by name.**
