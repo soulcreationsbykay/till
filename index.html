@@ -4299,9 +4299,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.50.1';
+  const APP_VERSION = '1.50.2';
   const BUILD_DATE  = '10 Oct 2026';
-  const BUILD_TIME  = '11:46';
+  const BUILD_TIME  = '12:40';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -10469,15 +10469,37 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const note = document.getElementById('cardReaderPairNote');
     const pairBtn = document.getElementById('cardReaderPairBtn');
 
-    document.getElementById('cardReaderCheckBtn').addEventListener('click', async () => {
-      if(!CardReader.isSet()){ note.textContent = 'Save the payment service address above first.'; return; }
-      note.textContent = 'Asking SumUp…';
+    let pairing = false;
+    // `quiet` is the automatic refresh: no "Asking SumUp…" flicker, and a
+    // failed ask leaves the last answer showing rather than replacing it with
+    // an error nobody asked for.
+    async function refreshReader(quiet){
+      if(!CardReader.isSet()){
+        if(!quiet) note.textContent = 'Save the payment service address above first.';
+        return;
+      }
+      if(!quiet) note.textContent = 'Asking SumUp…';
       try{
         const out = await CardReader.call('/reader');
+        if(quiet && pairing) return;
         note.textContent = describeReader(out && out.reader) +
           (out && out.waiting ? ' A pairing is still waiting for the reader to confirm.' : '');
-      }catch(e){ note.textContent = e.message || 'Could not reach the payment service.'; }
-    });
+      }catch(e){
+        if(!quiet) note.textContent = e.message || 'Could not reach the payment service.';
+      }
+    }
+    document.getElementById('cardReaderCheckBtn').addEventListener('click', () => refreshReader(false));
+
+    // Kept up to date while Settings is on screen, so a reader losing its
+    // wifi shows here without anyone pressing Check reader. Only while it is
+    // on screen: each check is a call to SumUp, and nobody is reading it
+    // from the till tab. SumUp itself can take a minute or so to notice a
+    // reader has gone, so this is never instant.
+    const settingsOnScreen = () => !document.hidden &&
+      document.getElementById('tab-settings').style.display === 'block';
+    setInterval(() => { if(settingsOnScreen() && !pairing) refreshReader(true); }, 15000);
+    const settingsTab = document.querySelector('.tab[data-tab="settings"]');
+    if(settingsTab) settingsTab.addEventListener('click', () => { if(!pairing) refreshReader(true); });
 
     pairBtn.addEventListener('click', async () => {
       if(!CardReader.isSet()){ note.textContent = 'Save the payment service address above first.'; return; }
@@ -10487,6 +10509,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         return;
       }
       pairBtn.disabled = true;
+      pairing = true;
       note.textContent = 'Pairing…';
       try{
         const out = await CardReader.call('/reader/pair', { method:'POST', body: JSON.stringify({ code: code, name: 'Solo' }) });
@@ -10512,6 +10535,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         note.textContent = e.message || 'Could not pair the reader.';
       }finally{
         pairBtn.disabled = false;
+        pairing = false;
       }
     });
   })();

@@ -10,6 +10,14 @@ fixes.
 
 ---
 
+## v1.50.2 - 10 October 2026, 12:40
+
+**Settings → Card reader now keeps itself up to date.** While Settings is on
+screen, the till checks the reader every 15 seconds, and once whenever Settings
+is opened, so a reader losing its wifi or signal shows as offline without
+pressing Check reader. SumUp can take a minute or so to notice that a reader
+has gone, so it is not instant. Nothing is checked while Settings is not on screen.
+
 ## v1.50.1 - 10 October 2026, 11:46
 
 **A card reader with no wifi or signal is now spotted, instead of the till
