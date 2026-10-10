@@ -109,9 +109,25 @@ console.log('\nThe label the shop needs to print');
   // by naming fields, but the till's own reports do not, so a stray key here
   // travels further than you would think.
   const it = newItemRecord({ ...base, web: true, webDesc: 'x', nonsense: 'should not appear' });
-  const expected = ['name', 'qty', 'maker', 'price', 'folder', 'photo', 'counted', 'addedAt', 'web', 'webDesc', 'label'];
+  const expected = ['name', 'qty', 'maker', 'price', 'folder', 'photo', 'counted', 'addedAt', 'web', 'webDesc', 'label', 'post'];
   check('no unexpected fields', Object.keys(it).every(k => expected.includes(k)),
     Object.keys(it).filter(k => !expected.includes(k)).join(', '));
+}
+
+console.log('\nPostage size for the website basket');
+{
+  const letter = newItemRecord({ ...base, web: true, post: 'letter' });
+  check('a large letter is kept', letter.post === 'letter', 'post=' + letter.post);
+  const parcel = newItemRecord({ ...base, web: true, post: 'parcel' });
+  check('a small parcel is kept', parcel.post === 'parcel', 'post=' + parcel.post);
+  // Not chosen is ABSENT, never an empty string: the checkout reads absent as a
+  // parcel, and an empty key on 120 records says nothing.
+  check('not chosen leaves no key', !('post' in newItemRecord({ ...base, web: true, post: '' })));
+  // Only the two real sizes. Anything else could be read as cheaper postage.
+  check('an unknown size is dropped', !('post' in newItemRecord({ ...base, web: true, post: 'envelope' })));
+  // Postage is a website thing, like the description.
+  check('a shop-only item carries no postage size',
+    !('post' in newItemRecord({ ...base, web: false, post: 'letter' })));
 }
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

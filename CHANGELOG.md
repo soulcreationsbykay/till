@@ -10,6 +10,20 @@ fixes.
 
 ---
 
+## v1.51.0 - 10 October 2026, 14:12
+
+**Each item can now say what size it posts as, ready for the website's basket.**
+
+- **A new Postage size box** under the website description, on Add item and Edit
+  item: *Large letter* (fits through a letterbox, up to 2.5cm thick and 750g)
+  or *Small parcel*. It starts as *Not chosen yet*.
+- **Bulk edit can set it for many items at once.** Tick a whole folder, press
+  Edit, and choose the size. *Not chosen yet* there clears it.
+- **An item with no size is charged as a small parcel** on the website, so a
+  forgotten one never undercharges postage.
+- The size goes to the website with the rest of the item (needs the updated
+  `kay-shop`). Nothing changes at the till or on receipts.
+
 ## v1.50.2 - 10 October 2026, 12:40
 
 **Settings → Card reader now keeps itself up to date.** While Settings is on
