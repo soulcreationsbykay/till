@@ -1169,6 +1169,20 @@
         Either way you can always fall back to cash.
       </div>
       <div class="storage-note" id="cardReaderNote"></div>
+
+      <label for="cardReaderCodeInput" style="margin-top:16px;">Pair the card reader</label>
+      <input type="text" id="cardReaderCodeInput" placeholder="Code on the reader's screen" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12">
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="btn btn-secondary" id="cardReaderCheckBtn">Check reader</button>
+        <button class="btn btn-primary" id="cardReaderPairBtn">Pair</button>
+      </div>
+      <div class="folder-hint" style="margin-top:8px;">
+        Do this when the reader has been used with the SumUp app and needs to come back to
+        the till. On the reader, open the menu and go to <b>Connections → API → Connect</b>.
+        It shows a code. Type it here and press <b>Pair</b>, then wait for the reader to say
+        it is connected.
+      </div>
+      <div class="storage-note" id="cardReaderPairNote"></div>
     </div>
     <div class="card">
       <div class="quick-sell-head">Staff</div>
@@ -4285,9 +4299,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.49.0';
-  const BUILD_DATE  = '9 Oct 2026';
-  const BUILD_TIME  = '19:58';
+  const APP_VERSION = '1.50.0';
+  const BUILD_DATE  = '10 Oct 2026';
+  const BUILD_TIME  = '11:14';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -10404,6 +10418,72 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
           : 'Reached it, but it answered ' + res.status + '.';
       }catch(e){
         note.textContent = 'No answer. Check the address and the internet.';
+      }
+    });
+  })();
+
+  // ---- Pairing the card reader ----
+  // Every pairing gives the reader a new id at SumUp. The payment service
+  // looks up whichever reader is paired, so pairing here is all it takes to
+  // bring the Solo back from the SumUp app: no address change, no redeploy.
+  function describeReader(r){
+    if(!r) return 'No card reader is paired. Pair it below.';
+    const since = r.since ? new Date(r.since).toLocaleDateString('en-GB', { day:'numeric', month:'short' }) : '';
+    const bits = ['Using ' + (r.name || 'the reader') + (since ? ', paired ' + since : '')];
+    if(r.online === true) bits.push('online');
+    if(r.online === false) bits.push('offline');
+    if(r.battery != null) bits.push('battery ' + r.battery + '%');
+    return bits.join(' · ') + '.';
+  }
+  (function initCardReaderPairing(){
+    const input = document.getElementById('cardReaderCodeInput');
+    if(!input) return;
+    const note = document.getElementById('cardReaderPairNote');
+    const pairBtn = document.getElementById('cardReaderPairBtn');
+
+    document.getElementById('cardReaderCheckBtn').addEventListener('click', async () => {
+      if(!CardReader.isSet()){ note.textContent = 'Save the payment service address above first.'; return; }
+      note.textContent = 'Asking SumUp…';
+      try{
+        const out = await CardReader.call('/reader');
+        note.textContent = describeReader(out && out.reader) +
+          (out && out.waiting ? ' A pairing is still waiting for the reader to confirm.' : '');
+      }catch(e){ note.textContent = e.message || 'Could not reach the payment service.'; }
+    });
+
+    pairBtn.addEventListener('click', async () => {
+      if(!CardReader.isSet()){ note.textContent = 'Save the payment service address above first.'; return; }
+      const code = String(input.value||'').toUpperCase().replace(/[\s-]/g,'');
+      if(!/^[A-Z0-9]{8,9}$/.test(code)){
+        note.textContent = 'The code is 8 or 9 letters and numbers, as shown on the reader.';
+        return;
+      }
+      pairBtn.disabled = true;
+      note.textContent = 'Pairing…';
+      try{
+        const out = await CardReader.call('/reader/pair', { method:'POST', body: JSON.stringify({ code: code, name: 'Solo' }) });
+        const newId = out && out.reader && out.reader.id;
+        input.value = '';
+        note.textContent = 'Code accepted. Waiting for the reader to confirm…';
+        // The reader confirms a few seconds after SumUp accepts the code.
+        // Watch for it for up to half a minute rather than declaring success
+        // early: a sale sent before it is paired would go to the old one.
+        for(let i=0; i<15; i++){
+          await new Promise(r => setTimeout(r, 2000));
+          let now = null;
+          try{ now = await CardReader.call('/reader'); }catch(e){ continue; }
+          if(now && now.reader && now.reader.id === newId){
+            note.textContent = 'Paired. ' + describeReader(now.reader);
+            showToast('Card reader paired', 'success');
+            return;
+          }
+        }
+        note.textContent = 'SumUp took the code, but the reader has not confirmed yet. ' +
+          'Check its screen, then press Check reader.';
+      }catch(e){
+        note.textContent = e.message || 'Could not pair the reader.';
+      }finally{
+        pairBtn.disabled = false;
       }
     });
   })();

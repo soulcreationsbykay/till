@@ -10,6 +10,28 @@ fixes.
 
 ---
 
+## v1.50.0 - 10 October 2026, 11:14
+
+**The card reader can be paired from the till, so it can go back and forth
+between the till and the SumUp app without any help.**
+
+Every time the reader is paired, SumUp gives it a new id. The payment service
+used to have that id written into its settings, so pairing the reader again
+(for example after using it with the SumUp app at a stall) stopped card
+payments working until the settings were changed and the service redeployed.
+
+- **The payment service now asks SumUp which reader is paired** and uses the
+  newest one. Nothing has to be changed after a re-pair.
+- **Settings → Card reader has a new Pair the card reader box.** On the reader,
+  open the menu and go to Connections → API → Connect. Type the code it shows
+  and press Pair. The till waits until the reader confirms, then says so.
+- **Check reader** shows which reader is in use, and, on newer reader software,
+  whether it is online and how much battery it has.
+- **If no reader is paired, a card payment says so** and points to Settings,
+  instead of failing with a general error.
+- Needs the updated payment service (`kay-pay`). Against the old one the new
+  buttons only answer "Not found", and payments carry on as before.
+
 ## v1.49.0 - 9 October 2026, 19:58
 
 **A card payment taken on the card machine by hand can now be recorded on the till.**
