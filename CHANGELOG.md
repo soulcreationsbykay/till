@@ -10,6 +10,23 @@ fixes.
 
 ---
 
+## v1.50.1 - 10 October 2026, 11:46
+
+**A card reader with no wifi or signal is now spotted, instead of the till
+waiting for three minutes.**
+
+SumUp accepts a payment for a reader that is offline and holds it until the
+reader comes back, so the till only ever saw "Waiting for the customer to tap".
+
+- **Before sending, the payment service asks whether the reader is online.**
+  If it is offline, the till says so straight away and nothing is started.
+- **While waiting, the till checks the reader** after 15 seconds and then every
+  8 seconds. If it has gone offline, the payment is stopped and the usual
+  choices appear: try again, take cash, or Took it on the card machine.
+- Readers with software too old to report whether they are online carry on as
+  before, with the three-minute give-up.
+- Needs the updated payment service (`kay-pay`).
+
 ## v1.50.0 - 10 October 2026, 11:14
 
 **The card reader can be paired from the till, so it can go back and forth
