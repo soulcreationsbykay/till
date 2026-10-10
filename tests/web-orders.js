@@ -122,5 +122,35 @@ check('and is not counted as miscellaneous', f.misc === 20, String(f.misc));
 check('nor as an item sold', f.units === 3, String(f.units));
 check('but is in the takings and in website money', f.net === 41.4 && f.pay.web === 21.4, f.net + ' / ' + f.pay.web);
 
+console.log('\nEach website order on one row, goods and postage apart');
+check('one row for the order', f.webOrders.length === 1, JSON.stringify(f.webOrders));
+const row = f.webOrders[0];
+check('named by its order number', row.ref === 'SC-N78C5MEV');
+check('goods without postage', row.goods === 15, String(row.goods));
+check('postage on its own', row.postage === 6.4, String(row.postage));
+check('and the total SumUp took', row.total === 21.4, String(row.total));
+check('a cash misc sale is not a website order', f.webOrders.every((o) => o.ref));
+
+// The spreadsheet's own tables, out of the export block.
+const T_START = '  function zWebOrdersTable(f){';
+const T_END = '  // Every misc amount in the period, oldest first.';
+const ta = HTML.indexOf(T_START), tb = HTML.indexOf(T_END);
+const S_START = '  function zSummaryTable(f, label){';
+const sa = HTML.indexOf(S_START);
+if (ta < 0 || tb < 0 || sa < 0) { console.error('could not locate the report tables'); process.exit(2); }
+ctx.moneyCell = (n) => ({ v: Number(n) || 0, money: true });
+ctx.fmtReceiptNo = (n) => '#' + n;
+vm.runInContext(HTML.slice(sa, ta) + HTML.slice(ta, tb) + '\nthis.sum = zSummaryTable; this.wo = zWebOrdersTable;', ctx);
+const summary = ctx.sum(f, 'today').rows;
+const goodsRow = summary.find((r) => r[0] === 'Goods (without postage)');
+const postRow = summary.find((r) => r[0] === 'Postage');
+check('the summary sheet has goods without postage', goodsRow && goodsRow[1].v === 35, JSON.stringify(goodsRow));
+check('and postage', postRow && postRow[1].v === 6.4);
+const wt = ctx.wo(f);
+check('the Website orders sheet has goods, postage and total columns',
+  wt.cols.map((c) => c.h).join() === 'Date,Time,Order No,Receipt,Goods,Postage,Total');
+check('with the order on it', wt.rows[0][2] === 'SC-N78C5MEV' && wt.rows[0][4].v === 15 && wt.rows[0][5].v === 6.4 && wt.rows[0][6].v === 21.4);
+check('and a total row', wt.rows[wt.rows.length - 1][0] === 'TOTAL');
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

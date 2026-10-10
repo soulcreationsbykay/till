@@ -4346,9 +4346,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.52.0';
+  const APP_VERSION = '1.52.1';
   const BUILD_DATE  = '10 Oct 2026';
-  const BUILD_TIME  = '16:01';
+  const BUILD_TIME  = '16:24';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -9612,7 +9612,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // behaves exactly as it always did -- which is what the exports rely on.
   function zFigures(fromStr, toStr, maker){
     const f = { gross:0, discounts:0, refunds:0, net:0, txns:0, units:0,
-                misc:0, miscLines:[], postage:0,
+                misc:0, miscLines:[], postage:0, webOrders:[],
                 pay:{cash:0, card:0, web:0, other:0}, sellers:{} };
     const seen = {};
     sales.forEach(s => {
@@ -9659,6 +9659,24 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       f.pay[p] += net;
     });
     f.txns = Object.keys(seen).length;
+    // One row per website order: what the goods came to and what the postage
+    // was, side by side, so a payment in SumUp can be matched to its parts.
+    const byOrder = {};
+    sales.forEach(s => {
+      if(!s.fromCheckout || (s.kind || 'sale') !== 'sale') return;
+      const ld = localDateStr(new Date(s.at));
+      if(ld < fromStr || ld > toStr) return;
+      if(maker && makerKeyOf(s) !== maker) return;
+      const t = lineTxn(s);
+      if(!byOrder[t]) byOrder[t] = { ref:'', at:s.at||'', receiptNo:s.receiptNo||null, goods:0, postage:0, total:0 };
+      const o = byOrder[t];
+      const net = lineNet(s);
+      if(s.webRef) o.ref = s.webRef;
+      if(s.postage) o.postage = round2(o.postage + net); else o.goods = round2(o.goods + net);
+      o.total = round2(o.total + net);
+    });
+    f.webOrders = Object.keys(byOrder).map(k => byOrder[k])
+      .sort((a,b) => String(a.at).localeCompare(String(b.at)));
     f.miscLines.sort((a,b) => String(a.at).localeCompare(String(b.at)));
     ['gross','discounts','refunds','net','misc','postage'].forEach(k => f[k]=round2(f[k]));
     Object.keys(f.pay).forEach(k => f.pay[k]=round2(f.pay[k]));
@@ -10154,8 +10172,30 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if(f.misc) rows.push(['Miscellaneous', moneyCell(f.misc)]);
     // Inside Net takings and inside Website, named on its own so goods and
     // postage can be told apart. Left out when there was none, as above.
-    if(f.postage) rows.push(['Postage', moneyCell(f.postage)]);
+    if(f.postage){
+      rows.push(['Goods (without postage)', moneyCell(round2(f.net - f.postage))]);
+      rows.push(['Postage', moneyCell(f.postage)]);
+    }
     return { cols: [{ h:'Metric' }, { h:'Value' }], rows: rows };
+  }
+
+  // Each website order on one row: goods and postage apart, with the total
+  // that SumUp took. Only written when there were any.
+  function zWebOrdersTable(f){
+    const list = f.webOrders || [];
+    let goods = 0, post = 0, total = 0;
+    const rows = list.map(o => {
+      goods += o.goods; post += o.postage; total += o.total;
+      const d = new Date(o.at);
+      return [d.toLocaleDateString(), d.toLocaleTimeString(), o.ref, fmtReceiptNo(o.receiptNo),
+              moneyCell(o.goods), moneyCell(o.postage), moneyCell(o.total)];
+    });
+    rows.push(['TOTAL','','','', moneyCell(round2(goods)), moneyCell(round2(post)), moneyCell(round2(total))]);
+    return {
+      cols: [{ h:'Date' }, { h:'Time' }, { h:'Order No' }, { h:'Receipt' },
+             { h:'Goods' }, { h:'Postage' }, { h:'Total' }],
+      rows: rows
+    };
   }
 
   // Every misc amount in the period, oldest first. A total on its own would be
@@ -10224,6 +10264,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       const misc = zMiscTable(f);
       csv += '\nMiscellaneous\n' + tableToCsv(misc.cols, misc.rows);
     }
+    if(f.webOrders && f.webOrders.length){
+      const wo = zWebOrdersTable(f);
+      csv += '\nWebsite orders\n' + tableToCsv(wo.cols, wo.rows);
+    }
     // the payouts heading goes in even when no maker sold anything in the
     // period, which is how this report has always come out
     if(p){
@@ -10244,6 +10288,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if(f.miscLines && f.miscLines.length){
       const misc = zMiscTable(f);
       sheets.push({ name:'Miscellaneous', cols: misc.cols, rows: misc.rows });
+    }
+    if(f.webOrders && f.webOrders.length){
+      const wo = zWebOrdersTable(f);
+      sheets.push({ name:'Website orders', cols: wo.cols, rows: wo.rows });
     }
     if(p){
       const pay = payoutTable(p);
@@ -10284,7 +10332,14 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       h += `<div class="report-cell" style="margin-bottom:8px;"><div class="rc-label">📝 Miscellaneous</div><div class="rc-value">${money(f.misc)}</div></div>`;
     }
     if(f.postage){
+      h += `<div class="report-cell" style="margin-bottom:8px;"><div class="rc-label">🛍 Goods (without postage)</div><div class="rc-value">${money(round2(f.net - f.postage))}</div></div>`;
       h += `<div class="report-cell" style="margin-bottom:8px;"><div class="rc-label">📮 Postage (in the takings above)</div><div class="rc-value">${money(f.postage)}</div></div>`;
+    }
+    if(f.webOrders.length){
+      h += `<div class="quick-sell-head" style="margin-top:6px;">Website orders</div>`;
+      h += f.webOrders.map(o =>
+        `<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:4px 2px;">`
+        + `<span>${escapeHtml(o.ref)}</span><span>goods ${money(o.goods)} · postage ${money(o.postage)} · <b>${money(o.total)}</b></span></div>`).join('');
     }
     if(top.length){
       h += `<div class="quick-sell-head" style="margin-top:6px;">Top sellers</div>`;

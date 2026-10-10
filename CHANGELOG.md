@@ -10,6 +10,19 @@ fixes.
 
 ---
 
+## v1.52.1 - 10 October 2026, 16:24
+
+**The sales report now shows each website order's goods and postage side by side.**
+
+- **New Website orders sheet** in the report's spreadsheet, and a matching
+  section in the CSV: one row per order with the date, order number, receipt,
+  **Goods**, **Postage** and **Total**, and a total row. The Total is what SumUp
+  took, so each row matches a payment in the SumUp app.
+- **The Summary sheet gains Goods (without postage)** next to Postage, so the
+  takings for goods are there without working them out.
+- The on-screen report shows the same: goods without postage, postage, and
+  each website order with its goods, postage and total.
+
 ## v1.52.0 - 10 October 2026, 16:01
 
 **Orders paid on the website now arrive on the till by themselves, with
