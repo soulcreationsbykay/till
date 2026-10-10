@@ -824,6 +824,15 @@
   }
   .header-titles h1{margin:0 0 2px;}
   .header-titles p{margin:0;}
+
+  /* Website orders on the Sales tab (v1.52.0). */
+  .web-order { border:1px solid var(--line, #e5dcea); border-radius:10px; padding:10px 12px; margin-top:8px; }
+  .wo-head { display:flex; justify-content:space-between; gap:8px; font-size:15px; }
+  .wo-when { font-size:12px; color:var(--muted); margin-top:2px; }
+  .wo-items { margin:6px 0 0; padding-left:18px; font-size:13px; }
+  .wo-code { color:var(--muted); font-size:11px; }
+  .wo-post { margin-top:8px; padding:8px 10px; border-radius:8px; background:rgba(64,16,112,.06); font-size:13px; line-height:1.5; }
+  .wo-warn { margin-top:8px; padding:8px 10px; border-radius:8px; background:#fdecea; color:#8a2b1f; font-size:13px; }
 </style>
 </head>
 <body>
@@ -1060,6 +1069,10 @@
     <!-- Ringing a website order through lives HERE, off the payment screen, so
          that taking a counter sale can never land on it by accident. Same
          basket, same stock movement, same receipt - only the way in differs. -->
+    <!-- Orders paid on the shop's own website (till v1.52.0). Filled and kept
+         up to date by WebOrders; hidden until Settings has the checkout address. -->
+    <div class="card" id="webOrdersPanel" style="display:none;margin-top:8px;"></div>
+
     <button class="btn btn-secondary" id="webOrderBtn" style="margin-top:8px;width:100%;">🌐 Record a website order</button>
     <div class="folder-hint" style="margin:6px 2px 0;">Put the items in the basket on the Till tab first, then record it here. Stock comes off exactly as it does at the counter, and the money is recorded as arriving through the website.</div>
 
@@ -1190,6 +1203,21 @@
         it is connected.
       </div>
       <div class="storage-note" id="cardReaderPairNote"></div>
+    </div>
+    <div class="card">
+      <div class="quick-sell-head">Website orders</div>
+      <label for="webOrdersUrlInput">Website checkout address</label>
+      <input type="url" id="webOrdersUrlInput" placeholder="https://…workers.dev" autocomplete="off" autocapitalize="none" spellcheck="false">
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="btn btn-secondary" id="webOrdersTestBtn">Test</button>
+        <button class="btn btn-primary" id="webOrdersSaveBtn">Save</button>
+      </div>
+      <div class="folder-hint" style="margin-top:8px;">
+        Fill this in and orders paid on the website appear on the <b>Sales</b> tab by
+        themselves: the stock comes off, the till tells you to take it off the stall,
+        and you get the address to post it to. Postage is recorded as its own line.
+      </div>
+      <div class="storage-note" id="webOrdersNote"></div>
     </div>
     <div class="card">
       <div class="quick-sell-head">Staff</div>
@@ -4321,9 +4349,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.51.0';
+  const APP_VERSION = '1.52.0';
   const BUILD_DATE  = '10 Oct 2026';
-  const BUILD_TIME  = '14:12';
+  const BUILD_TIME  = '16:00';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -9584,7 +9612,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // behaves exactly as it always did -- which is what the exports rely on.
   function zFigures(fromStr, toStr, maker){
     const f = { gross:0, discounts:0, refunds:0, net:0, txns:0, units:0,
-                misc:0, miscLines:[],
+                misc:0, miscLines:[], postage:0,
                 pay:{cash:0, card:0, web:0, other:0}, sellers:{} };
     const seen = {};
     sales.forEach(s => {
@@ -9614,7 +9642,14 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         // whichever kind of line it was.
         seen[lineTxn(s)] = 1;
       }
-      if(s.misc){
+      // Postage on a website order (till v1.52.0). Rides on a misc line, so it
+      // is outside items sold and outside every payout like any misc amount,
+      // but it is its OWN total rather than one more "miscellaneous" entry:
+      // the shop wants takings for goods and money collected for posting
+      // kept apart in the report and the spreadsheet.
+      if(s.postage){
+        f.postage += net;
+      } else if(s.misc){
         f.misc += net;   // signed, so refunding one takes it back off again
         f.miscLines.push({ at:s.at||'', receiptNo:s.receiptNo||null, name:s.name||'',
                            qty:q, pay:s.pay||'', net:net, kind:s.kind||'sale' });
@@ -9625,7 +9660,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     });
     f.txns = Object.keys(seen).length;
     f.miscLines.sort((a,b) => String(a.at).localeCompare(String(b.at)));
-    ['gross','discounts','refunds','net','misc'].forEach(k => f[k]=round2(f[k]));
+    ['gross','discounts','refunds','net','misc','postage'].forEach(k => f[k]=round2(f[k]));
     Object.keys(f.pay).forEach(k => f.pay[k]=round2(f.pay[k]));
     return f;
   }
@@ -10117,6 +10152,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     // there were none, rather than adding a row of nothing to every report the
     // shop has run for the last year.
     if(f.misc) rows.push(['Miscellaneous', moneyCell(f.misc)]);
+    // Inside Net takings and inside Website, named on its own so goods and
+    // postage can be told apart. Left out when there was none, as above.
+    if(f.postage) rows.push(['Postage', moneyCell(f.postage)]);
     return { cols: [{ h:'Metric' }, { h:'Value' }], rows: rows };
   }
 
@@ -10244,6 +10282,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     }
     if(f.misc){
       h += `<div class="report-cell" style="margin-bottom:8px;"><div class="rc-label">📝 Miscellaneous</div><div class="rc-value">${money(f.misc)}</div></div>`;
+    }
+    if(f.postage){
+      h += `<div class="report-cell" style="margin-bottom:8px;"><div class="rc-label">📮 Postage (in the takings above)</div><div class="rc-value">${money(f.postage)}</div></div>`;
     }
     if(top.length){
       h += `<div class="quick-sell-head" style="margin-top:6px;">Top sellers</div>`;
@@ -10565,6 +10606,248 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         pairBtn.disabled = false;
         pairing = false;
       }
+    });
+  })();
+
+  // ---- Website orders (from the shop's own checkout) ----
+  // Orders paid on the website arrive here by themselves (till v1.52.0). The
+  // checkout service (kay-checkout) holds them; this till asks every minute
+  // while it is open, rings each new one through as a web sale - stock comes
+  // off and the "take it off the stall" banner goes up - and shows the posting
+  // address with Mark posted. The customer's name and address are only ever
+  // read from the checkout, never written into a sale: a sale record carries
+  // the order number and nothing personal, so backups and exports never hold
+  // a customer's details. The checkout wipes them 4 months after posting.
+  //
+  // Only ONE till ever rings an order through: each till claims it first, and
+  // the checkout gives it to whichever claimed first. See markRecorded there.
+
+  // A sale from an order, worked out with no page and no storage, so it can
+  // be tested. `o` is the checkout's view of the order, `itemsNow` the stock
+  // list. Returns { lines, short } where lines are sale records ready to push
+  // and short names any item the shelf no longer had.
+  function planWebOrderSale(o, itemsNow, ctx){
+    const txn = ctx.txn, receiptNo = ctx.receiptNo;
+    const at = o.paidAt ? new Date(o.paidAt).toISOString() : ctx.now;
+    const base = {
+      txn: txn, receiptNo: receiptNo, pay: 'web', tendered: null, change: null,
+      sumupTxId: null, cardRefund: null, setDisc: null, dealDisc: null, deal: null,
+      kind: 'sale', refundOfLine: null, promo: null, staff: 'Website', at: at,
+    };
+    const lines = [];
+    const short = [];
+    (o.lines || []).forEach(l => {
+      const it = itemsNow[l.id];
+      const qty = Math.max(0, Math.floor(Number(l.qty) || 0));
+      if(!qty) return;
+      const price = round2(Number(l.price) || 0);
+      const net = round2(Number(l.net) || 0);
+      if(!it || (Number(it.counted) || 0) < qty) short.push(l.id);
+      lines.push(Object.assign({}, base, {
+        id: ctx.id(), barcode: l.id, name: String(l.name || (it && it.name) || l.id),
+        maker: (it && it.maker) || '', price: price, qty: qty,
+        // Offers were worked out by the checkout with the till's own rules;
+        // what the line cost is all a sale needs. The saving is the discount.
+        disc: round2(qty * price - net), net: net, misc: null, postage: null,
+      }));
+    });
+    const post = round2(Number(o.postage) || 0);
+    if(post > 0){
+      lines.push(Object.assign({}, base, {
+        id: ctx.id(), barcode: 'POSTAGE',
+        name: o.postageKind === 'letter' ? 'Postage (large letter)' : 'Postage (small parcel)',
+        maker: '', price: post, qty: 1, disc: 0, net: post,
+        // A misc line: no stock, no maker, no payout. `postage` gives it its
+        // own total in the report and the spreadsheet.
+        misc: true, postage: true,
+      }));
+    }
+    if(lines.length){
+      // The order number and SumUp's code ride on the first line, the way
+      // completeSale carries a card payment and an order number.
+      lines[0].webRef = o.ref;
+      lines[0].sumupCode = o.txCode || null;
+      lines.slice(1).forEach(l => { l.webRef = null; l.sumupCode = null; });
+    }
+    return { lines: lines, short: short };
+  }
+  // ---- end website orders plan ----
+
+  const WebOrders = (function(){
+    const URL_KEY = 'posWebOrdersUrl';
+    const SHORT_KEY = 'posWebOrderShort';     // ref -> [ids] the shelf did not have
+    const POLL_MS = 60 * 1000;
+    let orders = [], timer = null, busy = false, lastError = '';
+
+    function get(){ try{ return localStorage.getItem(URL_KEY)||''; }catch(e){ return ''; } }
+    function isSet(){ return !!get(); }
+    function set(url){
+      const clean = String(url||'').trim().replace(/\/+$/,'');
+      if(clean && !/^https:\/\//i.test(clean) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(clean)){
+        throw new Error('The address must start with https://');
+      }
+      try{ localStorage.setItem(URL_KEY, clean); }catch(e){ throw new Error('Could not save on this device'); }
+      return clean;
+    }
+    function shortList(){ try{ return JSON.parse(localStorage.getItem(SHORT_KEY) || '{}') || {}; }catch(e){ return {}; } }
+    function noteShort(ref, ids){
+      const m = shortList(); m[ref] = ids;
+      try{ localStorage.setItem(SHORT_KEY, JSON.stringify(m)); }catch(e){}
+    }
+
+    async function call(path, opts){
+      const base = get();
+      if(!base) throw new Error('No website checkout address set');
+      const token = await Sync.getIdToken();
+      if(!token) throw new Error('Sign in to team sync first');
+      const res = await fetch(base + path, Object.assign({
+        headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token }
+      }, opts||{}));
+      let body = null;
+      try{ body = await res.json(); }catch(e){}
+      if(!res.ok) throw new Error((body && body.error) || ('Checkout error ('+res.status+')'));
+      return body;
+    }
+
+    function tillId(){ try{ return localStorage.getItem('posTillId') || 'till'; }catch(e){ return 'till'; } }
+    function haveSale(ref){ return sales.some(s => s.webRef === ref && s.kind !== 'refund'); }
+
+    function record(o){
+      const receiptNo = nextReceiptNo();
+      const plan = planWebOrderSale(o, items, {
+        txn: uid('T'), receiptNo: receiptNo, now: new Date().toISOString(), id: () => uid('L'),
+      });
+      plan.lines.forEach(l => {
+        if(!l.misc && items[l.barcode]){
+          items[l.barcode].counted = Math.max(0, (Number(items[l.barcode].counted)||0) - l.qty);
+        }
+        sales.push(l);
+      });
+      if(plan.short.length) noteShort(o.ref, plan.short);
+      noteOwnWebSale(plan.lines[0] && plan.lines[0].txn, receiptNo, o.ref, plan.lines, plan.lines[0] && plan.lines[0].at);
+      saveItems();
+      saveSales();
+      renderSold();
+      showToast('Website order ' + o.ref + ' recorded', 'success');
+    }
+
+    // Asks the checkout what is waiting, rings through anything new.
+    async function check(){
+      if(busy || !isSet()) return;
+      busy = true;
+      try{
+        const out = await call('/staff/orders');
+        orders = (out && out.orders) || [];
+        for(const o of orders){
+          if(haveSale(o.ref)) continue;
+          // Someone else's: another till claimed it and will ring it through.
+          if(o.recordedAt && o.recordedBy && o.recordedBy !== tillId()) continue;
+          const claimed = await call('/staff/orders/' + o.ref + '/recorded',
+            { method:'POST', body: JSON.stringify({ till: tillId() }) });
+          if(claimed && claimed.order && claimed.order.claimed && !haveSale(o.ref)) record(o);
+        }
+        lastError = '';
+      }catch(e){
+        lastError = e.message || 'Could not reach the website checkout';
+      }finally{
+        busy = false;
+        render();
+      }
+    }
+
+    async function act(ref, what){
+      try{
+        await call('/staff/orders/' + ref + '/' + what, { method:'POST', body:'{}' });
+        showToast(what === 'posted' ? 'Marked as posted' : 'Marked as refunded', 'success');
+      }catch(e){ showToast(e.message, 'error'); }
+      check();
+    }
+
+    function addressHtml(a){
+      if(!a) return '<i>Details deleted</i>';
+      return [a.line1, a.line2, a.town, a.county, a.postcode].filter(Boolean).map(escapeHtml).join('<br>');
+    }
+
+    function render(){
+      const box = document.getElementById('webOrdersPanel');
+      if(!box) return;
+      if(!isSet()){ box.style.display = 'none'; return; }
+      box.style.display = 'block';
+      const open = orders.filter(o => !o.postedAt);
+      const done = orders.filter(o => o.postedAt);
+      const short = shortList();
+      let h = '<div class="quick-sell-head">🌐 Website orders to post'
+        + (open.length ? ' (' + open.length + ')' : '') + '</div>';
+      if(lastError) h += `<div class="storage-note">${escapeHtml(lastError)}</div>`;
+      if(!open.length && !lastError) h += '<div class="folder-hint">Nothing waiting. New website orders appear here by themselves.</div>';
+      open.forEach(o => {
+        const gone = short[o.ref] || [];
+        h += `<div class="web-order">`
+          + `<div class="wo-head"><b>${escapeHtml(o.ref)}</b><span>${money(o.total)}</span></div>`
+          + `<div class="wo-when">Paid ${escapeHtml(new Date(o.paidAt).toLocaleString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }))}`
+          + ` · ${o.postageKind === 'letter' ? 'Large letter' : o.postageKind === 'free' ? 'Free postage (send as needed)' : 'Small parcel'}</div>`
+          + `<ul class="wo-items">` + (o.lines || []).map(l =>
+              `<li>${l.qty > 1 ? l.qty + ' × ' : ''}${escapeHtml(l.name)} <span class="wo-code">${escapeHtml(l.id)}</span></li>`).join('') + `</ul>`
+          + (gone.length || o.late
+              ? `<div class="wo-warn">⚠ ${gone.length ? 'Already sold out on the till: ' + gone.map(escapeHtml).join(', ') + '. ' : ''}`
+                + `Check the shelf. If you cannot send it, refund the customer in the SumUp app (code ${escapeHtml(o.txCode || '?')}) and press Refunded.</div>`
+              : '')
+          + `<div class="wo-post"><b>${escapeHtml(o.name || '')}</b><br>${addressHtml(o.address)}</div>`
+          + `<div class="btn-row" style="margin-top:8px;">`
+          + `<button class="btn btn-primary" data-wo="posted" data-ref="${escapeAttr(o.ref)}">Mark posted</button>`
+          + `<button class="btn btn-secondary" data-wo="cancelled" data-ref="${escapeAttr(o.ref)}">Refunded, not sending</button>`
+          + `</div></div>`;
+      });
+      if(done.length){
+        h += `<div class="folder-hint" style="margin-top:8px;">Posted in the last fortnight: `
+          + done.map(o => escapeHtml(o.ref)).join(', ') + '</div>';
+      }
+      h += `<button class="btn btn-secondary" id="webOrdersCheck" style="margin-top:8px;width:100%;">Check for website orders now</button>`;
+      box.innerHTML = h;
+      box.querySelectorAll('button[data-wo]').forEach(b => b.addEventListener('click', () => {
+        const ref = b.getAttribute('data-ref'), what = b.getAttribute('data-wo');
+        if(what === 'cancelled' && !confirm('Only press this once the customer has been refunded in the SumUp app. Mark ' + ref + ' as refunded?')) return;
+        act(ref, what);
+      }));
+      const again = document.getElementById('webOrdersCheck');
+      if(again) again.addEventListener('click', () => check());
+    }
+
+    function start(){
+      if(timer) return;
+      check();
+      timer = setInterval(() => { if(!document.hidden) check(); }, POLL_MS);
+      document.addEventListener('visibilitychange', () => { if(!document.hidden) check(); });
+    }
+
+    return { get:get, set:set, isSet:isSet, check:check, start:start, render:render, call:call };
+  })();
+
+  // ---- Website orders settings ----
+  (function initWebOrdersSettings(){
+    const input = document.getElementById('webOrdersUrlInput');
+    if(!input) return;
+    const note = document.getElementById('webOrdersNote');
+    input.value = WebOrders.get();
+    const say = () => { note.textContent = WebOrders.isSet()
+      ? 'Website orders are collected by this till.' : 'Not set up — website orders are not collected here.'; };
+    say();
+    document.getElementById('webOrdersSaveBtn').addEventListener('click', () => {
+      try{
+        input.value = WebOrders.set(input.value);
+        say();
+        showToast(input.value ? 'Website orders switched on' : 'Website orders switched off', 'success');
+        if(input.value) WebOrders.start(); else WebOrders.render();
+      }catch(e){ showToast(e.message, 'error'); }
+    });
+    document.getElementById('webOrdersTestBtn').addEventListener('click', async () => {
+      const base = String(input.value||'').trim().replace(/\/+$/,'');
+      if(!base){ showToast('Enter the address first', 'error'); return; }
+      note.textContent = 'Testing…';
+      try{
+        const res = await fetch(base + '/health');
+        note.textContent = res.ok ? 'Answered — the address looks right.' : 'Reached it, but it answered ' + res.status + '.';
+      }catch(e){ note.textContent = 'No answer. Check the address and the internet.'; }
     });
   })();
 
@@ -13207,6 +13490,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     { key: 'stockTakeStaff',       scope: 'shop'   },
     { key: 'stockTakePromos',      scope: 'shop'   },
     { key: 'posCardReaderUrl',     scope: 'shop'   },
+    { key: 'posWebOrdersUrl',      scope: 'shop'   },
     { key: 'stockTakeStalls',      scope: 'shop'   },
     { key: 'posTillId',            scope: 'device' },
     { key: 'stockTakeSyncCfg',     scope: 'sync'   },
@@ -14486,6 +14770,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // needs a sign-in token, which arrives with sync, so this waits for it and
   // then retries on its own. Nothing happens on a till with no reader set up.
   setTimeout(() => { CardReader.recover().then(showCardRecovery).catch(() => {}); }, 6000);
+  // After sync has had its chance to sign in, as the card reader does above.
+  setTimeout(() => { if(WebOrders.isSet()) WebOrders.start(); }, 8000);
 })();
 </script>
 </body>

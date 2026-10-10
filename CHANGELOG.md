@@ -10,6 +10,34 @@ fixes.
 
 ---
 
+## v1.52.0 - 10 October 2026, 16:00
+
+**Orders paid on the website now arrive on the till by themselves, with
+postage recorded separately.**
+
+- **New Settings → Website orders box.** Fill in the website checkout's
+  address, and this till starts collecting website orders. It asks once a
+  minute while it is open, and straight away when it is opened.
+- **Each new order is rung through as a web sale on its own.** Every item is
+  its own line at the price the customer paid after any offer. Stock comes
+  off, and the till's usual "take it off the stall" banner appears.
+- **Postage is its own line**, *Postage (large letter)* or *Postage (small
+  parcel)*. It has no stock and no maker, so it stays out of supplier payouts,
+  and the report shows it as its own **Postage** total. On screen that's next
+  to the takings, in the spreadsheet in the summary, and each postage line is
+  in the sales log with the order number.
+- **Sales tab → Website orders to post** lists each order with what to send,
+  the size, and the name and address to post it to.
+  - **Mark posted** once it's sent.
+  - **Refunded, not sending** is for after a refund in the SumUp app, for
+    example when an item had already sold at a stall. If the till no longer
+    had an item, the order says so in red.
+- **Only one till ever records an order**, even with two tills open.
+- **Customers' names and addresses are never stored in the till.** They are
+  read from the checkout when the panel is shown. Sales and backups carry
+  only the order number, and the checkout deletes the details 4 months after
+  posting.
+
 ## v1.51.0 - 10 October 2026, 14:12
 
 **Each item can now say what size it posts as, ready for the website's basket.**
