@@ -10,7 +10,7 @@ fixes.
 
 ---
 
-## v1.52.0 - 10 October 2026, 16:00
+## v1.52.0 - 10 October 2026, 16:01
 
 **Orders paid on the website now arrive on the till by themselves, with
 postage recorded separately.**
@@ -19,8 +19,10 @@ postage recorded separately.**
   address, and this till starts collecting website orders. It asks once a
   minute while it is open, and straight away when it is opened.
 - **Each new order is rung through as a web sale on its own.** Every item is
-  its own line at the price the customer paid after any offer. Stock comes
-  off, and the till's usual "take it off the stall" banner appears.
+  its own line at the price the customer paid after any offer, and stock
+  comes off. There is no "take it off the shop floor" banner for these, on
+  this till or any other, because there is no shop floor: the Website orders
+  list is what to post.
 - **Postage is its own line**, *Postage (large letter)* or *Postage (small
   parcel)*. It has no stock and no maker, so it stays out of supplier payouts,
   and the report shows it as its own **Postage** total. On screen that's next

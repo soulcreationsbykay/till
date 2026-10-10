@@ -1214,8 +1214,8 @@
       </div>
       <div class="folder-hint" style="margin-top:8px;">
         Fill this in and orders paid on the website appear on the <b>Sales</b> tab by
-        themselves: the stock comes off, the till tells you to take it off the stall,
-        and you get the address to post it to. Postage is recorded as its own line.
+        themselves: the stock comes off, and you get what to send and the address to
+        post it to. Postage is recorded as its own line.
       </div>
       <div class="storage-note" id="webOrdersNote"></div>
     </div>
@@ -4351,7 +4351,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // in, so publishing means editing them.
   const APP_VERSION = '1.52.0';
   const BUILD_DATE  = '10 Oct 2026';
-  const BUILD_TIME  = '16:00';
+  const BUILD_TIME  = '16:01';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -5547,6 +5547,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       if((s.kind || 'sale') !== 'sale') return;
       // A misc amount - a reading, a deposit - was never on a shelf.
       if(s.misc) return;
+      // An order from the shop's own website checkout (v1.52.1). Kay has no
+      // shop floor, and the Website orders panel already lists what to post,
+      // so there is nothing for this banner to add.
+      if(s.fromCheckout) return;
       if(!s.barcode) return;
       const at = Date.parse(s.at || '');
       if(!(at > 0) || (now - at) > windowMs) return;
@@ -10613,8 +10617,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // Orders paid on the website arrive here by themselves (till v1.52.0). The
   // checkout service (kay-checkout) holds them; this till asks every minute
   // while it is open, rings each new one through as a web sale - stock comes
-  // off and the "take it off the stall" banner goes up - and shows the posting
-  // address with Mark posted. The customer's name and address are only ever
+  // off - and shows the posting
+  // address with Mark posted. (No "take it off the shop floor" banner: Kay has
+  // no shop, and this panel is the list.) The customer's name and address are only ever
   // read from the checkout, never written into a sale: a sale record carries
   // the order number and nothing personal, so backups and exports never hold
   // a customer's details. The checkout wipes them 4 months after posting.
@@ -10633,6 +10638,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       txn: txn, receiptNo: receiptNo, pay: 'web', tendered: null, change: null,
       sumupTxId: null, cardRefund: null, setDisc: null, dealDisc: null, deal: null,
       kind: 'sale', refundOfLine: null, promo: null, staff: 'Website', at: at,
+      // Marks every line as the website checkout's, so the "sold on the
+      // website, still on the shop floor" banner leaves it alone everywhere.
+      fromCheckout: true,
     };
     const lines = [];
     const short = [];
@@ -10724,7 +10732,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         sales.push(l);
       });
       if(plan.short.length) noteShort(o.ref, plan.short);
-      noteOwnWebSale(plan.lines[0] && plan.lines[0].txn, receiptNo, o.ref, plan.lines, plan.lines[0] && plan.lines[0].at);
+      // No "take it off the shop floor" banner: there is no shop floor, and the
+      // Website orders panel is the list of what to post.
       saveItems();
       saveSales();
       renderSold();

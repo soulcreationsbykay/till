@@ -19,6 +19,13 @@ const END = '  // ---- end website orders plan ----';
 const a = HTML.indexOf(START), b = HTML.indexOf(END);
 if (a < 0 || b < 0) { console.error('could not locate planWebOrderSale'); process.exit(2); }
 
+// The "sold on the website, still on the shop floor" planner, which must
+// leave the checkout's orders alone (v1.52.1): there is no shop floor.
+const W_START = '  function planWebSoldAlerts(arrived, opts){';
+const W_END = '  // Raised by the till itself';
+const wa = HTML.indexOf(W_START), wb = HTML.indexOf(W_END);
+if (wa < 0 || wb < 0) { console.error('could not locate planWebSoldAlerts'); process.exit(2); }
+
 // The report's own figures, so a test can check postage lands in its own total.
 const Z_START = '  function zFigures(fromStr, toStr, maker){';
 const Z_END = '  /* ---- Supplier payouts';
@@ -35,8 +42,10 @@ const ctx = {
   localDateStr: (d) => d.toISOString().slice(0, 10),
   makerKeyOf: (s) => String(s.maker || '').trim() || '—',
 };
+ctx.WEB_SOLD_WINDOW_MS = 24 * 60 * 60 * 1000;
 vm.createContext(ctx);
-vm.runInContext(HTML.slice(a, b) + HTML.slice(za, zb) + '\nthis.plan = planWebOrderSale; this.zFigures = zFigures;', ctx);
+vm.runInContext(HTML.slice(a, b) + HTML.slice(za, zb) + HTML.slice(wa, wb)
+  + '\nthis.plan = planWebOrderSale; this.zFigures = zFigures; this.alerts = planWebSoldAlerts;', ctx);
 
 let pass = 0, fail = 0;
 function check(name, cond, detail) {
@@ -93,6 +102,16 @@ check('no name, email or address anywhere in it', !/Test Customer|example\.com|T
 console.log('\nThe shelf');
 check('an item already sold out on the till is reported', p.short.length === 1 && p.short[0] === 'KA-062', JSON.stringify(p.short));
 check('an item gone from the stock list is reported too', ctx.plan({ ...order, lines: [{ id: 'GONE', name: 'Gone', qty: 1, price: 5, net: 5 }] }, items, C).short[0] === 'GONE');
+
+console.log('\nNo "take it off the shop floor" banner');
+check("every line is marked as the website checkout's", p.lines.every((l) => l.fromCheckout === true));
+const NOW = Date.parse('2026-10-10T15:00:00Z');
+const heard = p.lines.map((l) => ({ sale: l, by: 'another-till' }));
+check('another till hearing of the sale raises no banner',
+  ctx.alerts(heard, { mine: 'this-till', known: {}, now: NOW }).length === 0);
+const manual = { ...p.lines[0], fromCheckout: undefined, txn: 'T9' };
+check('a web sale rung through by hand still does, as before',
+  ctx.alerts([{ sale: manual, by: 'another-till' }], { mine: 'this-till', known: {}, now: NOW }).length === 1);
 
 console.log('\nThe report keeps postage apart');
 ctx.sales = p.lines.concat([{ id: 'X', txn: 'T2', barcode: 'MISC', name: 'Reading', price: 20, qty: 1, disc: 0, net: 20,
