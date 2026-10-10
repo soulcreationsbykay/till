@@ -1066,15 +1066,12 @@
       <div id="txnList"></div>
     </div>
 
-    <!-- Ringing a website order through lives HERE, off the payment screen, so
-         that taking a counter sale can never land on it by accident. Same
-         basket, same stock movement, same receipt - only the way in differs. -->
     <!-- Orders paid on the shop's own website (till v1.52.0). Filled and kept
-         up to date by WebOrders; hidden until Settings has the checkout address. -->
+         up to date by WebOrders; hidden until Settings has the checkout address.
+         The old "Record a website order" button (for a SumUp online store)
+         was taken out in v1.52.0: Kay has no such store, and orders from her
+         own website arrive here by themselves. -->
     <div class="card" id="webOrdersPanel" style="display:none;margin-top:8px;"></div>
-
-    <button class="btn btn-secondary" id="webOrderBtn" style="margin-top:8px;width:100%;">🌐 Record a website order</button>
-    <div class="folder-hint" style="margin:6px 2px 0;">Put the items in the basket on the Till tab first, then record it here. Stock comes off exactly as it does at the counter, and the money is recorded as arriving through the website.</div>
 
     <div class="btn-row" style="margin-top:8px;">
       <button class="btn btn-secondary" id="exportSalesBtn">⤓ Export sales</button>
@@ -8582,7 +8579,6 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     document.getElementById('payModal').style.display='none';
   });
   document.getElementById('chargeBtn').addEventListener('click', () => openPay());
-  document.getElementById('webOrderBtn').addEventListener('click', () => openPay({ web:true }));
 
   /* ---- Card reader (SumUp Solo, via the payment service) ------------------
      The till never talks to SumUp directly — the API key can't live in this

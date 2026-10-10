@@ -35,6 +35,8 @@ postage recorded separately.**
     example when an item had already sold at a stall. If the till no longer
     had an item, the order says so in red.
 - **Only one till ever records an order**, even with two tills open.
+- **The old Record a website order button is gone** from the Sales tab. It
+  was for a SumUp online store, which this shop doesn't have.
 - **Customers' names and addresses are never stored in the till.** They are
   read from the checkout when the panel is shown. Sales and backups carry
   only the order number, and the checkout deletes the details 4 months after
