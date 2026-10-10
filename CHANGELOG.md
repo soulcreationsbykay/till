@@ -10,6 +10,26 @@ fixes.
 
 ---
 
+## v1.53.0 - 10 October 2026, 16:26
+
+**Supplier features are hidden: everything sold is Kay's own work.**
+
+- **Gone from view:**
+  - the **Supplier payouts** box in Settings (card fee, website fee and shop
+    commission)
+  - the **Made by** box on Add item, Edit item, Bulk edit and the new-item
+    screen
+  - "Made by" on the stock list
+  - the **Supplier payouts** part of the sales report, on screen and in the
+    exported report
+  - the report's **Maker** filter
+- **Kept:** **Makers & codes** in Settings, because that is what issues Kay's
+  KA- barcodes.
+- **New items** are still saved as Kay's when there is only one maker, so
+  nothing is missing if suppliers are ever switched back on.
+- **Nothing is deleted.** The fields are still stored and the sums still work.
+  Switching it back is one line in the till (`SUPPLIERS`).
+
 ## v1.52.1 - 10 October 2026, 16:24
 
 **The sales report now shows each website order's goods and postage side by side.**
