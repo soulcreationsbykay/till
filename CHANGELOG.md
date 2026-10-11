@@ -10,6 +10,32 @@ fixes.
 
 ---
 
+## v1.54.0 - 11 October 2026, 02:16
+
+**An orders password hides customers' names and addresses on the Sales tab.**
+
+- **Settings → Website orders → Orders password.** Set one (at least 6
+  characters) and each website order on the Sales tab shows
+  "🔒 Name and address hidden" with an **Unlock** button instead of the
+  customer's name and address. The items, postage and the **Mark posted** /
+  **Refunded** buttons still show.
+- **Unlock** asks for the password. Names and addresses then show for
+  5 minutes, and hide again by themselves, when **Lock now** is pressed, or
+  as soon as the till is put away (another app, or the screen goes off).
+- **Five wrong tries** and the till waits a minute before trying again.
+- **Changing or removing it** needs the current password.
+- **Forgot it?** Enter the till's sign-in password (the team sync one)
+  instead, and the orders password is removed so a new one can be set.
+- Only a scrambled (salted, hashed) form is kept, never the password. It
+  travels with the shop's settings in a backup, so a restored till keeps it.
+  Each till has its own; set it on every device that collects website orders.
+- **What it is not:** a screen lock for the stall, so nobody can read an
+  address over Kay's shoulder. The till still downloads the addresses, and
+  whoever has the till's sign-in could read them another way.
+- No password set means nothing changes: everything shows as before.
+
+---
+
 ## v1.53.0 - 10 October 2026, 16:26
 
 **Supplier features are hidden: everything sold is Kay's own work.**

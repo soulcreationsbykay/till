@@ -832,6 +832,9 @@
   .wo-items { margin:6px 0 0; padding-left:18px; font-size:13px; }
   .wo-code { color:var(--muted); font-size:11px; }
   .wo-post { margin-top:8px; padding:8px 10px; border-radius:8px; background:rgba(64,16,112,.06); font-size:13px; line-height:1.5; }
+  .wo-locked { display:flex; align-items:center; justify-content:space-between; gap:8px; color:var(--muted); }
+  .wo-locked .btn, .wo-lock-now { width:auto; padding:6px 12px; font-size:13px; }
+  .wo-head-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .wo-warn { margin-top:8px; padding:8px 10px; border-radius:8px; background:#fdecea; color:#8a2b1f; font-size:13px; }
 
   /* Supplier features, hidden while SUPPLIERS is false (v1.53.0). */
@@ -1220,6 +1223,12 @@
         post it to. Postage is recorded as its own line.
       </div>
       <div class="storage-note" id="webOrdersNote"></div>
+      <div class="quick-sell-head" style="margin-top:14px;">Orders password</div>
+      <div class="folder-hint" id="woLockNote"></div>
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="btn btn-secondary" id="woLockSetBtn">Set password</button>
+        <button class="btn btn-secondary" id="woLockClearBtn">Remove password</button>
+      </div>
     </div>
     <div class="card">
       <div class="quick-sell-head">Staff</div>
@@ -1537,6 +1546,19 @@
     <button class="btn btn-primary" id="pinOkBtn" style="margin-bottom:8px;">Unlock</button>
     <button class="btn btn-secondary" id="pinCancelBtn" style="margin-bottom:8px;">Cancel</button>
     <button class="btn btn-secondary" id="pinForgotBtn" style="font-size:12px;">Forgot the PIN?</button>
+  </div>
+</div>
+
+<!-- Orders password (v1.54.0): unlocks customers' names and addresses in the
+     Website orders panel, and guards changing that password. Filled by askOrdersPassword. -->
+<div class="modal-overlay" id="woLockModal" style="display:none;">
+  <div class="modal">
+    <h2 id="woLockTitle">&#128274; Orders password</h2>
+    <p id="woLockText" style="font-size:13px;color:var(--muted);line-height:1.45;margin:6px 0 14px;"></p>
+    <input type="password" id="woLockInput" autocomplete="off" autocapitalize="none" spellcheck="false" style="width:100%;margin-bottom:10px;">
+    <button class="btn btn-primary" id="woLockOkBtn" style="margin-bottom:8px;">Unlock</button>
+    <button class="btn btn-secondary" id="woLockCancelBtn" style="margin-bottom:8px;">Cancel</button>
+    <button class="btn btn-secondary" id="woLockForgotBtn" style="font-size:12px;">Forgot the orders password?</button>
   </div>
 </div>
 
@@ -4357,9 +4379,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.53.0';
-  const BUILD_DATE  = '10 Oct 2026';
-  const BUILD_TIME  = '16:26';
+  const APP_VERSION = '1.54.0';
+  const BUILD_DATE  = '11 Oct 2026';
+  const BUILD_TIME  = '02:16';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -10753,11 +10775,129 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   }
   // ---- end website orders plan ----
 
+  // ---- orders lock ----
+  // Hides customers' names and addresses in the Website orders panel until the
+  // orders password is typed (v1.54.0). A screen lock for the stall, where a
+  // customer can see the till: it is not a safe. The till still downloads the
+  // addresses, and anyone with the till's sign-in could read them another way.
+  // Only a salted PBKDF2 hash is kept, never the password itself.
+  // `store` is { get, set, remove } over localStorage; `now` returns ms.
+  function makeOrdersLock(store, now){
+    const KEY = 'posWebOrdersLock';
+    const OPEN_MS = 5 * 60 * 1000;     // shown for this long after unlocking
+    const TRIES = 5, WAIT_MS = 60 * 1000;
+    const ROUNDS = 150000;
+    let openUntil = 0, wrong = 0, waitUntil = 0;
+
+    function saved(){
+      try{ const v = JSON.parse(store.get(KEY) || 'null'); return v && v.salt && v.hash ? v : null; }
+      catch(e){ return null; }
+    }
+    const hex = (buf) => Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    const unhex = (str) => new Uint8Array(String(str).match(/../g).map(h => parseInt(h, 16)));
+    async function derive(pw, salt, rounds){
+      const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveBits']);
+      return hex(await crypto.subtle.deriveBits({ name:'PBKDF2', hash:'SHA-256', salt:salt, iterations:rounds }, key, 256));
+    }
+    async function matches(pw){
+      const v = saved();
+      if(!v || !pw) return false;
+      return (await derive(String(pw), unhex(v.salt), v.rounds || ROUNDS)) === v.hash;
+    }
+
+    return {
+      isSet: () => !!saved(),
+      // No password set means nothing is hidden, exactly as before v1.54.0.
+      isOpen: () => !saved() || now() < openUntil,
+      msLeft: () => Math.max(0, openUntil - now()),
+      waitSeconds: () => Math.max(0, Math.ceil((waitUntil - now()) / 1000)),
+      lock(){ openUntil = 0; },
+      matches: matches,
+      // 'ok' | 'wrong' | 'wait' (too many wrong tries: try again in waitSeconds)
+      async unlock(pw){
+        if(now() < waitUntil) return 'wait';
+        if(await matches(pw)){ wrong = 0; openUntil = now() + OPEN_MS; return 'ok'; }
+        if(++wrong >= TRIES){ wrong = 0; waitUntil = now() + WAIT_MS; return 'wait'; }
+        return 'wrong';
+      },
+      async setPassword(pw){
+        pw = String(pw || '');
+        if(pw.length < 6) throw new Error('Use at least 6 characters');
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        store.set(KEY, JSON.stringify({ salt: hex(salt), hash: await derive(pw, salt, ROUNDS), rounds: ROUNDS }));
+        openUntil = 0;
+      },
+      clear(){ store.remove(KEY); openUntil = 0; wrong = 0; waitUntil = 0; },
+    };
+  }
+  // ---- end orders lock ----
+
+  const OrdersLock = makeOrdersLock({
+    get: (k) => { try{ return localStorage.getItem(k); }catch(e){ return null; } },
+    set: (k, v) => { try{ localStorage.setItem(k, v); }catch(e){ throw new Error('Could not save on this device'); } },
+    remove: (k) => { try{ localStorage.removeItem(k); }catch(e){} },
+  }, () => Date.now());
+
+  // Asks for a password in the orders modal. Resolves with what was typed,
+  // null for Cancel, or FORGOT when "Forgot the orders password?" is pressed.
+  const FORGOT = {};
+  function askOrdersPassword(o){
+    return new Promise(resolve => {
+      const modal = document.getElementById('woLockModal');
+      const input = document.getElementById('woLockInput');
+      const ok = document.getElementById('woLockOkBtn');
+      const cancel = document.getElementById('woLockCancelBtn');
+      const forgot = document.getElementById('woLockForgotBtn');
+      document.getElementById('woLockTitle').textContent = '\u{1F512} ' + (o.title || 'Orders password');
+      document.getElementById('woLockText').textContent = o.text || '';
+      input.value = ''; input.placeholder = o.placeholder || 'Orders password';
+      ok.textContent = o.ok || 'Unlock';
+      forgot.style.display = o.forgot ? '' : 'none';
+      const done = (v) => {
+        modal.style.display = 'none';
+        ok.onclick = cancel.onclick = forgot.onclick = input.onkeydown = null;
+        resolve(v);
+      };
+      ok.onclick = () => done(input.value);
+      cancel.onclick = () => done(null);
+      forgot.onclick = () => done(FORGOT);
+      input.onkeydown = (e) => { if(e.key === 'Enter') done(input.value); };
+      modal.style.display = 'flex';
+      setTimeout(() => { try{ input.focus(); }catch(e){} }, 50);
+    });
+  }
+
+  // The way out of a forgotten orders password: the till's own sign-in password
+  // (team sync), checked by Firebase. Whoever knows that can read the orders
+  // anyway, so this gives nothing away.
+  async function forgotOrdersPassword(){
+    const pw = await askOrdersPassword({ title:'Forgot the orders password',
+      text:"Enter this till's sign-in password (the one used for team sync). The orders password is then removed, and you can set a new one in Settings.",
+      placeholder:'Till sign-in password', ok:'Remove orders password' });
+    if(pw === null || pw === FORGOT) return false;
+    if(!(await Sync.checkPassword(pw))){ showToast('That sign-in password is not right', 'error'); return false; }
+    OrdersLock.clear();
+    showToast('Orders password removed', 'success');
+    return true;
+  }
+
+  // Proves the current orders password before it is changed or removed.
+  async function proveOrdersPassword(why){
+    if(!OrdersLock.isSet()) return true;
+    const pw = await askOrdersPassword({ title:'Orders password', text:'Enter the current orders password to ' + why + '.', ok:'Continue', forgot:true });
+    if(pw === FORGOT) return forgotOrdersPassword();
+    if(pw === null) return false;
+    if(OrdersLock.waitSeconds()){ showToast('Too many tries. Wait ' + OrdersLock.waitSeconds() + ' seconds.', 'error'); return false; }
+    if(await OrdersLock.matches(pw)) return true;
+    showToast('That orders password is not right', 'error');
+    return false;
+  }
+
   const WebOrders = (function(){
     const URL_KEY = 'posWebOrdersUrl';
     const SHORT_KEY = 'posWebOrderShort';     // ref -> [ids] the shelf did not have
     const POLL_MS = 60 * 1000;
-    let orders = [], timer = null, busy = false, lastError = '';
+    let orders = [], timer = null, busy = false, lastError = '', relock = null;
 
     function get(){ try{ return localStorage.getItem(URL_KEY)||''; }catch(e){ return ''; } }
     function isSet(){ return !!get(); }
@@ -10857,8 +10997,11 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       const open = orders.filter(o => !o.postedAt);
       const done = orders.filter(o => o.postedAt);
       const short = shortList();
-      let h = '<div class="quick-sell-head">🌐 Website orders to post'
-        + (open.length ? ' (' + open.length + ')' : '') + '</div>';
+      const shown = OrdersLock.isOpen();
+      let h = '<div class="quick-sell-head wo-head-row"><span>🌐 Website orders to post'
+        + (open.length ? ' (' + open.length + ')' : '') + '</span>'
+        + (OrdersLock.isSet() && shown && open.length ? '<button class="btn btn-secondary wo-lock-now" id="woLockNow">🔒 Lock now</button>' : '')
+        + '</div>';
       if(lastError) h += `<div class="storage-note">${escapeHtml(lastError)}</div>`;
       if(!open.length && !lastError) h += '<div class="folder-hint">Nothing waiting. New website orders appear here by themselves.</div>';
       open.forEach(o => {
@@ -10873,7 +11016,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
               ? `<div class="wo-warn">⚠ ${gone.length ? 'Already sold out on the till: ' + gone.map(escapeHtml).join(', ') + '. ' : ''}`
                 + `Check the shelf. If you cannot send it, refund the customer in the SumUp app (code ${escapeHtml(o.txCode || '?')}) and press Refunded.</div>`
               : '')
-          + `<div class="wo-post"><b>${escapeHtml(o.name || '')}</b><br>${addressHtml(o.address)}</div>`
+          + (shown
+              ? `<div class="wo-post"><b>${escapeHtml(o.name || '')}</b><br>${addressHtml(o.address)}</div>`
+              : `<div class="wo-post wo-locked"><span>🔒 Name and address hidden</span><button class="btn btn-secondary" data-wo-unlock="1">Unlock</button></div>`)
           + `<div class="btn-row" style="margin-top:8px;">`
           + `<button class="btn btn-primary" data-wo="posted" data-ref="${escapeAttr(o.ref)}">Mark posted</button>`
           + `<button class="btn btn-secondary" data-wo="cancelled" data-ref="${escapeAttr(o.ref)}">Refunded, not sending</button>`
@@ -10892,6 +11037,23 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       }));
       const again = document.getElementById('webOrdersCheck');
       if(again) again.addEventListener('click', () => check());
+      box.querySelectorAll('button[data-wo-unlock]').forEach(b => b.addEventListener('click', unlock));
+      const lockNow = document.getElementById('woLockNow');
+      if(lockNow) lockNow.addEventListener('click', () => { OrdersLock.lock(); render(); });
+      // Hide them again by themselves when the time is up.
+      clearTimeout(relock);
+      if(OrdersLock.isSet() && shown) relock = setTimeout(render, OrdersLock.msLeft() + 250);
+    }
+
+    async function unlock(){
+      const pw = await askOrdersPassword({ title:'Show names and addresses',
+        text:'Enter the orders password. They hide again after 5 minutes, or when the till is put away.', forgot:true });
+      if(pw === FORGOT){ if(await forgotOrdersPassword()) render(); return; }
+      if(pw === null) return;
+      const r = await OrdersLock.unlock(pw);
+      if(r === 'wait') showToast('Too many tries. Wait ' + OrdersLock.waitSeconds() + ' seconds.', 'error');
+      else if(r === 'wrong') showToast('That orders password is not right', 'error');
+      render();
     }
 
     function start(){
@@ -10900,6 +11062,11 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       timer = setInterval(() => { if(!document.hidden) check(); }, POLL_MS);
       document.addEventListener('visibilitychange', () => { if(!document.hidden) check(); });
     }
+
+    // Put away (another app, screen off): hide names and addresses straight away.
+    document.addEventListener('visibilitychange', () => {
+      if(document.hidden && OrdersLock.isSet()){ OrdersLock.lock(); render(); }
+    });
 
     return { get:get, set:set, isSet:isSet, check:check, start:start, render:render, call:call };
   })();
@@ -10921,6 +11088,34 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         if(input.value) WebOrders.start(); else WebOrders.render();
       }catch(e){ showToast(e.message, 'error'); }
     });
+    const lockNote = document.getElementById('woLockNote');
+    const sayLock = () => {
+      const on = OrdersLock.isSet();
+      lockNote.textContent = on
+        ? "On. Customers' names and addresses stay hidden on the Sales tab until it is typed. This hides them on screen; it does not stop someone who has the till's sign-in."
+        : "Off. Set one to keep customers' names and addresses hidden on the Sales tab until it is typed, so nobody at the stall can read them over your shoulder.";
+      document.getElementById('woLockSetBtn').textContent = on ? 'Change password' : 'Set password';
+      document.getElementById('woLockClearBtn').style.display = on ? '' : 'none';
+    };
+    sayLock();
+    document.getElementById('woLockSetBtn').addEventListener('click', async () => {
+      if(!(await proveOrdersPassword('change it'))){ sayLock(); return; }
+      const a = await askOrdersPassword({ title:'New orders password', text:'At least 6 characters. Not the same as the till sign-in password or the staff PIN.', placeholder:'New orders password', ok:'Next' });
+      if(a === null || a === FORGOT){ sayLock(); return; }
+      if(a.length < 6){ showToast('Use at least 6 characters', 'error'); return; }
+      const b = await askOrdersPassword({ title:'New orders password', text:'Type it again to check.', placeholder:'New orders password again', ok:'Save' });
+      if(b === null || b === FORGOT) return;
+      if(a !== b){ showToast('The two did not match. Nothing changed.', 'error'); return; }
+      try{ await OrdersLock.setPassword(a); showToast('Orders password saved', 'success'); }
+      catch(e){ showToast(e.message, 'error'); }
+      sayLock(); WebOrders.render();
+    });
+    document.getElementById('woLockClearBtn').addEventListener('click', async () => {
+      if(!(await proveOrdersPassword('remove it'))){ sayLock(); return; }
+      if(OrdersLock.isSet()){ OrdersLock.clear(); showToast('Orders password removed', 'success'); }
+      sayLock(); WebOrders.render();
+    });
+
     document.getElementById('webOrdersTestBtn').addEventListener('click', async () => {
       const base = String(input.value||'').trim().replace(/\/+$/,'');
       if(!base){ showToast('Enter the address first', 'error'); return; }
@@ -13573,6 +13768,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     { key: 'stockTakePromos',      scope: 'shop'   },
     { key: 'posCardReaderUrl',     scope: 'shop'   },
     { key: 'posWebOrdersUrl',      scope: 'shop'   },
+    { key: 'posWebOrdersLock',     scope: 'shop'   },
     { key: 'stockTakeStalls',      scope: 'shop'   },
     { key: 'posTillId',            scope: 'device' },
     { key: 'stockTakeSyncCfg',     scope: 'sync'   },
@@ -14454,6 +14650,18 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       }catch(e){ return null; }
     }
 
+    // True only if pw is the signed-in account's password, checked by Firebase.
+    // Used as the way out of a forgotten orders password (v1.54.0).
+    async function checkPassword(pw){
+      try{
+        if(!pw || !app || !window.firebase || !firebase.auth) return false;
+        var user = firebase.auth(app).currentUser;
+        if(!user || !user.email) return false;
+        await user.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(user.email, pw));
+        return true;
+      }catch(e){ return false; }
+    }
+
     function syncNow(){
       if(!connected){ connect(); return; }
       try{ pushItems(); pushSales(); pushMeta(); }catch(e){}
@@ -14540,7 +14748,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       onLocalStalls:function(rec){ if(connected){ try{ pushStalls(rec); }catch(e){} } },
       setStatus:setStatus, isOn:isOn, getCfg:getCfg, getTeam:getTeam, getPin:getPin, getEmail:getEmail,
       isConnected:function(){ return connected; },
-      getIdToken:getIdToken,
+      getIdToken:getIdToken, checkPassword:checkPassword,
       keepDays:function(){ return TOMBSTONE_KEEP_DAYS; },
       findTombstones:findTombstones, deleteTombstones:deleteTombstones
     };

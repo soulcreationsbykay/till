@@ -68,6 +68,7 @@ const SHOP = {
   stockTakePromos: '{"SUMMER":{"pct":10}}',
   posCardReaderUrl: 'https://soulful-angels-pay.soulful-angels.workers.dev',
   posWebOrdersUrl: 'https://kay-checkout.soulcreations-sales.workers.dev',
+  posWebOrdersLock: '{"salt":"00112233445566778899aabbccddeeff","hash":"ab","rounds":150000}',
   // The stall dates travel with the shop's settings (29 Sept 2026).
   stockTakeStalls: '{"events":[{"id":"S1","date":"2026-12-05","title":"Christmas Craft Fair"}],"updatedAt":1790000000000}',
 };
@@ -129,7 +130,7 @@ check('and the till id is explained rather than dropped silently',
       blank.skipped.some(s => s.key === 'posTillId' && /device/.test(s.why)),
       JSON.stringify(blank.skipped));
 check('the count is what was actually written',
-      blank.count === Object.keys(blank.writes).length && blank.count === 12,
+      blank.count === Object.keys(blank.writes).length && blank.count === 13,
       String(blank.count));
 
 console.log('\nRestoring onto a till that is already set up for sync');
