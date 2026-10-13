@@ -10,6 +10,28 @@ fixes.
 
 ---
 
+## v1.55.2 - 13 October 2026, 17:16
+
+**The Etsy photo button no longer disappears when Team sync is off.**
+
+Etsy photos are kept online, so they can only be taken while Team sync is
+connected. Until now the **📷 Add an Etsy photo** button was simply hidden
+on a device that was not connected, which looked like the feature was
+missing.
+
+- **The button always shows** (until the item has Etsy's 10). With sync not
+  connected, the line under it says so, and tapping it explains why and
+  offers **Save and open Team sync**: the item is saved through the normal
+  Save, everything on the form included, then the till goes to Settings and
+  opens Team sync. If Save refuses (a bad set price, say), it stays on the
+  item so that can be put right.
+- **An item left open catches up with sync.** When Team sync connects, or is
+  turned off, while an item is open, its Etsy box is drawn again: the photos
+  load and the line under the button changes, with no need to close and
+  reopen it.
+
+---
+
 ## v1.55.1 - 13 October 2026, 16:56
 
 **Add item can keep a new item for Etsy, and Etsy items get a description

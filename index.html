@@ -4422,9 +4422,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.55.1';
+  const APP_VERSION = '1.55.2';
   const BUILD_DATE  = '13 Oct 2026';
-  const BUILD_TIME  = '16:56';
+  const BUILD_TIME  = '17:16';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -7298,10 +7298,12 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       strip.appendChild(cell);
     });
 
+    // Shown even with sync off (v1.55.2): a missing button just looked broken.
+    // Tapping it then explains and offers the way to Team sync instead.
     const full = pics.length >= ETSY_PHOTO_MAX;
-    add.style.display = (!live || full) ? 'none' : '';
+    add.style.display = full ? 'none' : '';
     hint.textContent = !live
-      ? 'Turn on Team sync to add or see Etsy photos. They are kept online so they can be sent to Etsy.'
+      ? 'Team sync is not connected on this device, so Etsy photos cannot be added or shown here yet. They are kept online so they can be sent to Etsy.'
       : full
         ? 'That is the ' + ETSY_PHOTO_MAX + ' an Etsy listing can show. Remove one to add another.'
         : pics.length
@@ -7325,8 +7327,41 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   });
 
   document.getElementById('editEtsyAdd').addEventListener('click', function(){
+    if(!Sync.isConnected()){
+      askConfirm(
+        'Team sync is not connected',
+        'Etsy photos are kept online, so they can be sent to Etsy and seen on every till. '
+          + 'Connect Team sync on this device first, then open this item again to take them. '
+          + 'Your changes to this item are saved first.',
+        'Save and open Team sync',
+        openTeamSyncFromEtsy
+      );
+      return;
+    }
     document.getElementById('editEtsyInput').click();
   });
+
+  // Out of the item and over to Settings → Team sync. Everything on the form,
+  // the Etsy tick included, is only there until Save, so it goes through the
+  // real Save first. If Save refuses (it leaves the form open, as with a bad
+  // set price), stay put so the message it showed can be dealt with.
+  function openTeamSyncFromEtsy(){
+    document.getElementById('saveEditItem').click();
+    if(document.getElementById('editItemModal').style.display !== 'none') return;
+    const tab = document.querySelector('.tab[data-tab="settings"]');
+    if(tab) tab.click();
+    const sb = document.getElementById('syncBtn');
+    if(sb) sb.click();
+  }
+
+  // Team sync has just connected or gone. An item left open shows the Etsy box
+  // as it was when opened, so it is drawn again: photos load, and the line
+  // under the button stops saying sync is off.
+  function refreshEtsyBoxForSync(){
+    try{
+      if(currentEditBarcode && document.getElementById('editItemModal').style.display === 'flex') renderEditEtsy();
+    }catch(e){}
+  }
 
   // Written straight away, like the extras. The record changes at once so the
   // photo shows; if the workspace then REFUSES the picture (not merely offline,
@@ -14998,6 +15033,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         attachListeners();
         connected=true; connecting=false;
         try{ localStorage.setItem(ON_KEY,'1'); }catch(e){}
+        refreshEtsyBoxForSync();
         setStatus('all up to date', 'ok');
         showToast('Team sync is on', 'success');
       }catch(err){
@@ -15010,6 +15046,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     function disconnect(){
       detach(); connected=false; connecting=false;
       try{ localStorage.setItem(ON_KEY,'0'); }catch(e){}
+      refreshEtsyBoxForSync();
       setStatus('off');
       showToast('Team sync turned off', 'success');
     }
