@@ -10,6 +10,46 @@ fixes.
 
 ---
 
+## v1.58.0 - 13 October 2026, 21:24
+
+**Settings → Etsy can connect the till to Kay's Etsy shop, and look at it.**
+
+Step 1 of the Etsy link. The till only **looks**: nothing is listed, changed
+or deleted on Etsy. The new service it talks to is `kay-etsy` (the
+`etsy-worker` folder), which has to be deployed before any of this answers.
+
+- **Connection to Etsy**, at the bottom of the 🧡 Etsy card:
+  - **Connect Etsy shop** asks the service for a one-off link, then shows
+    **Open Etsy to press Allow**. Kay taps it, signs in to Etsy with the
+    shop's account if asked, presses Allow, and comes back. (A link she taps,
+    not a window opened by the till, because iPads and phones block those.)
+    The link works once, for 10 minutes.
+  - Back in the till it checks by itself and shows the shop, how many
+    listings are active, and the **shipping, processing and return
+    profiles** in Etsy, which listings will need in step 2. Anything missing
+    says what to set up; anything Etsy did not answer says so.
+  - **Check connection** asks again. **Disconnect Etsy** makes the till
+    forget the connection; nothing on Etsy changes.
+  - **Etsy service address** is filled in already
+    (`https://kay-etsy.soulcreations-sales.workers.dev`) and can be changed.
+- **Only Kay's shop can be connected.** The service refuses any Etsy
+  account whose shop is not SoulCreationsByKay, and keeps nothing from it.
+- **Send verification email.** The Etsy service, like the website
+  checkout's till routes, only answers a till whose sign-in email has been
+  verified, and there was nowhere in the till to do that. When the service
+  says the email is not verified, the card says so and offers the button:
+  Firebase sends the email, Kay taps its link, then Check connection. This
+  also covers plan step o10. A token is fetched fresh once before the till
+  gives up, in case the email was verified since.
+- The connection lasts while it is used. If the till does not use it for 90
+  days, Etsy needs Allow pressing again, and the card says by when.
+
+`tests/etsy-link.js` is new: 19 checks on what the card says, verified
+against two broken copies. The till suite is now 32 files. The service has
+its own tests: `npm test` in `etsy-worker`.
+
+---
+
 ## v1.57.1 - 13 October 2026, 18:11
 
 **With Keep this one for Etsy ticked, the item screens show what matters for

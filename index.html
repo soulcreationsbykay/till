@@ -1181,6 +1181,28 @@
       </div>
       <div class="storage-note" id="etsySummary"></div>
       <div id="etsyList"></div>
+
+      <!-- The link to Kay's Etsy shop (v1.58.0, step 1: connect and look only). -->
+      <div class="quick-sell-head" style="margin-top:16px;">Connection to Etsy</div>
+      <div class="folder-hint">
+        Connect once: you sign in to Etsy and press <b>Allow</b>. For now the till only
+        <b>looks</b> at the shop. Nothing is listed or changed on Etsy yet.
+      </div>
+      <div class="storage-note" id="etsyConnNote" style="text-align:left;">Not checked yet.</div>
+      <ul class="folder-hint" id="etsyConnDetail" style="margin:6px 0 0;padding-left:18px;"></ul>
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="btn btn-primary" id="etsyConnectBtn">Connect Etsy shop</button>
+        <button class="btn btn-secondary" id="etsyCheckBtn">Check connection</button>
+      </div>
+      <!-- A real link Kay taps, rather than a window opened from script after a
+           wait, which iPads and phones block. -->
+      <a class="btn btn-primary" id="etsyAllowLink" href="#" target="_blank" rel="noopener noreferrer"
+         style="display:none;width:100%;margin-top:8px;text-align:center;text-decoration:none;box-sizing:border-box;">Open Etsy to press Allow</a>
+      <button class="btn btn-secondary" id="etsyVerifyBtn" style="display:none;width:100%;margin-top:8px;">Send verification email</button>
+      <button class="btn btn-secondary" id="etsyDisconnectBtn" style="display:none;width:100%;margin-top:8px;">Disconnect Etsy</button>
+      <label for="etsyUrlInput" style="margin-top:12px;">Etsy service address</label>
+      <input type="url" id="etsyUrlInput" autocomplete="off" autocapitalize="none" spellcheck="false">
+      <button class="btn btn-secondary" id="etsyUrlSaveBtn" style="width:100%;margin-top:6px;">Save address</button>
     </div>
     <!-- Stall dates for the website (29 Sept 2026). Shown on the front page under
          "Where to find us"; shop-worker reads them from the team workspace, so
@@ -4475,9 +4497,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.57.1';
+  const APP_VERSION = '1.58.0';
   const BUILD_DATE  = '13 Oct 2026';
-  const BUILD_TIME  = '18:11';
+  const BUILD_TIME  = '21:24';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -11919,6 +11941,186 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     return { get:get, set:set, isSet:isSet, check:check, start:start, render:render, call:call };
   })();
 
+  // ETSY LINK: WHAT THE TILL SAYS (v1.58.0)
+  //
+  // The kay-etsy service's answer about the shop, put into plain words for the
+  // Settings card. Step 1 only looks: the shop, and the shipping, processing
+  // and return profiles that listings will need in step 2. A part Etsy did not
+  // answer says so on its own line rather than hiding the rest.
+  function etsyDateText(ms){
+    const d = new Date(Number(ms));
+    return isNaN(d) ? '' : d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+  }
+  function describeEtsyStatus(st){
+    if(!st || !st.connected){
+      return st && st.expired
+        ? { note: 'The Etsy connection has expired. Press Connect Etsy shop to connect again.', lines: [], connected: false }
+        : { note: 'Not connected yet. Press Connect Etsy shop.', lines: [], connected: false };
+    }
+    const lines = [];
+    const part = (label, p, show, none) => {
+      if(!p || p.error) lines.push(label + ': Etsy did not answer' + (p && p.error ? ' (' + p.error + ')' : '') + '.');
+      else if(!p.items.length) lines.push(label + ': ' + none);
+      else lines.push(label + ': ' + p.items.map(show).join(', ') + '.');
+    };
+    const shop = st.shop || {};
+    if(shop.error) lines.push('Shop: Etsy did not answer (' + shop.error + ').');
+    else {
+      const n = Number(shop.activeListings) || 0;
+      lines.push('Shop: ' + (shop.name || '?') + ' · ' + n + ' active listing' + (n === 1 ? '' : 's')
+        + (shop.onVacation ? ' · on holiday mode' : '') + '.');
+    }
+    part('Shipping profiles', st.shipping, s => s.title || ('#' + s.id),
+      'none yet. Set up Large letter and Small parcel in Etsy (plan step e5).');
+    part('Processing profiles', st.processing, p => p.label || (p.min + '–' + p.max + ' days'),
+      'none yet. Etsy needs one before a listing can go live.');
+    part('Return policies', st.returns, r => r.returns ? ('returns within ' + r.days + ' days') : 'no returns',
+      'none yet.');
+    if(st.renewBy){
+      lines.push('Using it keeps it connected. If the till does not use it before '
+        + etsyDateText(st.renewBy) + ', press Connect Etsy shop again then.');
+    }
+    return {
+      note: 'Connected to ' + (shop.name || 'Etsy') + (st.connectedAt ? ' since ' + etsyDateText(st.connectedAt) : '') + '.',
+      lines: lines,
+      connected: true,
+    };
+  }
+  // ETSY LINK: END OF THE PURE PART
+
+  // ---- the link to Kay's Etsy shop (v1.58.0) ----
+  const EtsyLink = (function(){
+    const URL_KEY = 'posEtsyServiceUrl';
+    // The address registered with Etsy as the callback's home, so the till
+    // works without anyone typing it. Kept editable for a sandbox or a move.
+    const DEFAULT = 'https://kay-etsy.soulcreations-sales.workers.dev';
+    function get(){ try{ return localStorage.getItem(URL_KEY) || DEFAULT; }catch(e){ return DEFAULT; } }
+    function set(url){
+      const clean = String(url||'').trim().replace(/\/+$/,'');
+      if(clean && !/^https:\/\//i.test(clean) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(clean)){
+        throw new Error('The address must start with https://');
+      }
+      try{
+        if(!clean || clean === DEFAULT) localStorage.removeItem(URL_KEY);
+        else localStorage.setItem(URL_KEY, clean);
+      }catch(e){ throw new Error('Could not save on this device'); }
+      return get();
+    }
+    // A refusal for an unverified email is tried once more with a fresh token:
+    // the email may have been verified since this till's token was issued.
+    async function call(path, opts, fresh){
+      const token = await Sync.getIdToken(fresh);
+      if(!token) { const e = new Error('Turn on Team sync first: the Etsy service only answers a signed-in till.'); e.code = 'no-sync'; throw e; }
+      let res;
+      try{
+        res = await fetch(get() + path, Object.assign({
+          headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token }
+        }, opts||{}));
+      }catch(e){ throw new Error('Could not reach the Etsy service. Check the connection and the address below.'); }
+      let body = null;
+      try{ body = await res.json(); }catch(e){}
+      if(res.status === 401 && body && body.error === 'email-unverified'){
+        if(!fresh) return call(path, opts, true);
+        const e = new Error('unverified'); e.code = 'email-unverified'; throw e;
+      }
+      if(!res.ok) throw new Error((body && body.error) || ('Etsy service error (' + res.status + ')'));
+      return body;
+    }
+    return { get:get, set:set, call:call, DEFAULT:DEFAULT };
+  })();
+
+  (function initEtsyLink(){
+    const note = document.getElementById('etsyConnNote');
+    const detail = document.getElementById('etsyConnDetail');
+    const connectBtn = document.getElementById('etsyConnectBtn');
+    const checkBtn = document.getElementById('etsyCheckBtn');
+    const allow = document.getElementById('etsyAllowLink');
+    const verifyBtn = document.getElementById('etsyVerifyBtn');
+    const discBtn = document.getElementById('etsyDisconnectBtn');
+    const urlInput = document.getElementById('etsyUrlInput');
+    if(!note || !connectBtn) return;
+    let waitingForAllow = false;
+
+    urlInput.value = EtsyLink.get();
+
+    function show(text, lines){
+      note.textContent = text;
+      detail.innerHTML = '';
+      (lines || []).forEach(t => { const li = document.createElement('li'); li.textContent = t; detail.appendChild(li); });
+    }
+    function failed(e){
+      verifyBtn.style.display = 'none';
+      if(e && e.code === 'email-unverified'){
+        show('The till\'s sign-in email has not been verified yet, so the Etsy service will not answer it. '
+          + 'Press Send verification email, open that email and tap its link, then press Check connection.');
+        verifyBtn.style.display = '';
+        return;
+      }
+      show((e && e.message) || 'Something went wrong.');
+    }
+
+    async function check(){
+      checkBtn.disabled = true;
+      show('Checking…');
+      try{
+        const st = await EtsyLink.call('/staff/status', { method:'GET' });
+        const d = describeEtsyStatus(st);
+        show(d.note, d.lines);
+        verifyBtn.style.display = 'none';
+        discBtn.style.display = d.connected ? '' : 'none';
+        connectBtn.textContent = d.connected ? 'Connect again' : 'Connect Etsy shop';
+        if(d.connected){ allow.style.display = 'none'; waitingForAllow = false; }
+      }catch(e){ failed(e); }
+      finally{ checkBtn.disabled = false; }
+    }
+
+    connectBtn.addEventListener('click', async () => {
+      connectBtn.disabled = true;
+      allow.style.display = 'none';
+      try{
+        const r = await EtsyLink.call('/staff/connect', { method:'POST', body:'{}' });
+        if(!r || !/^https:\/\/www\.etsy\.com\//.test(r.url || '')) throw new Error('The Etsy service gave an unexpected link.');
+        allow.href = r.url;
+        allow.style.display = '';
+        waitingForAllow = true;
+        show('Tap Open Etsy to press Allow. Sign in to Etsy with the shop\'s account if it asks, press Allow, '
+          + 'then come back here. The link works for 10 minutes, once.');
+      }catch(e){ failed(e); }
+      finally{ connectBtn.disabled = false; }
+    });
+
+    // Back from Etsy: look straight away rather than waiting to be asked.
+    document.addEventListener('visibilitychange', () => {
+      if(!document.hidden && waitingForAllow) setTimeout(check, 600);
+    });
+
+    checkBtn.addEventListener('click', check);
+
+    verifyBtn.addEventListener('click', async () => {
+      verifyBtn.disabled = true;
+      try{
+        const to = await Sync.sendVerification();
+        show('Verification email sent to ' + to + '. Open it, tap the link, then come back and press Check connection. '
+          + 'If it is not there in a few minutes, look in Spam.');
+      }catch(e){ show('Could not send it: ' + ((e && e.message) || 'unknown error') + ' Try again in a few minutes.'); }
+      finally{ verifyBtn.disabled = false; }
+    });
+
+    discBtn.addEventListener('click', () => {
+      askConfirm('Disconnect Etsy?',
+        'The till forgets its connection to the Etsy shop. Nothing on Etsy itself changes. You can connect again any time.',
+        'Disconnect', async () => {
+          try{ await EtsyLink.call('/staff/disconnect', { method:'POST', body:'{}' }); discBtn.style.display = 'none'; check(); }
+          catch(e){ failed(e); }
+        });
+    });
+
+    document.getElementById('etsyUrlSaveBtn').addEventListener('click', () => {
+      try{ urlInput.value = EtsyLink.set(urlInput.value); showToast('Etsy service address saved', 'success'); }
+      catch(e){ showToast(e.message, 'error'); }
+    });
+  })();
+
   // ---- Website orders settings ----
   (function initWebOrdersSettings(){
     const input = document.getElementById('webOrdersUrlInput');
@@ -15575,13 +15777,34 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     // reader service verifies it against the same email list as the Firestore
     // rules. Null means "not signed in", which the caller must treat as a
     // refusal rather than carrying on.
-    async function getIdToken(){
+    // fresh: ask Firebase for a new token rather than the cached one, which is
+    // how a just-verified email shows up in it (v1.58.0).
+    async function getIdToken(fresh){
       try{
         if(!app || !window.firebase || !firebase.auth) return null;
         var auth = firebase.auth(app);
         if(!auth.currentUser) return null;
-        return await auth.currentUser.getIdToken();
+        if(fresh){ try{ await auth.currentUser.reload(); }catch(e){} }
+        return await auth.currentUser.getIdToken(!!fresh);
       }catch(e){ return null; }
+    }
+
+    // The sign-in email, proved (v1.58.0). The Etsy service (and the website
+    // checkout's till routes) only answer a till whose email is verified, and
+    // there was nowhere in the till to do that. Firebase sends the email; the
+    // link in it does the rest.
+    function emailVerified(){
+      try{
+        var u = app && firebase.auth(app).currentUser;
+        return u ? !!u.emailVerified : null;
+      }catch(e){ return null; }
+    }
+    async function sendVerification(){
+      if(!app || !window.firebase || !firebase.auth) throw new Error('Team sync is not connected.');
+      var u = firebase.auth(app).currentUser;
+      if(!u) throw new Error('Team sync is not signed in.');
+      await u.sendEmailVerification();
+      return u.email;
     }
 
     // True only if pw is the signed-in account's password, checked by Firebase.
@@ -15709,6 +15932,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       setStatus:setStatus, isOn:isOn, getCfg:getCfg, getTeam:getTeam, getPin:getPin, getEmail:getEmail,
       isConnected:function(){ return connected; },
       getIdToken:getIdToken, checkPassword:checkPassword,
+      emailVerified:emailVerified, sendVerification:sendVerification,
       keepDays:function(){ return TOMBSTONE_KEEP_DAYS; },
       findTombstones:findTombstones, deleteTombstones:deleteTombstones
     };
