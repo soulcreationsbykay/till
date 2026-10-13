@@ -1050,7 +1050,17 @@
           <input type="checkbox" id="manualEtsyOn">
           <span>Keep this one for Etsy</span>
         </label>
-        <div class="folder-hint" style="margin-top:6px;">Takes it off the website. After <b>Add item</b> the till opens it so you can take its real Etsy photos.</div>
+        <div class="folder-hint" style="margin-top:6px;">Takes it off the website.</div>
+        <!-- v1.55.3: the Etsy photos can be taken here. They are held until
+             Add item, because they are stored under the item's code and the
+             item does not exist before then. -->
+        <div id="manualEtsyMore" style="display:none;">
+          <div class="folder-hint" style="margin-top:8px;">Real photos of this item only, straight from the camera: no AI editing, background removal or "enhance". Crop, rotate and brightness are fine.</div>
+          <div class="extras-strip" id="manualEtsyPics"></div>
+          <button class="btn-generate photo-btn" type="button" id="manualEtsyAdd">📷 Add an Etsy photo</button>
+          <input type="file" id="manualEtsyInput" accept="image/*" style="display:none;">
+          <div class="folder-hint" id="manualEtsyHint"></div>
+        </div>
       </div>
 
       <button class="btn btn-primary" id="manualAddBtn">Add item</button>
@@ -4422,9 +4432,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.55.2';
+  const APP_VERSION = '1.55.3';
   const BUILD_DATE  = '13 Oct 2026';
-  const BUILD_TIME  = '17:16';
+  const BUILD_TIME  = '17:24';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -7361,7 +7371,140 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     try{
       if(currentEditBarcode && document.getElementById('editItemModal').style.display === 'flex') renderEditEtsy();
     }catch(e){}
+    try{ renderAddEtsy(); }catch(e){}
   }
+
+  // ---- Etsy photos on the Add item form (v1.55.3) ----
+  //
+  // Held here, in memory, until Add item: they are stored under the item's
+  // code, and the item does not exist yet. The list is kept in the same shape
+  // as an item's (`etsyPics`) so the same tested rules keep it free of
+  // duplicates, under Etsy's limit and in order. Like the form's own photo,
+  // they are gone if the page is closed before Add item.
+  const addEtsy = { etsyPics: [] };
+  const addEtsyUris = {};
+
+  function clearAddEtsy(){
+    addEtsy.etsyPics = [];
+    Object.keys(addEtsyUris).forEach(k => { delete addEtsyUris[k]; });
+    renderAddEtsy();
+  }
+
+  function renderAddEtsy(){
+    const more = document.getElementById('manualEtsyMore');
+    const strip = document.getElementById('manualEtsyPics');
+    const add = document.getElementById('manualEtsyAdd');
+    const hint = document.getElementById('manualEtsyHint');
+    if(!more || !strip || !add || !hint) return;
+    more.style.display = document.getElementById('manualEtsyOn').checked ? 'block' : 'none';
+    strip.innerHTML = '';
+    const pics = etsyPicsOf(addEtsy);
+    pics.forEach(function(fp, i){
+      const cell = document.createElement('div');
+      cell.className = 'extra-pic';
+      const img = document.createElement('img');
+      img.alt = '';
+      img.src = addEtsyUris[fp] || '';
+      cell.appendChild(img);
+      const tools = document.createElement('div');
+      tools.className = 'extra-tools';
+      tools.appendChild(extraBtn('◀', 'Move this photo earlier', i === 0, function(){
+        etsyMovePic(addEtsy, fp, -1); renderAddEtsy();
+      }));
+      tools.appendChild(extraBtn('▶', 'Move this photo later', i === pics.length - 1, function(){
+        etsyMovePic(addEtsy, fp, +1); renderAddEtsy();
+      }));
+      // No confirm: nothing has been saved yet, so nothing is lost for good.
+      tools.appendChild(extraBtn('✕', 'Remove this photo', false, function(){
+        etsyRemovePic(addEtsy, fp);
+        if(!addEtsy.etsyPics) addEtsy.etsyPics = [];
+        delete addEtsyUris[fp];
+        renderAddEtsy();
+      }));
+      cell.appendChild(tools);
+      strip.appendChild(cell);
+    });
+    const full = pics.length >= ETSY_PHOTO_MAX;
+    add.style.display = full ? 'none' : '';
+    // Sync is set up further down the page, so at first draw it may not exist.
+    const live = typeof Sync !== 'undefined' && Sync.isConnected();
+    hint.textContent = !live
+      ? 'Team sync is not connected on this device, so Etsy photos cannot be added yet. They are kept online so they can be sent to Etsy.'
+      : full
+        ? 'That is the ' + ETSY_PHOTO_MAX + ' an Etsy listing can show. Remove one to add another.'
+        : pics.length
+          ? pics.length + ' real photo' + (pics.length === 1 ? '' : 's') + ', saved when you press Add item. The first is the main one on Etsy.'
+          : 'Etsy suggests 3 to 5: the front, the back or side, a close-up, and one that shows the size. Or add them after Add item.';
+  }
+
+  document.getElementById('manualEtsyAdd').addEventListener('click', function(){
+    if(!Sync.isConnected()){
+      // Nothing is saved here: the form stays as it is on the Add tab while
+      // Team sync is sorted out, so the way back is simply the Add tab.
+      askConfirm(
+        'Team sync is not connected',
+        'Etsy photos are kept online, so they can be sent to Etsy and seen on every till. '
+          + 'Connect Team sync on this device first, then come back to the Add tab: '
+          + 'what you have filled in stays there.',
+        'Open Team sync',
+        function(){
+          const tab = document.querySelector('.tab[data-tab="settings"]');
+          if(tab) tab.click();
+          const sb = document.getElementById('syncBtn');
+          if(sb) sb.click();
+        }
+      );
+      return;
+    }
+    document.getElementById('manualEtsyInput').click();
+  });
+
+  document.getElementById('manualEtsyInput').addEventListener('change', async function(e){
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if(!file) return;
+    try{
+      const got = await fileToEtsyPhoto(file);
+      const fp = photoFingerprint(got.uri);
+      const r = etsyAddPic(addEtsy, fp);
+      if(r.already){ showToast('That photo is already on this item', 'error'); return; }
+      if(r.full){ showToast('An Etsy listing shows ' + ETSY_PHOTO_MAX + ' photos at most', 'error'); return; }
+      addEtsyUris[fp] = got.uri;
+      renderAddEtsy();
+      showToast(got.small ? 'Added, but it is small: Etsy looks best with bigger photos' : 'Etsy photo added',
+        got.small ? 'error' : 'success');
+    }catch(err){
+      showToast(err && err.message ? err.message : 'Could not use that picture', 'error');
+    }
+  });
+
+  // At Add item: send the held photos to the workspace under the new item's
+  // code and put their fingerprints on its record, in the order shown. Written
+  // the way the Edit form writes them, including taking one back off the
+  // record if the workspace refuses it. Returns how many went on.
+  function commitAddEtsy(bc){
+    const it = items[bc];
+    const pics = etsyPicsOf(addEtsy);
+    if(!it || !pics.length) return 0;
+    let n = 0;
+    pics.forEach(function(fp){
+      const uri = addEtsyUris[fp];
+      if(!uri) return;
+      let write;
+      try{ write = Sync.putEtsyPhoto(bc, fp, uri); }catch(e){ return; }
+      etsyAddPic(it, fp);
+      etsyPicCache[etsyPhotoDocId(bc, fp)] = uri;
+      n++;
+      write.catch(function(){
+        const cur = items[bc];
+        if(cur){ etsyRemovePic(cur, fp); saveItems(); }
+        delete etsyPicCache[etsyPhotoDocId(bc, fp)];
+        showToast('An Etsy photo for ' + bc + ' could not be saved. Open the item to add it again.', 'error');
+      });
+    });
+    return n;
+  }
+  try{ renderAddEtsy(); }catch(e){}
 
   // Written straight away, like the extras. The record changes at once so the
   // photo shows; if the workspace then REFUSES the picture (not merely offline,
@@ -12726,6 +12869,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   }
   document.getElementById('manualWebOn').addEventListener('change', function(){ syncManualChannels(this); });
   document.getElementById('manualEtsyOn').addEventListener('change', function(){ syncManualChannels(this); });
+  // Unticking only hides the photos; ticking again brings them back.
+  document.getElementById('manualWebOn').addEventListener('change', renderAddEtsy);
+  document.getElementById('manualEtsyOn').addEventListener('change', renderAddEtsy);
 
   document.getElementById('manualAddBtn').addEventListener('click', () => {
     const bc = document.getElementById('manualBarcode').value.trim();
@@ -12737,6 +12883,13 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const folder = normFolder(document.getElementById('manualFolder').value);
     if(!bc || !name){ showToast('Barcode and name are required', 'error'); return; }
     if(items[bc]){ showToast('That barcode already exists', 'error'); return; }
+    // Etsy photos taken on this form can only be stored with Team sync on.
+    // Refused before anything is created, so nothing is half-added.
+    const etsyTicked = document.getElementById('manualEtsyOn').checked;
+    if(etsyTicked && etsyPicsOf(addEtsy).length && !Sync.isConnected()){
+      showToast('Team sync is not connected, so the Etsy photos cannot be saved. Connect it, or remove them and add them later.', 'error');
+      return;
+    }
     items[bc] = newItemRecord({
       name, qty, maker, price, folder,
       photo: manualPhoto.value,
@@ -12746,14 +12899,18 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       webDesc: document.getElementById('manualWebDesc').value,
       post: document.getElementById('manualPost').value
     });
+    // Before saveItems, so the record goes out with its photos' fingerprints.
+    const etsyAdded = items[bc].etsy ? commitAddEtsy(bc) : 0;
     if(!saveItems()) return;
     const forEtsy = !!items[bc].etsy;
+    clearAddEtsy();
     manualPhoto.clear();
     ['manualBarcode','manualName','manualQty','manualMaker','manualPrice','manualFolder','manualLabel','manualWebDesc','manualPost'].forEach(id => document.getElementById(id).value='');
     // Back to ticked, which is the default for a reason - see the form.
     document.getElementById('manualWebOn').checked = true;
     document.getElementById('manualEtsyOn').checked = false;
     document.getElementById('manualWebMore').style.display = '';
+    renderAddEtsy();
     // Explicitly, and before the name box is read again: the description this
     // one shared is not the next one's, and the box must not be handed back
     // whatever was in it before the tick.
@@ -12765,8 +12922,12 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     renderMakerUi();   // the counts and next-code lines have moved on
     document.querySelector('.tab[data-tab="list"]').click();
     renderList();
-    // An Etsy item is not ready until it has real photographs, and those can
-    // only be taken once the item exists. So it opens straight away, at them.
+    if(forEtsy && etsyAdded){
+      showToast('Item added with ' + etsyAdded + ' Etsy photo' + (etsyAdded === 1 ? '' : 's'), 'success');
+      return;
+    }
+    // An Etsy item added without photos is not ready until it has some, so it
+    // opens straight away, at them.
     if(forEtsy){
       openEditModal(bc);
       setTimeout(() => {

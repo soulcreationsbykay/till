@@ -10,6 +10,30 @@ fixes.
 
 ---
 
+## v1.55.3 - 13 October 2026, 17:24
+
+**Etsy photos can be taken on the Add item screen.**
+
+- Ticking **Keep this one for Etsy** on Add item now shows the Etsy photo
+  strip and **📷 Add an Etsy photo**, with ◀ ▶ to order them and ✕ to remove
+  one (no confirm: nothing is saved yet).
+- **The photos are held until Add item**, because they are stored under the
+  item's code and the item does not exist before then. On Add item they go
+  to the workspace and onto the new item in the order shown, and the till
+  says how many were added. Like the form's own photo, closing the page
+  before Add item loses them.
+- **Team sync off:** the button still shows; tapping it explains and offers
+  **Open Team sync**. The form stays as filled in on the Add tab. If photos
+  are already held and sync has dropped, Add item refuses with a message
+  rather than adding the item without them.
+- **No photos taken on the form:** Add item opens the new item at its Etsy
+  photos, as in v1.55.1.
+- The held list uses the same tested rules as an item's (no duplicates,
+  Etsy's 10, order kept). If the workspace refuses a photo after Add item,
+  it comes back off the item with a message, as on Edit item.
+
+---
+
 ## v1.55.2 - 13 October 2026, 17:16
 
 **The Etsy photo button no longer disappears when Team sync is off.**
