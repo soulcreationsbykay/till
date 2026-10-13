@@ -374,6 +374,12 @@
     background:var(--panel);font-size:16px;cursor:pointer;
   }
   .search-row button.sel{background:var(--clay);border-color:var(--clay);color:#fff;}
+  /* Kept for Etsy (v1.57.1): the form carries .is-etsy, the website's own
+     fields step aside and the Etsy markers show. !important because several
+     of these are shown and hidden by inline style from script. */
+  .is-etsy .etsy-hide{display:none !important;}
+  .etsy-need{display:none;color:var(--clay-dark);font-weight:600;}
+  .is-etsy .etsy-need{display:inline;}
   .chan-row{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 12px;}
   .chan-row button{
     font:inherit;font-size:13px;padding:5px 11px;border-radius:99px;cursor:pointer;
@@ -1007,24 +1013,27 @@
       <div class="folder-picks" id="addFolderPicks" style="display:none;"></div>
       <div class="folder-hint" id="addFolderPicksHint" style="margin-top:0;"></div>
       <div class="folder-hint">Groups this item with others — e.g. all bracelets in <b>Bracelets</b>. Use / to make a subfolder inside a folder.</div>
-      <label>Starting quantity</label>
+      <label>Starting quantity<span class="etsy-need"> · needed for Etsy</span></label>
       <input type="number" id="manualQty" placeholder="0" inputmode="numeric">
       <div class="suppliers-only">
       <label>Made by</label>
       <input type="text" id="manualMaker" placeholder="e.g. Kay">
       </div>
-      <label>Price each (£)</label>
+      <label>Price each (£)<span class="etsy-need"> · needed for Etsy</span></label>
       <input type="number" id="manualPrice" placeholder="0.00" inputmode="decimal" step="0.01" min="0">
       <label>Label needed (optional)</label>
       <input type="text" id="manualLabel" list="labelOptions" placeholder="e.g. Small swing tag" autocomplete="off">
       <button type="button" class="folder-toggle" id="addLabelToggle" style="display:none;"></button>
       <div class="folder-picks" id="addLabelPicks" style="display:none;"></div>
       <div class="folder-hint">Just for you — which label this one needs when you come to print. It is never sent to the website; it comes out in the stock export.</div>
+      <!-- The website photo: hidden while Etsy is ticked (v1.57.1). -->
+      <div class="etsy-hide">
       <label>Photo (optional)</label>
       <button class="btn-generate photo-btn" type="button" onclick="document.getElementById('manualPhotoInput').click()">📷 Add photo</button>
       <input type="file" id="manualPhotoInput" accept="image/*" style="display:none;">
       <div class="photo-preview" id="manualPhotoPreview" style="display:none;"></div>
       <button class="btn-remove-photo" id="manualPhotoRemove" type="button" style="display:none;">Remove photo</button>
+      </div>
 
       <label>Website</label>
       <div class="web-box">
@@ -1040,9 +1049,9 @@
             <input type="checkbox" id="addDescSame">
             <span id="addDescSameText"></span>
           </label>
-          <label>Description for the website or Etsy (optional)</label>
+          <label>Description for the website or Etsy (optional)<span class="etsy-need"> · recommended for Etsy</span></label>
           <textarea id="manualWebDesc" class="desc-ta" rows="3" placeholder="A longer description than the shop label — what it is, size, stone, who made it."></textarea>
-          <label for="manualPost">Postage size</label>
+          <label for="manualPost">Postage size<span class="etsy-need"> · recommended for Etsy</span></label>
           <select id="manualPost">
             <option value="">Not chosen yet</option>
             <option value="letter">Large letter</option>
@@ -1066,7 +1075,10 @@
              Add item, because they are stored under the item's code and the
              item does not exist before then. -->
         <div id="manualEtsyMore" style="display:none;">
-          <div class="folder-hint" style="margin-top:8px;">Real photos of this item only, straight from the camera: no AI editing, background removal or "enhance". Crop, rotate and brightness are fine.</div>
+          <!-- Description and postage move in here while Etsy is ticked. -->
+          <div id="manualEtsyDescSlot"></div>
+          <label>Etsy photos<span class="etsy-need"> · at least one needed</span></label>
+          <div class="folder-hint">Real photos of this item only, straight from the camera: no AI editing, background removal or "enhance". Crop, rotate and brightness are fine.</div>
           <div class="extras-strip" id="manualEtsyPics"></div>
           <button class="btn-generate photo-btn" type="button" id="manualEtsyAdd">📷 Add an Etsy photo</button>
           <input type="file" id="manualEtsyInput" accept="image/*" style="display:none;">
@@ -1755,13 +1767,16 @@
     <label>Made by</label>
     <input type="text" id="editItemMaker">
     </div>
-    <label>Price each (£)</label>
+    <label>Price each (£)<span class="etsy-need"> · needed for Etsy</span></label>
     <input type="number" id="editItemPrice" inputmode="decimal" step="0.01" min="0">
     <label>Label needed (optional)</label>
     <input type="text" id="editItemLabel" list="labelOptions" placeholder="e.g. Small swing tag" autocomplete="off">
     <button type="button" class="folder-toggle" id="editLabelToggle" style="display:none;"></button>
     <div class="folder-picks" id="editLabelPicks" style="display:none;"></div>
     <div class="folder-hint">Never sent to the website — it comes out in the stock export.</div>
+    <!-- Everything from here to the end of the extras is the website's pictures
+         (v1.57.1): hidden while the item is kept for Etsy, which has its own. -->
+    <div class="etsy-hide">
     <label>Photo (optional)</label>
     <button class="btn-generate photo-btn" type="button" onclick="document.getElementById('editPhotoInput').click()">📷 Add photo</button>
     <input type="file" id="editPhotoInput" accept="image/*" style="display:none;">
@@ -1793,8 +1808,9 @@
     <button class="btn-generate photo-btn" type="button" id="editExtraAdd">📷 Add another photo</button>
     <input type="file" id="editExtraInput" accept="image/*" style="display:none;">
     <div class="folder-hint" id="editExtrasHint"></div>
+    </div>
 
-    <label>Counted so far (this stock take)</label>
+    <label>Counted so far (this stock take)<span class="etsy-need"> · needed for Etsy</span></label>
     <input type="number" id="editItemCounted" inputmode="numeric">
 
     <label>Website</label>
@@ -1808,9 +1824,9 @@
           <input type="checkbox" id="editDescSame">
           <span id="editDescSameText"></span>
         </label>
-        <label>Description for the website or Etsy (optional)</label>
+        <label>Description for the website or Etsy (optional)<span class="etsy-need"> · recommended for Etsy</span></label>
         <textarea id="editWebDesc" class="desc-ta" rows="3" placeholder="A longer description than the shop label — what it is, size, stone, who made it."></textarea>
-        <label for="editPost">Postage size</label>
+        <label for="editPost">Postage size<span class="etsy-need"> · recommended for Etsy</span></label>
         <select id="editPost">
           <option value="">Not chosen yet</option>
           <option value="letter">Large letter</option>
@@ -1818,7 +1834,7 @@
         </select>
         <div class="folder-hint">Large letter: fits through a letterbox, up to 2.5cm thick and 750g. Anything bigger is a small parcel. Not chosen yet is charged as a small parcel.</div>
       </div>
-      <div class="state" id="editWebState"></div>
+      <div class="state etsy-hide" id="editWebState"></div>
     </div>
 
     <!-- Etsy (v1.55.0). Kept for Etsy means not on the website, so ticking one
@@ -1832,7 +1848,11 @@
         <span>Keep this one for Etsy</span>
       </label>
       <div id="editEtsyMore" style="display:none;">
-        <div class="folder-hint" style="margin-top:8px;">Real photos of this item only, straight from the camera: no AI editing, background removal or "enhance". Crop, rotate and brightness are fine. The website photo is never sent to Etsy.</div>
+        <!-- The description and postage boxes are moved in here while the item
+             is kept for Etsy, and back to the Website box when it is not. -->
+        <div id="editEtsyDescSlot"></div>
+        <label>Etsy photos<span class="etsy-need"> · at least one needed</span></label>
+        <div class="folder-hint">Real photos of this item only, straight from the camera: no AI editing, background removal or "enhance". Crop, rotate and brightness are fine. The website photo is never sent to Etsy.</div>
         <div class="extras-strip" id="editEtsyPics"></div>
         <button class="btn-generate photo-btn" type="button" id="editEtsyAdd">📷 Add an Etsy photo</button>
         <input type="file" id="editEtsyInput" accept="image/*" style="display:none;">
@@ -4455,9 +4475,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.57.0';
+  const APP_VERSION = '1.57.1';
   const BUILD_DATE  = '13 Oct 2026';
-  const BUILD_TIME  = '18:00';
+  const BUILD_TIME  = '18:11';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -5668,6 +5688,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     // Kept for Etsy means not on the website, so one tick takes the other off.
     if(document.getElementById('editWebOn').checked && document.getElementById('editEtsyOn').checked){
       document.getElementById('editEtsyOn').checked = false;
+      placeEtsyLayout('edit');
       renderEditEtsy();
       showToast('No longer kept for Etsy: it is on the website instead', 'success');
     }
@@ -7480,6 +7501,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     }
     // Always, not only when the website was unticked: whether the description
     // and postage boxes show depends on this tick too.
+    placeEtsyLayout('edit');
     const it = items[currentEditBarcode];
     if(it) renderEditWebState(it);
     renderEditEtsy();
@@ -7525,6 +7547,40 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     }catch(e){}
     try{ renderAddEtsy(); }catch(e){}
   }
+
+  // ---- Only what matters for Etsy (v1.57.1), on Edit ('edit') and Add ('manual') ----
+  //
+  // With Keep this one for Etsy ticked the form carries .is-etsy: the website's
+  // own pictures and ticks step aside (.etsy-hide) and what Etsy needs is
+  // marked (.etsy-need). The description and postage boxes are wanted by both,
+  // so rather than leave them in a Website box that no longer applies they are
+  // moved into the Etsy section, and back again when Etsy is unticked. The same
+  // elements are moved, never copied, so what is typed stays put and Save reads
+  // the same boxes either way.
+  const ETSY_LAYOUT = {
+    edit:   { form:'editItemModal', tick:'editEtsyOn',   desc:'editWebMore',   slot:'editEtsyDescSlot' },
+    manual: { form:'tab-add',       tick:'manualEtsyOn', desc:'manualWebMore', slot:'manualEtsyDescSlot' },
+  };
+  const etsyDescHome = {};
+
+  function placeEtsyLayout(which){
+    const L = ETSY_LAYOUT[which];
+    const form = document.getElementById(L.form);
+    const tick = document.getElementById(L.tick);
+    const desc = document.getElementById(L.desc);
+    const slot = document.getElementById(L.slot);
+    if(!form || !tick || !desc || !slot) return;
+    // Where it lives normally, noted the first time it is seen there.
+    if(!etsyDescHome[which]) etsyDescHome[which] = { parent: desc.parentNode, next: desc.nextSibling };
+    const etsy = tick.checked;
+    form.classList.toggle('is-etsy', etsy);
+    if(etsy){
+      if(desc.parentNode !== slot) slot.appendChild(desc);
+    } else if(desc.parentNode !== etsyDescHome[which].parent){
+      etsyDescHome[which].parent.insertBefore(desc, etsyDescHome[which].next);
+    }
+  }
+  try{ placeEtsyLayout('manual'); }catch(e){}
 
   // ---- Etsy title and tags boxes (v1.57.0), on Edit ('edit') and Add ('manual') ----
   //
@@ -13127,6 +13183,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if(changed === web && web.checked) etsy.checked = false;
     if(changed === etsy && etsy.checked) web.checked = false;
     document.getElementById('manualWebMore').style.display = (web.checked || etsy.checked) ? '' : 'none';
+    placeEtsyLayout('manual');
   }
   document.getElementById('manualWebOn').addEventListener('change', function(){ syncManualChannels(this); });
   document.getElementById('manualEtsyOn').addEventListener('change', function(){ syncManualChannels(this); });
@@ -13176,6 +13233,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     document.getElementById('manualWebOn').checked = true;
     document.getElementById('manualEtsyOn').checked = false;
     document.getElementById('manualWebMore').style.display = '';
+    placeEtsyLayout('manual');
     renderAddEtsy();
     // Explicitly, and before the name box is read again: the description this
     // one shared is not the next one's, and the box must not be handed back
@@ -13938,6 +13996,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     // Before the website state is drawn: it decides whether the description
     // and postage boxes show.
     document.getElementById('editEtsyOn').checked = !!it.etsy;
+    placeEtsyLayout('edit');
     renderEditWebState(it);
     renderEditEtsy();
     document.getElementById('editEtsyTitle').value = it.etsyTitle || '';

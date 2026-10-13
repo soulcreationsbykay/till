@@ -10,6 +10,30 @@ fixes.
 
 ---
 
+## v1.57.1 - 13 October 2026, 18:11
+
+**With Keep this one for Etsy ticked, the item screens show what matters for
+Etsy.**
+
+On Add item and Edit item, ticking Etsy now:
+
+- **Hides the website's own pictures and ticks:** the Photo box (the
+  AI-tidied website photo, never used for Etsy), More photos for the website,
+  Show this photo on the shop list, the front-page photo tick, and the
+  website's status line. Nothing in them is deleted; untick Etsy and they
+  are back.
+- **Moves Description and Postage size into the Etsy section**, beside the
+  Etsy photos, title and tags, since Etsy uses both. The boxes are moved, not
+  copied, so what is typed stays and saves as before. Unticking Etsy (or
+  ticking the website) puts them back in the Website section.
+- **Marks what Etsy needs:** price and the stock count (Starting quantity on
+  Add, Counted so far on Edit) and at least one Etsy photo say *needed for
+  Etsy*; description and postage say *recommended for Etsy*.
+- **Still shown**, by choice: Label needed and Sold as a set, as well as the
+  code, name, folder and the Website tick, so Kay can switch it back.
+
+---
+
 ## v1.57.0 - 13 October 2026, 18:00
 
 **An Etsy title and Etsy tags for each Etsy item.**
