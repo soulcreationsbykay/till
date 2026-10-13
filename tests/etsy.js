@@ -21,7 +21,7 @@ const SRC = HTML.slice(a, b);
 
 const ctx = { console };
 vm.createContext(ctx);
-vm.runInContext(SRC + '\nthis.T = { ETSY_PHOTO_MAX, etsyPicsOf, etsyPhotoDocId, etsyStatus, applyEtsyChoice, etsyAddPic, etsyRemovePic, etsyMovePic, etsyTodo, cleanEtsyTitle, parseEtsyTags, etsyTagsOf, ETSY_TITLE_MAX, ETSY_TAG_MAX, ETSY_TAG_LEN, isEarring, etsyReturnsFor, etsyDeliveryFor, etsyDraftPayload, searchEtsyCategories, etsyFolderLevels, etsyCategoryFor };', ctx);
+vm.runInContext(SRC + '\nthis.T = { ETSY_PHOTO_MAX, etsyPicsOf, etsyPhotoDocId, etsyStatus, applyEtsyChoice, etsyAddPic, etsyRemovePic, etsyMovePic, etsyTodo, cleanEtsyTitle, parseEtsyTags, etsyTagsOf, ETSY_TITLE_MAX, ETSY_TAG_MAX, ETSY_TAG_LEN, isEarring, etsyReturnsFor, etsyDeliveryFor, etsyDraftPayload, searchEtsyCategories, etsyFolderLevels, etsyCategoryFor, etsyWords, suggestEtsyCategories };', ctx);
 const T = ctx.T;
 
 let pass = 0, fail = 0;
@@ -221,6 +221,49 @@ console.log('\nCategories for subfolders');
   const p = T.etsyDraftPayload({ name: 'x' }, 'KA-1', { key: 'crafted gift/bookmark', label: 'Crafted Gifts › Bookmarks', keys: ['crafted gift/bookmark', 'crafted gift'] });
   check('a draft is sent every level, most specific first', p.categories.join() === 'crafted gift/bookmark,crafted gift');
   check('and still the one key an older service reads', p.category === 'crafted gift/bookmark');
+}
+
+// v1.61.0. Suggesting an Etsy category from the words Kay already uses. The
+// suggestion must put the obvious match first for a clearly named folder,
+// translate UK words to Etsy's US ones, ignore words that say nothing, and
+// never suggest anything when there is nothing to go on.
+console.log('\nSuggesting an Etsy category');
+{
+  const etsy = [
+    { id: 1, path: 'Jewelry' },
+    { id: 2, path: 'Jewelry › Earrings' },
+    { id: 3, path: 'Jewelry › Earrings › Dangle & Drop Earrings' },
+    { id: 4, path: 'Jewelry › Brooches, Pins & Clips › Brooches' },
+    { id: 5, path: 'Books, Movies & Music › Books › Bookmarks' },
+    { id: 6, path: 'Toys & Games › Toys › Stuffed Animals & Plushies' },
+    { id: 7, path: 'Craft Supplies & Tools › Yarn & Fiber › Yarn' },
+    { id: 8, path: 'Home & Living › Home Decor › Candles & Holders › Candles' },
+    { id: 9, path: 'Accessories › Keychains & Lanyards › Keychains' },
+  ];
+  check('words: lower case, plurals and UK spellings agree', T.etsyWords('Bookmarks, JEWELLERY, keyrings').join() === 'bookmark,jewelry,keychain');
+  check('words that say nothing are dropped', T.etsyWords('Handmade gift set for my mum').join() === 'mom');
+  const bm = T.suggestEtsyCategories(etsy, ['Bookmarks', 'Crafted Gifts'], ['Pressed flower bookmark']);
+  check('a Bookmarks folder suggests Bookmarks first', bm[0] && bm[0].id === 5, JSON.stringify(bm));
+  const br = T.suggestEtsyCategories(etsy, ['Brooches', 'Crafted Gifts'], ['Bee brooch', 'Owl brooch']);
+  check('a Brooches folder suggests Brooches first', br[0] && br[0].id === 4, JSON.stringify(br));
+  const ear = T.suggestEtsyCategories(etsy, ['Jewellery'], ['Amethyst Drop Earrings', 'Hoop Earrings', 'Bead Drop Earrings']);
+  check('Jewellery full of drop earrings suggests drop earrings, through the US spelling', ear[0] && ear[0].id === 3, JSON.stringify(ear));
+  check('and Jewelry itself is among them', ear.some(h => h.path.indexOf('Jewelry') === 0));
+  const kr = T.suggestEtsyCategories(etsy, ['Keyrings'], []);
+  check('a UK folder name finds its US category', kr[0] && kr[0].id === 9, JSON.stringify(kr));
+  check('nothing to go on suggests nothing', T.suggestEtsyCategories(etsy, ['Handmade Gifts'], ['A lovely gift set']).length === 0);
+  check('no more than asked for', T.suggestEtsyCategories(etsy, ['Jewellery'], ['earrings brooch'], 2).length === 2);
+  check('no list yet is no suggestion, not a crash', T.suggestEtsyCategories(null, ['Bookmarks'], []).length === 0);
+}
+
+console.log('\nThe category that IS the thing beats one that merely contains it');
+{
+  const etsy = [
+    { id: 7, path: 'Craft Supplies & Tools › Yarn & Fiber › Yarn' },
+    { id: 10, path: 'Yarn & Fiber › Kits' },
+  ];
+  const y = T.suggestEtsyCategories(etsy, ['Yarn'], []);
+  check('Yarn itself first, though the other path is shorter', y[0] && y[0].id === 7, JSON.stringify(y));
 }
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

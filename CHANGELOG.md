@@ -10,6 +10,33 @@ fixes.
 
 ---
 
+## v1.61.0 - 13 October 2026, 23:01
+
+**The Etsy category picker suggests the best matches.**
+
+Etsy's API has no category suggestion of its own, so the till makes one from
+the words Kay already uses.
+
+- When **Choose** opens the picker for a folder, the top shows up to three
+  **suggested** categories, the best one highlighted. Tap one to choose
+  it, or search below as before.
+- They come from the folder's name (a subfolder's own name counts most) and
+  the names, Etsy titles and tags of the Etsy items in it, subfolders
+  included.
+- Etsy's categories are in US English, so UK words are translated:
+  jewellery → jewelry, keyring → keychain, jumper → sweater, and a few more.
+- Words that say nothing about what a thing is (handmade, gift, set,
+  lovely, sterling silver…) are ignored, and plurals match singulars.
+- A category whose own name matches beats one where the word only appears
+  higher up its path.
+- Nothing to go on, nothing suggested. It only ever suggests: Kay still taps.
+
+`tests/etsy.js` has 11 new checks (98 in all), verified against three broken
+copies: UK words not translated, empty words kept, and a category's own
+name counting no more than its path.
+
+---
+
 ## v1.60.0 - 13 October 2026, 22:56
 
 **Etsy categories can be chosen for subfolders too.**

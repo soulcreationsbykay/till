@@ -1429,6 +1429,8 @@
   <div class="modal">
     <h2 id="etsyCatTitle">Etsy category</h2>
     <p class="folder-hint" style="margin:4px 0 10px;">Type a word or two, e.g. <b>earrings</b> or <b>crochet</b>, then tap the best match. Etsy's categories use US words, like <b>Jewelry</b>.</p>
+    <!-- v1.61.0: the till's best guesses, from the folder and its items' words. -->
+    <div id="etsyCatSuggest" style="display:none;margin-bottom:10px;"></div>
     <input type="text" id="etsyCatSearch" autocomplete="off" placeholder="Search Etsy's categories">
     <div id="etsyCatResults" style="max-height:46vh;overflow-y:auto;margin:8px 0 12px;"></div>
     <div class="btn-row">
@@ -4532,9 +4534,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.60.0';
+  const APP_VERSION = '1.61.0';
   const BUILD_DATE  = '13 Oct 2026';
-  const BUILD_TIME  = '22:56';
+  const BUILD_TIME  = '23:01';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -5112,6 +5114,62 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const levels = etsyFolderLevels(folder);
     for(const l of levels){ if(cats && cats[l.key]) return { level: l, cat: cats[l.key], levels: levels }; }
     return { level: levels[0] || null, cat: null, levels: levels };
+  }
+
+  // Suggesting an Etsy category (v1.61.0). Etsy's API has no suggestion of its
+  // own, so the till scores Etsy's categories by the words Kay already uses:
+  // the folder's name, and the names, Etsy titles and tags of its Etsy items.
+  // Only ever a suggestion: Kay taps to choose.
+  //
+  // Etsy's categories are in US English, so a few UK words are translated.
+  const ETSY_US_WORDS = {
+    jewellery:'jewelry', colour:'color', jumper:'sweater', nappy:'diaper', trouser:'pant',
+    mum:'mom', grey:'gray', keyring:'keychain', dummy:'pacifier', pram:'stroller',
+    cot:'crib', biscuit:'cookie', sweet:'candy', holdall:'duffel', plait:'braid',
+  };
+  // Words that say nothing about what a thing is.
+  const ETSY_STOP_WORDS = ('a an and the of for with in on to by from my your our set kay handmade hand made '
+    + 'gift gifts item items other new small large mini little lovely beautiful pretty cute unique '
+    + 'sterling silver gold plated natural real').split(' ').reduce(function(m, w){ m[w] = 1; return m; }, {});
+
+  // Lower case, letters only, a final "s" dropped (so "Bookmarks" and
+  // "bookmark" agree), UK words made US, nothing too short to mean anything.
+  function etsyWords(text){
+    return String(text || '').toLowerCase().split(/[^a-z]+/)
+      .map(function(w){ w = w.length > 3 ? w.replace(/s$/, '') : w; return ETSY_US_WORDS[w] || w; })
+      .filter(function(w){ return w.length > 2 && !ETSY_STOP_WORDS[w]; });
+  }
+
+  // folders: the folder level's names, most specific first ("Bookmarks",
+  // "Crafted Gifts"). texts: its items' names, Etsy titles and tags.
+  // A word scores more for being the folder's own name, and for being common
+  // across its items; a category scores more when the word is in its own last
+  // part ("… › Bookmarks") than higher up its path. Best first.
+  function suggestEtsyCategories(list, folders, texts, max){
+    const weight = {};
+    const add = function(w, n){ weight[w] = (weight[w] || 0) + n; };
+    (folders || []).forEach(function(name, i){ etsyWords(name).forEach(function(w){ add(w, i === 0 ? 3 : 1.5); }); });
+    const n = (texts || []).length || 1;
+    (texts || []).forEach(function(t){
+      const seen = {};
+      etsyWords(t).forEach(function(w){ if(!seen[w]){ seen[w] = 1; add(w, 2 / n); } });
+    });
+    const words = Object.keys(weight);
+    if(!words.length) return [];
+    const scored = [];
+    (list || []).forEach(function(c){
+      const parts = String(c.path || '').split(' › ');
+      const last = etsyWords(parts[parts.length - 1]);
+      const all = etsyWords(c.path);
+      let score = 0;
+      words.forEach(function(w){
+        if(last.indexOf(w) !== -1) score += weight[w] * 2;
+        else if(all.indexOf(w) !== -1) score += weight[w];
+      });
+      if(score > 0) scored.push({ id: c.id, path: c.path, score: score });
+    });
+    scored.sort(function(a, b){ return b.score - a.score || a.path.length - b.path.length; });
+    return scored.slice(0, max || 3);
   }
 
   // cat: { key, label, keys } for the item's folder, keys most specific first.
@@ -12345,6 +12403,40 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     });
   }
 
+  // The till's best three guesses for the folder being chosen (v1.61.0), from
+  // its name and the words of the Etsy items in it, subfolders included.
+  function renderEtsyCatSuggest(){
+    const box = document.getElementById('etsyCatSuggest');
+    const c = etsyCatPicking;
+    box.innerHTML = '';
+    box.style.display = 'none';
+    if(!c || !etsyTaxo) return;
+    const texts = [];
+    Object.keys(items).forEach(bc => {
+      const it = items[bc];
+      if(!it.etsy) return;
+      if(!etsyFolderLevels(it.folder).some(l => l.key === c.key)) return;
+      texts.push([it.name, it.etsyTitle].concat(etsyTagsOf(it)).filter(Boolean).join(' '));
+    });
+    const hits = suggestEtsyCategories(etsyTaxo, c.label.split(' › ').reverse(), texts, 3);
+    if(!hits.length) return;
+    const head = document.createElement('div');
+    head.className = 'folder-hint';
+    head.style.margin = '0 0 6px';
+    head.textContent = 'Suggested, from the folder and its items. Tap one, or search below.';
+    box.appendChild(head);
+    hits.forEach((h, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn ' + (i === 0 ? 'btn-primary' : 'btn-secondary');
+      b.style.cssText = 'width:100%;margin-bottom:6px;text-align:left;font-weight:600;';
+      b.textContent = h.path;
+      b.addEventListener('click', () => saveEtsyCat({ taxonomyId: h.id }));
+      box.appendChild(b);
+    });
+    box.style.display = '';
+  }
+
   async function openEtsyCatPicker(c){
     etsyCatPicking = c;
     document.getElementById('etsyCatTitle').textContent = 'Etsy category for ' + c.label;
@@ -12352,6 +12444,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     // The most specific word is the best search: "Bookmarks", not "Crafted Gifts › Bookmarks".
     s.value = c.label.split(' › ').pop().replace(/jewellery/i, 'Jewelry');
     document.getElementById('etsyCatModal').style.display = 'flex';
+    renderEtsyCatSuggest();
     renderEtsyCatResults();
     if(!etsyTaxo){
       try{
@@ -12362,6 +12455,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
           ? 'Verify the till\'s sign-in email first (Settings → Etsy → Check connection).' : e.message;
         return;
       }
+      renderEtsyCatSuggest();
       renderEtsyCatResults();
     }
   }
