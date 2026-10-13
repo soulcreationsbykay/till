@@ -1182,6 +1182,13 @@
       <div class="storage-note" id="etsySummary"></div>
       <div id="etsyList"></div>
 
+      <!-- Etsy categories, one per folder (v1.59.0). Kept by the Etsy service, so
+           every till sees the same. Only folders with an Etsy item are listed. -->
+      <div class="quick-sell-head" style="margin-top:16px;">Etsy categories for your folders</div>
+      <div class="folder-hint">Each folder's items go in the Etsy category chosen here. Choose once per folder.</div>
+      <div id="etsyCatList"></div>
+      <div class="storage-note" id="etsyCatNote" style="text-align:left;"></div>
+
       <!-- The link to Kay's Etsy shop (v1.58.0, step 1: connect and look only). -->
       <div class="quick-sell-head" style="margin-top:16px;">Connection to Etsy</div>
       <div class="folder-hint">
@@ -1411,6 +1418,21 @@
     <div class="btn-row">
       <button class="btn btn-secondary" id="confirmCancelBtn">Cancel</button>
       <button class="btn btn-danger" id="confirmOkBtn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pick an Etsy category for one folder (v1.59.0). Etsy's list has thousands,
+     so it is searched rather than scrolled. -->
+<div class="modal-overlay" id="etsyCatModal" style="display:none;">
+  <div class="modal">
+    <h2 id="etsyCatTitle">Etsy category</h2>
+    <p class="folder-hint" style="margin:4px 0 10px;">Type a word or two, e.g. <b>earrings</b> or <b>crochet</b>, then tap the best match. Etsy's categories use US words, like <b>Jewelry</b>.</p>
+    <input type="text" id="etsyCatSearch" autocomplete="off" placeholder="Search Etsy's categories">
+    <div id="etsyCatResults" style="max-height:46vh;overflow-y:auto;margin:8px 0 12px;"></div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" id="etsyCatCancel">Cancel</button>
+      <button class="btn btn-secondary" id="etsyCatClear">No category</button>
     </div>
   </div>
 </div>
@@ -1885,6 +1907,18 @@
         <label for="editEtsyTags">Tags for Etsy (optional)</label>
         <input type="text" id="editEtsyTags" autocomplete="off" placeholder="e.g. crochet spider, halloween gift, amigurumi">
         <div class="folder-hint" id="editEtsyTagsHint"></div>
+        <!-- v1.59.0: what Etsy will be told, and the button that sends it. -->
+        <label for="editEtsyReturns">Returns on Etsy</label>
+        <select id="editEtsyReturns">
+          <option value="">Automatic</option>
+          <option value="returns">Returns within 14 days</option>
+          <option value="none">No returns or exchanges</option>
+        </select>
+        <ul class="folder-hint" id="editEtsyPlan" style="margin:6px 0 0;padding-left:18px;"></ul>
+        <button class="btn btn-primary" type="button" id="editEtsySend" style="width:100%;margin-top:10px;">Send to Etsy as a draft</button>
+        <a class="btn btn-secondary" id="editEtsyOpen" href="#" target="_blank" rel="noopener noreferrer"
+           style="display:none;width:100%;margin-top:10px;text-align:center;text-decoration:none;box-sizing:border-box;">Open the draft on Etsy</a>
+        <div class="folder-hint" id="editEtsySendHint"></div>
       </div>
       <div class="state" id="editEtsyState"></div>
     </div>
@@ -4497,9 +4531,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.58.0';
+  const APP_VERSION = '1.59.0';
   const BUILD_DATE  = '13 Oct 2026';
-  const BUILD_TIME  = '21:24';
+  const BUILD_TIME  = '22:28';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -5028,6 +5062,55 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   function etsyTagsOf(it){
     return it && Array.isArray(it.etsyTags)
       ? it.etsyTags.filter(function(t){ return typeof t === 'string' && t; }) : [];
+  }
+
+  // What a draft listing will be sent with (v1.59.0). The Etsy service turns
+  // these into Etsy's own numbers using Kay's settings there, by name.
+  //
+  // Returns: earrings are not returnable, for hygiene, so anything with
+  // "earring" in its name or folder gets the no-returns policy, and the rest
+  // the 14-day one. Kay can override it per item (`etsyReturns`).
+  function isEarring(it){
+    return /earring/i.test(String((it && it.name) || '')) || /earring/i.test(String((it && it.folder) || ''));
+  }
+  function etsyReturnsFor(it){
+    const o = it && it.etsyReturns;
+    if(o === 'none') return { noReturns: true, auto: false, label: 'No returns or exchanges' };
+    if(o === 'returns') return { noReturns: false, auto: false, label: 'Returns within 14 days' };
+    return isEarring(it)
+      ? { noReturns: true, auto: true, label: 'No returns or exchanges (earrings)' }
+      : { noReturns: false, auto: true, label: 'Returns within 14 days' };
+  }
+  // A parcel unless it is set as a letter: never the cheaper one by accident,
+  // the same rule as the website's basket.
+  function etsyDeliveryFor(it){
+    return it && it.post === 'letter' ? 'Large letter' : 'Small parcel';
+  }
+  // cat: { key, label } for the item's folder. Photos are added by the caller.
+  function etsyDraftPayload(it, bc, cat){
+    const r = etsyReturnsFor(it);
+    return {
+      barcode: bc,
+      title: String(it.etsyTitle || it.name || '').trim(),
+      description: String(it.webDesc || '').trim(),
+      price: Number(it.price) || 0,
+      quantity: Number(it.counted) || 0,
+      tags: etsyTagsOf(it),
+      post: it.post === 'letter' ? 'letter' : 'parcel',
+      category: cat.key,
+      categoryLabel: cat.label,
+      noReturns: r.noReturns,
+    };
+  }
+  // Etsy's categories, searched: every word typed must appear in the path.
+  // Shortest paths first, so "Earrings" comes before its sub-kinds.
+  function searchEtsyCategories(list, query, max){
+    const words = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
+    if(!words.length) return [];
+    return (list || [])
+      .filter(function(c){ const p = String(c.path || '').toLowerCase(); return words.every(function(w){ return p.indexOf(w) !== -1; }); })
+      .sort(function(a, b){ return a.path.length - b.path.length || a.path.localeCompare(b.path); })
+      .slice(0, max || 40);
   }
   // ETSY: END OF THE PURE PART
 
@@ -7451,6 +7534,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     el.textContent = st === 'ready'
       ? 'Ready for Etsy. Kept off the website.'
       : 'Not ready for Etsy yet: ' + ETSY_WHY[st] + '. Kept off the website.';
+    // The Send button depends on the same price and count (v1.59.0).
+    try{ renderEditEtsyPlan(); }catch(e){}
   }
 
   function renderEditEtsy(){
@@ -7872,6 +7957,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // The Etsy card in Settings: everything kept for Etsy, what still needs doing
   // first. Redrawn by saveItems, so a remote edit or a new photo shows here too.
   function renderEtsyCard(){
+    try{ renderEtsyCats(); }catch(e){}
     const sum = document.getElementById('etsySummary');
     const list = document.getElementById('etsyList');
     if(!sum || !list) return;
@@ -7893,8 +7979,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       nm.textContent = row.name;
       const act = document.createElement('div');
       act.className = 'act ' + (row.status === 'ready' ? 'add' : 'update');
+      const onEtsy = items[row.bc] && items[row.bc].etsyListingId;
       act.textContent = row.status === 'ready'
-        ? 'Ready: ' + row.pics + ' photo' + (row.pics === 1 ? '' : 's')
+        ? (onEtsy ? 'On Etsy as a draft' : 'Ready: ' + row.pics + ' photo' + (row.pics === 1 ? '' : 's') + '. Open it to send it to Etsy.')
         : 'Still ' + ETSY_WHY[row.status];
       what.appendChild(nm); what.appendChild(act);
       r.appendChild(what);
@@ -12069,7 +12156,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         verifyBtn.style.display = 'none';
         discBtn.style.display = d.connected ? '' : 'none';
         connectBtn.textContent = d.connected ? 'Connect again' : 'Connect Etsy shop';
-        if(d.connected){ allow.style.display = 'none'; waitingForAllow = false; }
+        if(d.connected){ allow.style.display = 'none'; waitingForAllow = false; loadEtsyCats(true); }
       }catch(e){ failed(e); }
       finally{ checkBtn.disabled = false; }
     }
@@ -12118,6 +12205,251 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     document.getElementById('etsyUrlSaveBtn').addEventListener('click', () => {
       try{ urlInput.value = EtsyLink.set(urlInput.value); showToast('Etsy service address saved', 'success'); }
       catch(e){ showToast(e.message, 'error'); }
+    });
+  })();
+
+  // ---- Etsy drafts and folder categories (v1.59.0) ----
+  //
+  // The category for each folder is kept by the Etsy service, so every till
+  // agrees; this till holds a copy once it has asked. Etsy's own category list
+  // is fetched once a session, only when Kay opens the picker.
+  var etsyCats = null;        // folder key -> { id, path, label }, or null until asked
+  var etsyTaxo = null;        // [{ id, path }]
+  var etsyCatPicking = null;  // { key, label } while the picker is open
+
+  function etsyCatOf(folder){
+    const label = webCategoryOfFolder(folder);
+    return { key: label ? webCategoryKey(folder) : '', label: label };
+  }
+  function etsyEditUrl(id){ return 'https://www.etsy.com/your/shops/me/listing-editor/edit/' + encodeURIComponent(id); }
+
+  async function loadEtsyCats(quiet){
+    try{
+      const r = await EtsyLink.call('/staff/categories', { method:'GET' });
+      etsyCats = (r && r.categories) || {};
+    }catch(e){
+      if(!quiet) showToast(e.code === 'email-unverified' ? 'Verify the till\'s sign-in email first (Settings → Etsy)' : e.message, 'error');
+    }
+    renderEtsyCats();
+    renderEditEtsyPlan();
+  }
+
+  // Settings: one row per folder that has an item kept for Etsy.
+  function renderEtsyCats(){
+    const list = document.getElementById('etsyCatList');
+    const note = document.getElementById('etsyCatNote');
+    if(!list || !note) return;
+    const seen = {}, rows = [];
+    let loose = 0;
+    Object.keys(items).forEach(bc => {
+      const it = items[bc];
+      if(!it.etsy) return;
+      const c = etsyCatOf(it.folder);
+      if(!c.key){ loose++; return; }
+      if(!seen[c.key]){ seen[c.key] = 1; rows.push(c); }
+    });
+    rows.sort((a, b) => a.label.localeCompare(b.label));
+    list.innerHTML = '';
+    rows.forEach(c => {
+      const r = document.createElement('div');
+      r.className = 'web-row';
+      const what = document.createElement('div');
+      what.className = 'what';
+      const nm = document.createElement('div');
+      nm.className = 'nm';
+      nm.textContent = c.label;
+      const act = document.createElement('div');
+      const got = etsyCats && etsyCats[c.key];
+      act.className = 'act ' + (got ? 'add' : 'update');
+      act.textContent = etsyCats == null ? 'Press Check connection below to see the category.'
+        : (got ? got.path : 'Not chosen yet');
+      what.appendChild(nm); what.appendChild(act);
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn btn-secondary';
+      b.style.cssText = 'width:auto;padding:6px 14px;flex:none;';
+      b.textContent = got ? 'Change' : 'Choose';
+      b.addEventListener('click', () => openEtsyCatPicker(c));
+      r.appendChild(what); r.appendChild(b);
+      list.appendChild(r);
+    });
+    note.textContent = !rows.length && !loose
+      ? 'No items are kept for Etsy yet.'
+      : (loose ? loose + ' Etsy item' + (loose === 1 ? ' is' : 's are') + ' not in a folder like Kay/Crochet, so '
+          + (loose === 1 ? 'it has' : 'they have') + ' no category. Move ' + (loose === 1 ? 'it' : 'them') + ' into one.' : '');
+  }
+
+  function renderEtsyCatResults(){
+    const box = document.getElementById('etsyCatResults');
+    box.innerHTML = '';
+    if(!etsyTaxo){ box.textContent = 'Loading Etsy\'s categories…'; return; }
+    const q = document.getElementById('etsyCatSearch').value;
+    const hits = searchEtsyCategories(etsyTaxo, q, 40);
+    if(!q.trim()){ box.textContent = 'Type to search.'; return; }
+    if(!hits.length){ box.textContent = 'Nothing matches. Try another word, e.g. Jewelry rather than Jewellery.'; return; }
+    hits.forEach(h => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn btn-secondary';
+      b.style.cssText = 'width:100%;margin-bottom:6px;text-align:left;font-weight:500;';
+      b.textContent = h.path;
+      b.addEventListener('click', () => saveEtsyCat({ taxonomyId: h.id }));
+      box.appendChild(b);
+    });
+  }
+
+  async function openEtsyCatPicker(c){
+    etsyCatPicking = c;
+    document.getElementById('etsyCatTitle').textContent = 'Etsy category for ' + c.label;
+    const s = document.getElementById('etsyCatSearch');
+    s.value = c.label.replace(/jewellery/i, 'Jewelry');
+    document.getElementById('etsyCatModal').style.display = 'flex';
+    renderEtsyCatResults();
+    if(!etsyTaxo){
+      try{
+        const r = await EtsyLink.call('/staff/taxonomy', { method:'GET' });
+        etsyTaxo = (r && r.categories) || [];
+      }catch(e){
+        document.getElementById('etsyCatResults').textContent = e.code === 'email-unverified'
+          ? 'Verify the till\'s sign-in email first (Settings → Etsy → Check connection).' : e.message;
+        return;
+      }
+      renderEtsyCatResults();
+    }
+  }
+
+  async function saveEtsyCat(what){
+    const c = etsyCatPicking;
+    if(!c) return;
+    try{
+      const r = await EtsyLink.call('/staff/categories', { method:'POST',
+        body: JSON.stringify(Object.assign({ key: c.key, label: c.label }, what)) });
+      etsyCats = (r && r.categories) || {};
+      document.getElementById('etsyCatModal').style.display = 'none';
+      etsyCatPicking = null;
+      showToast(what.remove ? 'Category cleared for ' + c.label : 'Etsy category saved for ' + c.label, 'success');
+    }catch(e){ showToast(e.message, 'error'); }
+    renderEtsyCats();
+    renderEditEtsyPlan();
+  }
+
+  document.getElementById('etsyCatSearch').addEventListener('input', renderEtsyCatResults);
+  document.getElementById('etsyCatCancel').addEventListener('click', () => {
+    document.getElementById('etsyCatModal').style.display = 'none';
+    etsyCatPicking = null;
+  });
+  document.getElementById('etsyCatClear').addEventListener('click', () => saveEtsyCat({ remove: true }));
+
+  // The item's Etsy section: what Etsy will be told, read from the form as it
+  // stands, and the Send button (or the link, once it is on Etsy).
+  function renderEditEtsyPlan(){
+    const ul = document.getElementById('editEtsyPlan');
+    const it = items[currentEditBarcode];
+    if(!ul || !it) return;
+    const view = Object.assign({}, it, {
+      name: document.getElementById('editItemName').value.trim() || it.name,
+      folder: normFolder(document.getElementById('editItemFolder').value),
+      post: postSize(document.getElementById('editPost').value),
+      etsyReturns: document.getElementById('editEtsyReturns').value || undefined,
+      price: parseFloat(document.getElementById('editItemPrice').value) || 0,
+      counted: parseInt(document.getElementById('editItemCounted').value, 10) || 0,
+      etsy: 1,
+    });
+    const r = etsyReturnsFor(view);
+    const c = etsyCatOf(view.folder);
+    const got = c.key && etsyCats && etsyCats[c.key];
+    const lines = [
+      'Delivery profile: ' + etsyDeliveryFor(view) + (view.post ? '' : ' (no postage size chosen, so a parcel)'),
+      'Returns: ' + r.label + (r.auto ? ', automatically' : ''),
+      'Category: ' + (!c.key ? 'none. Put it in a folder like Kay/Crochet.'
+        : got ? got.path
+        : etsyCats == null ? 'the one chosen for ' + c.label + ' in Settings → Etsy'
+        : 'not chosen for ' + c.label + ' yet (Settings → Etsy)'),
+    ];
+    ul.innerHTML = '';
+    lines.forEach(t => { const li = document.createElement('li'); li.textContent = t; ul.appendChild(li); });
+
+    const send = document.getElementById('editEtsySend');
+    const open = document.getElementById('editEtsyOpen');
+    const hint = document.getElementById('editEtsySendHint');
+    if(it.etsyListingId){
+      send.style.display = 'none';
+      open.style.display = '';
+      open.href = etsyEditUrl(it.etsyListingId);
+      hint.textContent = 'On Etsy as a draft' + (it.etsyDraftAt ? ' since ' + new Date(it.etsyDraftAt).toLocaleDateString('en-GB', { day:'numeric', month:'short' }) : '')
+        + '. Check it there and press Publish when it looks right. Changes made here are not sent yet.';
+      return;
+    }
+    open.style.display = 'none';
+    send.style.display = '';
+    const st = etsyStatus(view);
+    const blocked = st !== 'ready' ? 'Not ready for Etsy yet: ' + ETSY_WHY[st] + '.'
+      : !c.key ? 'Put it in a folder like Kay/Crochet first.'
+      : (etsyCats && !got) ? 'Choose an Etsy category for ' + c.label + ' first, in Settings → Etsy.'
+      : '';
+    send.disabled = !!blocked;
+    hint.textContent = blocked || 'Saves the item, then sends it with its photos. It arrives on Etsy as a DRAFT: nobody can see or buy it until you publish it there.';
+  }
+
+  ['editEtsyReturns', 'editPost'].forEach(id => document.getElementById(id).addEventListener('change', renderEditEtsyPlan));
+  ['editItemFolder', 'editItemName'].forEach(id => document.getElementById(id).addEventListener('input', renderEditEtsyPlan));
+
+  document.getElementById('editEtsySend').addEventListener('click', () => {
+    const bc = currentEditBarcode;
+    askConfirm('Send to Etsy as a draft?',
+      'The item is saved first, then sent to Etsy with its real photos. It arrives as a draft: nobody can see or buy it until you publish it on Etsy.',
+      'Save and send', () => sendEtsyDraft(bc));
+  });
+
+  async function sendEtsyDraft(bc){
+    // The real Save, so what is sent is what is on the record. If Save refuses
+    // (it leaves the form open), stop there.
+    document.getElementById('saveEditItem').click();
+    if(document.getElementById('editItemModal').style.display !== 'none') return;
+    const it = items[bc];
+    if(!it || it.etsyListingId) return;
+    const st = etsyStatus(it);
+    if(st !== 'ready'){ showToast('Not ready for Etsy yet: ' + ETSY_WHY[st], 'error'); return; }
+    const c = etsyCatOf(it.folder);
+    if(!c.key){ showToast('Put it in a folder like Kay/Crochet first', 'error'); return; }
+    showToast('Sending to Etsy…', 'success');
+    try{
+      const photos = [];
+      for(const fp of etsyPicsOf(it)){
+        const id = etsyPhotoDocId(bc, fp);
+        let uri = etsyPicCache[id];
+        if(!uri){ uri = await Sync.getEtsyPhoto(bc, fp); if(uri) etsyPicCache[id] = uri; }
+        if(!uri) throw new Error('One of its Etsy photos has not finished uploading. Try again in a minute.');
+        photos.push(uri);
+      }
+      const payload = etsyDraftPayload(it, bc, c);
+      payload.photos = photos;
+      const r = await EtsyLink.call('/staff/listings', { method:'POST', body: JSON.stringify(payload) });
+      const cur = items[bc];
+      if(cur && r && r.listingId){
+        cur.etsyListingId = r.listingId;
+        cur.etsyDraftAt = new Date().toISOString();
+        saveItems();
+      }
+      renderList(document.getElementById('searchBox').value);
+      const bad = r && r.failedPhotos && r.failedPhotos.length;
+      showToast(r && r.already ? 'It was already on Etsy as a draft'
+        : bad ? 'Draft made, but photo ' + r.failedPhotos.join(', ') + ' did not upload: add it on Etsy'
+        : 'Draft made on Etsy with ' + (r ? r.photos : 0) + ' photo' + (r && r.photos === 1 ? '' : 's'),
+        bad ? 'error' : 'success');
+      openEditModal(bc);
+      setTimeout(() => { const el = document.getElementById('editEtsySendHint'); if(el) el.scrollIntoView({ block:'center' }); }, 150);
+    }catch(e){
+      showToast(e.code === 'email-unverified' ? 'Verify the till\'s sign-in email first (Settings → Etsy)' : (e.message || 'Could not send it'), 'error');
+    }
+  }
+
+  // Settings opened: ask for the categories once, quietly, if this till can.
+  (function(){
+    const tab = document.querySelector('.tab[data-tab="settings"]');
+    if(tab) tab.addEventListener('click', () => {
+      renderEtsyCats();
+      if(etsyCats == null && Sync.isConnected()) loadEtsyCats(true);
     });
   })();
 
@@ -14204,6 +14536,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     document.getElementById('editEtsyTitle').value = it.etsyTitle || '';
     document.getElementById('editEtsyTags').value = etsyTagsOf(it).join(', ');
     renderEtsyTextHints('edit');
+    document.getElementById('editEtsyReturns').value = it.etsyReturns === 'none' || it.etsyReturns === 'returns' ? it.etsyReturns : '';
+    renderEditEtsyPlan();
+    // The category is kept by the Etsy service; ask once, quietly.
+    if(it.etsy && etsyCats == null && Sync.isConnected()) loadEtsyCats(true);
 
     // Set pricing: own rule, partner in someone else's rule, or neither
     const owned = setMembers(barcode) ? it.set : null;
@@ -14315,6 +14651,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     // again. Empty means gone from the record, not stored empty.
     if(etsyText.title) it.etsyTitle = etsyText.title; else delete it.etsyTitle;
     if(etsyText.tags.length) it.etsyTags = etsyText.tags; else delete it.etsyTags;
+    // Returns on Etsy: absent means automatic (earrings none, the rest 14 days).
+    const etsyRet = document.getElementById('editEtsyReturns').value;
+    if(etsyRet === 'none' || etsyRet === 'returns') it.etsyReturns = etsyRet; else delete it.etsyReturns;
     // Held on to before it is overwritten: it is what tells the other variants
     // apart from one another once this one has moved on. See offerDescCarryOver.
     const wasDesc = String(it.webDesc || '').trim();

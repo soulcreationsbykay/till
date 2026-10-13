@@ -10,6 +10,47 @@ fixes.
 
 ---
 
+## v1.59.0 - 13 October 2026, 22:28
+
+**Items can be sent to Etsy as draft listings, one at a time.**
+
+Step 2 of the Etsy link. Needs `kay-etsy` deployed with its step 2.
+**Drafts only**: nobody on Etsy can see or buy one until Kay presses Publish
+on Etsy herself. Nothing is published, changed or deleted by the till.
+
+- **Settings → 🧡 Etsy → Etsy categories for your folders.** One row per
+  folder that has an item kept for Etsy (Jewellery, Crafted Gifts…), with
+  **Choose**. That opens a search of Etsy's own categories (they use US
+  words: *Jewelry*); tap the best match. The choice is kept by the Etsy
+  service, so every till sees the same.
+- **On each Etsy item**, under the tags, the till now shows what Etsy will
+  be told:
+  - **Delivery profile**: *Large letter* or *Small parcel*, from the
+    postage size. No size chosen means a parcel, never the cheaper one by
+    accident.
+  - **Returns**: automatically *No returns or exchanges* for anything with
+    "earring" in its name or folder (for hygiene, as on the website), and
+    *Returns within 14 days* for the rest. **Returns on Etsy** changes it
+    for one item.
+  - **Category**: the one chosen for its folder.
+- **Send to Etsy as a draft**, once the item is ready and its folder has a
+  category. It saves the item first, then sends its words, price, stock,
+  tags and real Etsy photos (never the website photo). The till then shows
+  **Open the draft on Etsy** instead, and Settings → Etsy lists it as *On
+  Etsy as a draft*. Pressing again, or on another till, never makes a
+  second draft.
+- A photo Etsy will not take is named in the message; the draft still
+  arrives and the photo can be added on Etsy.
+- **Not yet:** changes made in the till after a draft is sent do not reach
+  Etsy. That is step 3.
+- New fields: `etsyReturns`, `etsyListingId`, `etsyDraftAt`. See SHARED.md.
+
+`tests/etsy.js` has 26 new checks (76 in all), verified against three broken
+copies: earrings not recognised, no postage size sent as a letter, and the
+website photo sent.
+
+---
+
 ## v1.58.0 - 13 October 2026, 21:24
 
 **Settings → Etsy can connect the till to Kay's Etsy shop, and look at it.**

@@ -21,7 +21,7 @@ const SRC = HTML.slice(a, b);
 
 const ctx = { console };
 vm.createContext(ctx);
-vm.runInContext(SRC + '\nthis.T = { ETSY_PHOTO_MAX, etsyPicsOf, etsyPhotoDocId, etsyStatus, applyEtsyChoice, etsyAddPic, etsyRemovePic, etsyMovePic, etsyTodo, cleanEtsyTitle, parseEtsyTags, etsyTagsOf, ETSY_TITLE_MAX, ETSY_TAG_MAX, ETSY_TAG_LEN };', ctx);
+vm.runInContext(SRC + '\nthis.T = { ETSY_PHOTO_MAX, etsyPicsOf, etsyPhotoDocId, etsyStatus, applyEtsyChoice, etsyAddPic, etsyRemovePic, etsyMovePic, etsyTodo, cleanEtsyTitle, parseEtsyTags, etsyTagsOf, ETSY_TITLE_MAX, ETSY_TAG_MAX, ETSY_TAG_LEN, isEarring, etsyReturnsFor, etsyDeliveryFor, etsyDraftPayload, searchEtsyCategories };', ctx);
 const T = ctx.T;
 
 let pass = 0, fail = 0;
@@ -146,6 +146,58 @@ console.log('\nThe Etsy tags');
   check('a line break also separates tags', T.parseEtsyTags('one\ntwo').tags.length === 2);
   check('nothing typed is no tags', T.parseEtsyTags('').tags.length === 0);
   check('tags read off a record ignore junk', T.etsyTagsOf({ etsyTags: ['ok', '', null, 5] }).join() === 'ok');
+}
+
+// v1.59.0. What a draft listing is sent with. Earrings must never go with a
+// returns policy by accident, the delivery profile must never be the cheaper
+// one by accident, and what is sent is the record, not the website's photo.
+console.log('\nReturns on Etsy');
+{
+  check('earrings in the name are no returns', T.etsyReturnsFor({ name: 'Amethyst Drop Earrings' }).noReturns === true);
+  check('earrings in the folder are no returns', T.etsyReturnsFor({ name: 'Studs', folder: 'Kay/Jewellery/Earrings' }).noReturns === true);
+  check('an earring and pendant set counts as earrings', T.isEarring({ name: 'Black Agate Earrings and Pendant Set' }));
+  check('anything else has returns', T.etsyReturnsFor({ name: 'Crochet spider', folder: 'Kay/Crafted Gifts' }).noReturns === false);
+  check('and says it was automatic', T.etsyReturnsFor({ name: 'Crochet spider' }).auto === true);
+  check('Kay can allow returns on earrings', T.etsyReturnsFor({ name: 'Drop Earrings', etsyReturns: 'returns' }).noReturns === false);
+  check('Kay can refuse returns on anything', T.etsyReturnsFor({ name: 'Scarf', etsyReturns: 'none' }).noReturns === true);
+  check('an unknown override falls back to automatic', T.etsyReturnsFor({ name: 'Drop Earrings', etsyReturns: 'maybe' }).noReturns === true);
+}
+
+console.log('\nDelivery profile on Etsy');
+{
+  check('a large letter is Large letter', T.etsyDeliveryFor({ post: 'letter' }) === 'Large letter');
+  check('a parcel is Small parcel', T.etsyDeliveryFor({ post: 'parcel' }) === 'Small parcel');
+  check('not chosen is a parcel, never the cheaper one', T.etsyDeliveryFor({}) === 'Small parcel');
+}
+
+console.log('\nWhat a draft is sent with');
+{
+  const it = { name: 'Spider', etsyTitle: 'Hand-crocheted spider toy', webDesc: ' A spider. ', price: 15, counted: 2,
+    etsyTags: ['spider', 'gift'], post: 'letter', folder: 'Kay/Crafted Gifts', photo: 'data:image/jpeg;base64,WEBSITE', etsy: 1, etsyPics: ['f1'] };
+  const p = T.etsyDraftPayload(it, 'KA-0201', { key: 'crafted gift', label: 'Crafted Gifts' });
+  check('the Etsy title when there is one', p.title === 'Hand-crocheted spider toy');
+  check('the name when there is not', T.etsyDraftPayload({ name: 'Spider' }, 'KA-1', { key: 'k', label: 'L' }).title === 'Spider');
+  check('the description, tidied', p.description === 'A spider.');
+  check('the stock count is the quantity', p.quantity === 2);
+  check('the tags', p.tags.join() === 'spider,gift');
+  check('the postage size', p.post === 'letter');
+  check('no postage size goes as a parcel', T.etsyDraftPayload({ name: 'x' }, 'KA-1', { key: 'k', label: 'L' }).post === 'parcel');
+  check('the folder category', p.category === 'crafted gift' && p.categoryLabel === 'Crafted Gifts');
+  check('the returns choice', p.noReturns === false);
+  check('never the website photo', !JSON.stringify(p).includes('WEBSITE') && !('photo' in p));
+}
+
+console.log('\nSearching Etsy categories');
+{
+  const list = [
+    { id: 1, path: 'Jewelry' }, { id: 2, path: 'Jewelry › Earrings' },
+    { id: 3, path: 'Jewelry › Earrings › Dangle & Drop Earrings' }, { id: 4, path: 'Toys & Games › Stuffed Animals & Plushies' },
+  ];
+  check('every word must match', T.searchEtsyCategories(list, 'drop earrings').map(c => c.id).join() === '3');
+  check('shortest first', T.searchEtsyCategories(list, 'earrings').map(c => c.id).join() === '2,3');
+  check('capitals do not matter', T.searchEtsyCategories(list, 'JEWELRY').length === 3);
+  check('nothing typed is nothing shown', T.searchEtsyCategories(list, '  ').length === 0);
+  check('at most the number asked for', T.searchEtsyCategories(list, 'e', 2).length === 2);
 }
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
