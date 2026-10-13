@@ -1071,6 +1071,12 @@
           <button class="btn-generate photo-btn" type="button" id="manualEtsyAdd">📷 Add an Etsy photo</button>
           <input type="file" id="manualEtsyInput" accept="image/*" style="display:none;">
           <div class="folder-hint" id="manualEtsyHint"></div>
+          <label for="manualEtsyTitle">Etsy title (optional)</label>
+          <input type="text" id="manualEtsyTitle" maxlength="140" autocomplete="off" placeholder="Leave empty to use the item name">
+          <div class="folder-hint" id="manualEtsyTitleHint"></div>
+          <label for="manualEtsyTags">Tags for Etsy (optional)</label>
+          <input type="text" id="manualEtsyTags" autocomplete="off" placeholder="e.g. crochet spider, halloween gift, amigurumi">
+          <div class="folder-hint" id="manualEtsyTagsHint"></div>
         </div>
       </div>
 
@@ -1831,6 +1837,12 @@
         <button class="btn-generate photo-btn" type="button" id="editEtsyAdd">📷 Add an Etsy photo</button>
         <input type="file" id="editEtsyInput" accept="image/*" style="display:none;">
         <div class="folder-hint" id="editEtsyHint"></div>
+        <label for="editEtsyTitle">Etsy title (optional)</label>
+        <input type="text" id="editEtsyTitle" maxlength="140" autocomplete="off" placeholder="Leave empty to use the item name">
+        <div class="folder-hint" id="editEtsyTitleHint"></div>
+        <label for="editEtsyTags">Tags for Etsy (optional)</label>
+        <input type="text" id="editEtsyTags" autocomplete="off" placeholder="e.g. crochet spider, halloween gift, amigurumi">
+        <div class="folder-hint" id="editEtsyTagsHint"></div>
       </div>
       <div class="state" id="editEtsyState"></div>
     </div>
@@ -4443,9 +4455,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.56.1';
+  const APP_VERSION = '1.57.0';
   const BUILD_DATE  = '13 Oct 2026';
-  const BUILD_TIME  = '17:35';
+  const BUILD_TIME  = '18:00';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -4935,6 +4947,45 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const byName = function(a, b){ return a.name.localeCompare(b.name); };
     out.ready.sort(byName); out.waiting.sort(byName);
     return out;
+  }
+  // The Etsy title and tags (v1.57.0). Both optional: a listing with no title
+  // of its own uses the item's name, and Etsy does not insist on tags. But
+  // tags are most of how Etsy search finds a listing, and Etsy's titles run to
+  // 140 characters of search words where the till's name is a label.
+  //
+  // Etsy's limits: a title of 140 characters; 13 tags of 20 characters each,
+  // made of letters, numbers, spaces, hyphens and apostrophes. Anything else
+  // in a tag is dropped here, because Etsy would refuse the whole listing.
+  const ETSY_TITLE_MAX = 140;
+  const ETSY_TAG_MAX = 13;
+  const ETSY_TAG_LEN = 20;
+
+  function cleanEtsyTitle(s){
+    return String(s || '').replace(/\s+/g, ' ').trim().slice(0, ETSY_TITLE_MAX);
+  }
+
+  // Typed as one line with commas. Reads back what will be kept, what is too
+  // long to keep (said, never silently cut, since a cut tag means something
+  // else), and how many were over the 13.
+  function parseEtsyTags(text){
+    const seen = {}, tags = [], tooLong = [];
+    let over = 0;
+    String(text || '').split(/[,\n]/).forEach(function(raw){
+      const t = raw.replace(/[^\p{L}\p{N}\s'\-]/gu, '').replace(/\s+/g, ' ').trim();
+      if(!t) return;
+      const key = t.toLowerCase();
+      if(seen[key]) return;
+      seen[key] = 1;
+      if(t.length > ETSY_TAG_LEN){ tooLong.push(t); return; }
+      if(tags.length >= ETSY_TAG_MAX){ over++; return; }
+      tags.push(t);
+    });
+    return { tags: tags, tooLong: tooLong, over: over };
+  }
+
+  function etsyTagsOf(it){
+    return it && Array.isArray(it.etsyTags)
+      ? it.etsyTags.filter(function(t){ return typeof t === 'string' && t; }) : [];
   }
   // ETSY: END OF THE PURE PART
 
@@ -7474,6 +7525,50 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     }catch(e){}
     try{ renderAddEtsy(); }catch(e){}
   }
+
+  // ---- Etsy title and tags boxes (v1.57.0), on Edit ('edit') and Add ('manual') ----
+  //
+  // The lines under them answer as Kay types: how much of the 140 the title
+  // uses (or which name Etsy will show instead), how many of the 13 tags are
+  // used, and any tag Etsy would refuse. Saving with a too-long tag is refused
+  // by the form, not cut short, since a cut tag says something else.
+  function etsyNameBoxFor(form){ return form === 'edit' ? 'editItemName' : 'manualName'; }
+
+  function renderEtsyTextHints(form){
+    const title = document.getElementById(form + 'EtsyTitle');
+    const tags = document.getElementById(form + 'EtsyTags');
+    const th = document.getElementById(form + 'EtsyTitleHint');
+    const gh = document.getElementById(form + 'EtsyTagsHint');
+    if(!title || !tags || !th || !gh) return;
+    const t = cleanEtsyTitle(title.value);
+    const name = document.getElementById(etsyNameBoxFor(form)).value.trim();
+    th.textContent = t
+      ? t.length + ' of ' + ETSY_TITLE_MAX + ' characters. Etsy search reads the start of the title most.'
+      : (name ? 'Etsy will show the item name: “' + name + '”.' : 'Etsy will show the item name.');
+    const p = parseEtsyTags(tags.value);
+    let msg = p.tags.length + ' of ' + ETSY_TAG_MAX + ' tags. Separate them with commas.';
+    if(p.tooLong.length) msg += ' Too long for Etsy (' + ETSY_TAG_LEN + ' letters at most): ' + p.tooLong.join(', ') + '.';
+    if(p.over) msg += ' Only the first ' + ETSY_TAG_MAX + ' are kept.';
+    gh.textContent = msg;
+    gh.style.color = p.tooLong.length ? 'var(--danger)' : '';
+  }
+
+  // Read for saving. Null, with a message already shown, when a tag is too long.
+  function readEtsyText(form){
+    const p = parseEtsyTags(document.getElementById(form + 'EtsyTags').value);
+    if(p.tooLong.length){
+      showToast('Etsy tags can be ' + ETSY_TAG_LEN + ' letters at most: shorten “' + p.tooLong[0] + '”', 'error');
+      return null;
+    }
+    return { title: cleanEtsyTitle(document.getElementById(form + 'EtsyTitle').value), tags: p.tags };
+  }
+
+  ['edit', 'manual'].forEach(function(form){
+    [form + 'EtsyTitle', form + 'EtsyTags', etsyNameBoxFor(form)].forEach(function(id){
+      document.getElementById(id).addEventListener('input', function(){ renderEtsyTextHints(form); });
+    });
+  });
+  try{ renderEtsyTextHints('manual'); }catch(e){}
 
   // ---- Etsy photos on the Add item form (v1.55.3) ----
   //
@@ -12995,6 +13090,14 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     // Etsy lists the description and posts it like a website order.
     if(f.etsy) it.etsy = 1;
     else if(f.web) it.web = 1;
+    // Etsy's own title and tags (v1.57.0), already tidied by the form. Only
+    // for an Etsy item, and absent rather than empty.
+    if(f.etsy){
+      const t = String(f.etsyTitle || '').trim();
+      if(t) it.etsyTitle = t;
+      const tags = Array.isArray(f.etsyTags) ? f.etsyTags.filter(s => typeof s === 'string' && s) : [];
+      if(tags.length) it.etsyTags = tags;
+    }
     if(f.web || f.etsy){
       const d = String(f.webDesc || '').trim();
       if(d) it.webDesc = d;
@@ -13044,6 +13147,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     // Etsy photos taken on this form can only be stored with Team sync on.
     // Refused before anything is created, so nothing is half-added.
     const etsyTicked = document.getElementById('manualEtsyOn').checked;
+    const etsyText = etsyTicked ? readEtsyText('manual') : { title: '', tags: [] };
+    if(!etsyText) return;
     if(etsyTicked && etsyPicsOf(addEtsy).length && !Sync.isConnected()){
       showToast('Team sync is not connected, so the Etsy photos cannot be saved. Connect it, or remove them and add them later.', 'error');
       return;
@@ -13054,6 +13159,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       label: document.getElementById('manualLabel').value,
       web: document.getElementById('manualWebOn').checked,
       etsy: document.getElementById('manualEtsyOn').checked,
+      etsyTitle: etsyText.title,
+      etsyTags: etsyText.tags,
       webDesc: document.getElementById('manualWebDesc').value,
       post: document.getElementById('manualPost').value
     });
@@ -13063,7 +13170,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const forEtsy = !!items[bc].etsy;
     clearAddEtsy();
     manualPhoto.clear();
-    ['manualBarcode','manualName','manualQty','manualMaker','manualPrice','manualFolder','manualLabel','manualWebDesc','manualPost'].forEach(id => document.getElementById(id).value='');
+    ['manualBarcode','manualName','manualQty','manualMaker','manualPrice','manualFolder','manualLabel','manualWebDesc','manualPost','manualEtsyTitle','manualEtsyTags'].forEach(id => document.getElementById(id).value='');
+    renderEtsyTextHints('manual');
     // Back to ticked, which is the default for a reason - see the form.
     document.getElementById('manualWebOn').checked = true;
     document.getElementById('manualEtsyOn').checked = false;
@@ -13832,6 +13940,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     document.getElementById('editEtsyOn').checked = !!it.etsy;
     renderEditWebState(it);
     renderEditEtsy();
+    document.getElementById('editEtsyTitle').value = it.etsyTitle || '';
+    document.getElementById('editEtsyTags').value = etsyTagsOf(it).join(', ');
+    renderEtsyTextHints('edit');
 
     // Set pricing: own rule, partner in someone else's rule, or neither
     const owned = setMembers(barcode) ? it.set : null;
@@ -13868,6 +13979,11 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     // Which item this save was about, kept because the offer that follows it
     // runs after the modal has closed.
     const savedBarcode = currentEditBarcode;
+
+    // Checked before anything changes, like the set rule below, so a refused
+    // save leaves the item exactly as it was.
+    const etsyText = readEtsyText('edit');
+    if(!etsyText) return;
 
     // Work the set rule out first and bail on a bad one, so a rejected save
     // leaves the item exactly as it was rather than half-changed.
@@ -13934,6 +14050,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     // Website or Etsy, never both: see applyEtsyChoice.
     applyEtsyChoice(it, document.getElementById('editEtsyOn').checked,
       document.getElementById('editWebOn').checked);
+    // Kept even if Etsy is unticked, like its photos, for when it is ticked
+    // again. Empty means gone from the record, not stored empty.
+    if(etsyText.title) it.etsyTitle = etsyText.title; else delete it.etsyTitle;
+    if(etsyText.tags.length) it.etsyTags = etsyText.tags; else delete it.etsyTags;
     // Held on to before it is overwritten: it is what tells the other variants
     // apart from one another once this one has moved on. See offerDescCarryOver.
     const wasDesc = String(it.webDesc || '').trim();

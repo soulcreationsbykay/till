@@ -10,6 +10,39 @@ fixes.
 
 ---
 
+## v1.57.0 - 13 October 2026, 18:00
+
+**An Etsy title and Etsy tags for each Etsy item.**
+
+Two new boxes in the Etsy section, on Add item and Edit item. Nothing is
+sent to Etsy yet: they are ready for the Etsy link.
+
+- **Etsy title (optional).** Up to 140 characters, Etsy's limit, with a live
+  count. Etsy titles are usually longer than the till's name and lead with
+  search words ("Hand-crocheted spider toy, Halloween gift for kids"). Left
+  empty, the listing will use the item's name, and the line under the box
+  says which name.
+- **Tags for Etsy (optional).** Typed with commas between them. Most of how
+  Etsy search finds a listing. The line under the box counts them against
+  Etsy's 13, and the till tidies them as Etsy needs:
+  - the same tag twice, in any mix of capitals, is kept once
+  - anything but letters, numbers, spaces, hyphens and apostrophes is
+    dropped, because Etsy refuses a listing over one bad tag
+  - a tag over Etsy's 20 characters is shown in red and **Save refuses**
+    until it is shortened. It is never cut short by the till, because a cut
+    tag says something else
+  - more than 13: only the first 13 are kept, and the line says so
+- Neither is needed for an item to count as ready for Etsy.
+- Kept if Etsy is unticked, like the Etsy photos, for when it is ticked
+  again. A website item added on Add item never gets them.
+
+`tests/etsy.js` has 15 new checks (50 in all) and `tests/add-item.js` 4 (43
+in all), verified against five broken copies: long tags cut instead of
+reported, no limit of 13, duplicates kept, characters Etsy refuses kept, and
+the title not capped at 140.
+
+---
+
 ## v1.56.1 - 13 October 2026, 17:35
 
 **Etsy items show their photo in the stock list and the till.**

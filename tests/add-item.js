@@ -146,7 +146,13 @@ console.log('\nKept for Etsy');
   check('a website item is not kept for Etsy', webOnly.web === 1 && !('etsy' in webOnly));
   check('a shop-only item is neither', !('etsy' in newItemRecord(base)) && !('web' in newItemRecord(base)));
   check('no Etsy photos are invented', !('etsyPics' in it));
-  const allowed = ['name', 'qty', 'maker', 'price', 'folder', 'photo', 'counted', 'addedAt', 'etsy', 'webDesc', 'label', 'post'];
+  const titled = newItemRecord({ ...base, etsy: true, etsyTitle: ' Crochet spider toy ', etsyTags: ['spider', '', 'gift'] });
+  check('an Etsy title is kept', titled.etsyTitle === 'Crochet spider toy', 'etsyTitle=' + titled.etsyTitle);
+  check('Etsy tags are kept, blanks dropped', Array.isArray(titled.etsyTags) && titled.etsyTags.join() === 'spider,gift');
+  check('no title or tags typed leaves no fields', !('etsyTitle' in it) && !('etsyTags' in it));
+  const webTitled = newItemRecord({ ...base, web: true, etsyTitle: 'x', etsyTags: ['y'] });
+  check('a website item never gets Etsy text', !('etsyTitle' in webTitled) && !('etsyTags' in webTitled));
+  const allowed = ['name', 'qty', 'maker', 'price', 'folder', 'photo', 'counted', 'addedAt', 'etsy', 'etsyTitle', 'etsyTags', 'webDesc', 'label', 'post'];
   check('no unexpected fields on an Etsy item', Object.keys(it).every(k => allowed.includes(k)),
     Object.keys(it).filter(k => !allowed.includes(k)).join(', '));
 }

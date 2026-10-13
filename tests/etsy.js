@@ -21,7 +21,7 @@ const SRC = HTML.slice(a, b);
 
 const ctx = { console };
 vm.createContext(ctx);
-vm.runInContext(SRC + '\nthis.T = { ETSY_PHOTO_MAX, etsyPicsOf, etsyPhotoDocId, etsyStatus, applyEtsyChoice, etsyAddPic, etsyRemovePic, etsyMovePic, etsyTodo };', ctx);
+vm.runInContext(SRC + '\nthis.T = { ETSY_PHOTO_MAX, etsyPicsOf, etsyPhotoDocId, etsyStatus, applyEtsyChoice, etsyAddPic, etsyRemovePic, etsyMovePic, etsyTodo, cleanEtsyTitle, parseEtsyTags, etsyTagsOf, ETSY_TITLE_MAX, ETSY_TAG_MAX, ETSY_TAG_LEN };', ctx);
 const T = ctx.T;
 
 let pass = 0, fail = 0;
@@ -114,6 +114,38 @@ console.log('\nThe Etsy list in Settings');
   check('each row carries its photo count', t.ready[0].pics === 1 && t.waiting[0].pics === 0);
   const none = T.etsyTodo({});
   check('nothing kept for Etsy is an empty list', !none.ready.length && !none.waiting.length);
+}
+
+// v1.57.0. Etsy refuses a whole listing over one bad tag, so the till must
+// never hand it one: no tag over 20 characters, no more than 13, nothing but
+// letters, numbers, spaces, hyphens and apostrophes. A tag that is too long is
+// reported, never cut, because a cut tag says something else.
+console.log('\nThe Etsy title');
+{
+  check('spaces are tidied', T.cleanEtsyTitle('  Crochet   spider  toy ') === 'Crochet spider toy');
+  check('never over 140', T.cleanEtsyTitle('x'.repeat(200)).length === T.ETSY_TITLE_MAX);
+  check('empty stays empty, so the name is used', T.cleanEtsyTitle('   ') === '');
+}
+
+console.log('\nThe Etsy tags');
+{
+  const p = T.parseEtsyTags('crochet spider, Halloween gift ,amigurumi,, ');
+  check('split on commas and tidied', p.tags.join('|') === 'crochet spider|Halloween gift|amigurumi', p.tags.join('|'));
+  check('the same tag twice, in any case, is kept once',
+    T.parseEtsyTags('Spider, spider, SPIDER').tags.length === 1);
+  check('characters Etsy refuses are dropped', T.parseEtsyTags('gift!, toy & game, kid\'s-toy').tags.join('|') === 'gift|toy game|kid\'s-toy',
+    T.parseEtsyTags('gift!, toy & game, kid\'s-toy').tags.join('|'));
+  check('accented letters are kept', T.parseEtsyTags('crème, naïve').tags.join('|') === 'crème|naïve');
+  const long = T.parseEtsyTags('short, this tag is far too long for etsy');
+  check('a tag over 20 is reported, not kept', long.tags.join('|') === 'short' && long.tooLong.length === 1);
+  check('and not cut short', long.tooLong[0] === 'this tag is far too long for etsy');
+  check('exactly 20 is fine', T.parseEtsyTags('a'.repeat(20)).tags.length === 1);
+  const many = T.parseEtsyTags(Array.from({ length: 16 }, (_, i) => 'tag' + i).join(','));
+  check('no more than 13 kept', many.tags.length === T.ETSY_TAG_MAX, String(many.tags.length));
+  check('and the extra ones are counted', many.over === 3, String(many.over));
+  check('a line break also separates tags', T.parseEtsyTags('one\ntwo').tags.length === 2);
+  check('nothing typed is no tags', T.parseEtsyTags('').tags.length === 0);
+  check('tags read off a record ignore junk', T.etsyTagsOf({ etsyTags: ['ok', '', null, 5] }).join() === 'ok');
 }
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
