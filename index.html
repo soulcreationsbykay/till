@@ -1185,15 +1185,16 @@
       <!-- Etsy categories, one per folder (v1.59.0). Kept by the Etsy service, so
            every till sees the same. Only folders with an Etsy item are listed. -->
       <div class="quick-sell-head" style="margin-top:16px;">Etsy categories for your folders</div>
-      <div class="folder-hint">Each folder's items go in the Etsy category chosen here. Choose once per folder.</div>
+      <div class="folder-hint">Each folder's items go in the Etsy category chosen here. A subfolder, like Bookmarks, can have its own; if it has none, it uses its folder's.</div>
       <div id="etsyCatList"></div>
       <div class="storage-note" id="etsyCatNote" style="text-align:left;"></div>
 
       <!-- The link to Kay's Etsy shop (v1.58.0, step 1: connect and look only). -->
       <div class="quick-sell-head" style="margin-top:16px;">Connection to Etsy</div>
       <div class="folder-hint">
-        Connect once: you sign in to Etsy and press <b>Allow</b>. For now the till only
-        <b>looks</b> at the shop. Nothing is listed or changed on Etsy yet.
+        Connect once: you sign in to Etsy and press <b>Allow</b>. The till only ever sends
+        <b>drafts</b>, one item at a time when you press Send on it. It never publishes,
+        changes or deletes anything on Etsy.
       </div>
       <div class="storage-note" id="etsyConnNote" style="text-align:left;">Not checked yet.</div>
       <ul class="folder-hint" id="etsyConnDetail" style="margin:6px 0 0;padding-left:18px;"></ul>
@@ -4531,9 +4532,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.59.0';
+  const APP_VERSION = '1.60.0';
   const BUILD_DATE  = '13 Oct 2026';
-  const BUILD_TIME  = '22:28';
+  const BUILD_TIME  = '22:56';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -5086,7 +5087,35 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   function etsyDeliveryFor(it){
     return it && it.post === 'letter' ? 'Large letter' : 'Small parcel';
   }
-  // cat: { key, label } for the item's folder. Photos are added by the caller.
+  // The folder levels below the maker, most specific first (v1.60.0). Each is
+  // a key the Etsy service files a category under, folded the way the website
+  // folds a category (lower case, a final "s" dropped), so the top level's key
+  // is the one v1.59.0 used and those choices still apply.
+  //   "Kay/Crafted Gifts/Bookmarks" ->
+  //   [ { key:'crafted gift/bookmark', label:'Crafted Gifts › Bookmarks' },
+  //     { key:'crafted gift',          label:'Crafted Gifts' } ]
+  function etsyFolderLevels(folder){
+    const parts = String(folder || '').split('/').map(function(p){ return p.trim(); }).filter(Boolean).slice(1);
+    const out = [];
+    for(let i = parts.length; i >= 1; i--){
+      const sub = parts.slice(0, i);
+      out.push({
+        key: sub.map(function(p){ return p.toLowerCase().replace(/s$/, ''); }).join('/'),
+        label: sub.join(' › '),
+      });
+    }
+    return out;
+  }
+  // The category an item's folder uses: its own level's if chosen, else the
+  // nearest one above it. level is where it came from; cat is null if none.
+  function etsyCategoryFor(folder, cats){
+    const levels = etsyFolderLevels(folder);
+    for(const l of levels){ if(cats && cats[l.key]) return { level: l, cat: cats[l.key], levels: levels }; }
+    return { level: levels[0] || null, cat: null, levels: levels };
+  }
+
+  // cat: { key, label, keys } for the item's folder, keys most specific first.
+  // Photos are added by the caller.
   function etsyDraftPayload(it, bc, cat){
     const r = etsyReturnsFor(it);
     return {
@@ -5098,6 +5127,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       tags: etsyTagsOf(it),
       post: it.post === 'letter' ? 'letter' : 'parcel',
       category: cat.key,
+      // Every level, most specific first: the Etsy service uses the first
+      // one that has a category, so a subfolder's choice beats its folder's.
+      categories: Array.isArray(cat.keys) && cat.keys.length ? cat.keys.slice() : [cat.key],
       categoryLabel: cat.label,
       noReturns: r.noReturns,
     };
@@ -12217,9 +12249,13 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   var etsyTaxo = null;        // [{ id, path }]
   var etsyCatPicking = null;  // { key, label } while the picker is open
 
+  // The item's own (most specific) folder level, with every level's key for
+  // the Etsy service to try in order (v1.60.0).
   function etsyCatOf(folder){
-    const label = webCategoryOfFolder(folder);
-    return { key: label ? webCategoryKey(folder) : '', label: label };
+    const levels = etsyFolderLevels(folder);
+    return levels.length
+      ? { key: levels[0].key, label: levels[0].label, keys: levels.map(l => l.key) }
+      : { key: '', label: '', keys: [] };
   }
   function etsyEditUrl(id){ return 'https://www.etsy.com/your/shops/me/listing-editor/edit/' + encodeURIComponent(id); }
 
@@ -12234,7 +12270,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     renderEditEtsyPlan();
   }
 
-  // Settings: one row per folder that has an item kept for Etsy.
+  // Settings: one row per folder level that has an item kept for Etsy, a
+  // folder and then its subfolders indented under it (v1.60.0). A subfolder
+  // with no choice of its own says which folder's it is using.
   function renderEtsyCats(){
     const list = document.getElementById('etsyCatList');
     const note = document.getElementById('etsyCatNote');
@@ -12244,25 +12282,34 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     Object.keys(items).forEach(bc => {
       const it = items[bc];
       if(!it.etsy) return;
-      const c = etsyCatOf(it.folder);
-      if(!c.key){ loose++; return; }
-      if(!seen[c.key]){ seen[c.key] = 1; rows.push(c); }
+      const levels = etsyFolderLevels(it.folder);
+      if(!levels.length){ loose++; return; }
+      levels.forEach((l, i) => {
+        if(seen[l.key]) return;
+        seen[l.key] = 1;
+        // Its parents, nearest first, for "uses …" below.
+        rows.push({ key: l.key, label: l.label, depth: l.key.split('/').length - 1, above: levels.slice(i + 1) });
+      });
     });
-    rows.sort((a, b) => a.label.localeCompare(b.label));
+    rows.sort((a, b) => a.key.localeCompare(b.key));
     list.innerHTML = '';
     rows.forEach(c => {
       const r = document.createElement('div');
       r.className = 'web-row';
+      if(c.depth) r.style.paddingLeft = (4 + c.depth * 18) + 'px';
       const what = document.createElement('div');
       what.className = 'what';
       const nm = document.createElement('div');
       nm.className = 'nm';
-      nm.textContent = c.label;
+      nm.textContent = c.depth ? c.label.split(' › ').pop() : c.label;
       const act = document.createElement('div');
       const got = etsyCats && etsyCats[c.key];
-      act.className = 'act ' + (got ? 'add' : 'update');
+      const from = !got && etsyCats ? c.above.find(a => etsyCats[a.key]) : null;
+      act.className = 'act ' + (got || from ? 'add' : 'update');
       act.textContent = etsyCats == null ? 'Press Check connection below to see the category.'
-        : (got ? got.path : 'Not chosen yet');
+        : got ? got.path
+        : from ? 'Uses ' + from.label + "'s: " + etsyCats[from.key].path
+        : 'Not chosen yet';
       what.appendChild(nm); what.appendChild(act);
       const b = document.createElement('button');
       b.type = 'button';
@@ -12302,7 +12349,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     etsyCatPicking = c;
     document.getElementById('etsyCatTitle').textContent = 'Etsy category for ' + c.label;
     const s = document.getElementById('etsyCatSearch');
-    s.value = c.label.replace(/jewellery/i, 'Jewelry');
+    // The most specific word is the best search: "Bookmarks", not "Crafted Gifts › Bookmarks".
+    s.value = c.label.split(' › ').pop().replace(/jewellery/i, 'Jewelry');
     document.getElementById('etsyCatModal').style.display = 'flex';
     renderEtsyCatResults();
     if(!etsyTaxo){
@@ -12357,12 +12405,14 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     });
     const r = etsyReturnsFor(view);
     const c = etsyCatOf(view.folder);
-    const got = c.key && etsyCats && etsyCats[c.key];
+    // Its own level's category, or the nearest folder above's (v1.60.0).
+    const found = etsyCategoryFor(view.folder, etsyCats);
+    const got = c.key && found.cat;
     const lines = [
       'Delivery profile: ' + etsyDeliveryFor(view) + (view.post ? '' : ' (no postage size chosen, so a parcel)'),
       'Returns: ' + r.label + (r.auto ? ', automatically' : ''),
       'Category: ' + (!c.key ? 'none. Put it in a folder like Kay/Crochet.'
-        : got ? got.path
+        : got ? got.path + ' (from ' + found.level.label + ')'
         : etsyCats == null ? 'the one chosen for ' + c.label + ' in Settings → Etsy'
         : 'not chosen for ' + c.label + ' yet (Settings → Etsy)'),
     ];
@@ -12385,7 +12435,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const st = etsyStatus(view);
     const blocked = st !== 'ready' ? 'Not ready for Etsy yet: ' + ETSY_WHY[st] + '.'
       : !c.key ? 'Put it in a folder like Kay/Crochet first.'
-      : (etsyCats && !got) ? 'Choose an Etsy category for ' + c.label + ' first, in Settings → Etsy.'
+      : (etsyCats && !got) ? 'Choose an Etsy category for ' + c.label
+          + (c.keys.length > 1 ? ', or for its folder,' : '') + ' first, in Settings → Etsy.'
       : '';
     send.disabled = !!blocked;
     hint.textContent = blocked || 'Saves the item, then sends it with its photos. It arrives on Etsy as a DRAFT: nobody can see or buy it until you publish it there.';

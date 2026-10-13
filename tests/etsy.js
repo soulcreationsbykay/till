@@ -21,7 +21,7 @@ const SRC = HTML.slice(a, b);
 
 const ctx = { console };
 vm.createContext(ctx);
-vm.runInContext(SRC + '\nthis.T = { ETSY_PHOTO_MAX, etsyPicsOf, etsyPhotoDocId, etsyStatus, applyEtsyChoice, etsyAddPic, etsyRemovePic, etsyMovePic, etsyTodo, cleanEtsyTitle, parseEtsyTags, etsyTagsOf, ETSY_TITLE_MAX, ETSY_TAG_MAX, ETSY_TAG_LEN, isEarring, etsyReturnsFor, etsyDeliveryFor, etsyDraftPayload, searchEtsyCategories };', ctx);
+vm.runInContext(SRC + '\nthis.T = { ETSY_PHOTO_MAX, etsyPicsOf, etsyPhotoDocId, etsyStatus, applyEtsyChoice, etsyAddPic, etsyRemovePic, etsyMovePic, etsyTodo, cleanEtsyTitle, parseEtsyTags, etsyTagsOf, ETSY_TITLE_MAX, ETSY_TAG_MAX, ETSY_TAG_LEN, isEarring, etsyReturnsFor, etsyDeliveryFor, etsyDraftPayload, searchEtsyCategories, etsyFolderLevels, etsyCategoryFor };', ctx);
 const T = ctx.T;
 
 let pass = 0, fail = 0;
@@ -198,6 +198,29 @@ console.log('\nSearching Etsy categories');
   check('capitals do not matter', T.searchEtsyCategories(list, 'JEWELRY').length === 3);
   check('nothing typed is nothing shown', T.searchEtsyCategories(list, '  ').length === 0);
   check('at most the number asked for', T.searchEtsyCategories(list, 'e', 2).length === 2);
+}
+
+// v1.60.0. A category can be chosen for a subfolder (Crafted Gifts ›
+// Bookmarks) as well as a folder. The most specific choice must win, a
+// subfolder with none must fall back to its folder's, and the folder's key
+// must stay the one v1.59.0 used, so choices already made still apply.
+console.log('\nCategories for subfolders');
+{
+  const lv = T.etsyFolderLevels('Kay/Crafted Gifts/Bookmarks');
+  check('most specific first', lv.map(l => l.key).join(' | ') === 'crafted gift/bookmark | crafted gift', lv.map(l => l.key).join(' | '));
+  check('labels read as a path', lv[0].label === 'Crafted Gifts › Bookmarks' && lv[1].label === 'Crafted Gifts');
+  check('the folder key is the one v1.59.0 used', T.etsyFolderLevels('Kay/Crafted Gifts')[0].key === 'crafted gift');
+  check('the maker is never a level', T.etsyFolderLevels('Kay').length === 0);
+  check('stray spaces and slashes are ignored', T.etsyFolderLevels(' Kay / Jewellery / Earrings /').map(l => l.key).join() === 'jewellery/earring,jewellery');
+  const cats = { 'crafted gift': { path: 'Toys' }, 'crafted gift/bookmark': { path: 'Bookmarks' } };
+  check('a subfolder with its own uses it', T.etsyCategoryFor('Kay/Crafted Gifts/Bookmarks', cats).cat.path === 'Bookmarks');
+  const br = T.etsyCategoryFor('Kay/Crafted Gifts/Brooches', cats);
+  check('a subfolder without one uses its folder\'s', br.cat.path === 'Toys' && br.level.label === 'Crafted Gifts');
+  check('nothing chosen anywhere is none', T.etsyCategoryFor('Kay/Witchcraft/Runes', cats).cat === null);
+  check('categories not loaded yet is none, not a crash', T.etsyCategoryFor('Kay/Crafted Gifts', null).cat === null);
+  const p = T.etsyDraftPayload({ name: 'x' }, 'KA-1', { key: 'crafted gift/bookmark', label: 'Crafted Gifts › Bookmarks', keys: ['crafted gift/bookmark', 'crafted gift'] });
+  check('a draft is sent every level, most specific first', p.categories.join() === 'crafted gift/bookmark,crafted gift');
+  check('and still the one key an older service reads', p.category === 'crafted gift/bookmark');
 }
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

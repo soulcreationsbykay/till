@@ -10,6 +10,29 @@ fixes.
 
 ---
 
+## v1.60.0 - 13 October 2026, 22:56
+
+**Etsy categories can be chosen for subfolders too.**
+
+- **Settings → Etsy → Etsy categories for your folders** now lists every
+  folder level that has an Etsy item: *Crafted Gifts*, and indented under
+  it *Bookmarks*, *Brooches* and so on. Each can have its own Etsy category.
+- **The most specific choice wins.** A bookmark uses the Bookmarks category
+  if one is chosen, otherwise Crafted Gifts'. A subfolder with none of its
+  own says which folder's it is using. Categories already chosen for a
+  folder keep working.
+- The item's Etsy section says where its category comes from, e.g.
+  *Category: … (from Crafted Gifts › Bookmarks)*.
+- The picker starts its search with the subfolder's name.
+- The Connection to Etsy note now says what the till does since step 2:
+  sends drafts, one at a time, and never publishes, changes or deletes.
+- Needs `kay-etsy` redeployed: an older service only reads the folder's
+  category, so subfolder choices are ignored until it is.
+
+`tests/etsy.js` has 11 new checks (87 in all).
+
+---
+
 ## v1.59.0 - 13 October 2026, 22:28
 
 **Items can be sent to Etsy as draft listings, one at a time.**
