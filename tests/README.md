@@ -29,6 +29,7 @@ node tests/backup-reminder.js index.html
 node tests/settings-backup.js index.html
 node tests/web-orders.js index.html
 node tests/orders-lock.js index.html
+node tests/etsy.js index.html
 ```
 
 Each prints a pass/fail line per check and exits non-zero on failure.
@@ -54,6 +55,7 @@ Each prints a pass/fail line per check and exits non-zero on failure.
 | `card-lead.js` | Which picture fronts a card on the website: that the group is read the same way the website reads it, that only one member of a card can lead it and ticking one unticks the rest, and that a lone item clears nobody else | v1.40.0 |
 | `settings-backup.js` | The Settings page travelling in a backup: that the payout percentages are carried (0% commission reads as a working number, not a missing one), that the till id and the administrator PIN never are, that the team-sync details land on a blank device but cannot repoint a working till, and that the storage line never promises more than it can | v1.44.0 |
 | `web-orders.js` | A website order becoming a web sale: one line per item at the price paid after offers, postage as its own misc line with its own report total (not miscellaneous, not an item sold), the lines adding up to what SumUp took, nothing personal in a sale, and items the shelf no longer had reported | v1.52.0 |
+| `etsy.js` | Items kept for Etsy: that the website photo never counts as an Etsy one so nothing is ready without a real photo, that kept for Etsy is never on the website as well, that the record's list of photo fingerprints never holds a duplicate, goes over Etsy's 10 or is left behind empty, that each photo's document names its item as well as the picture, and the Settings list. Checked against six broken copies: photos not required, the website flag kept alongside Etsy, an empty list left behind, `~` not made safe in a barcode, duplicates allowed, no limit. All six produce FAIL lines | v1.55.0 |
 | `orders-lock.js` | The orders password: nothing hidden until one is set, hidden until the right one is typed, hidden again after 5 minutes or on Lock now, a minute's wait after 5 wrong tries, only a salted hash stored, a fresh salt each time, removing it shows everything | v1.54.0 |
 | `set-photos.js` | The photograph a set carries of itself: that the picture never reaches localStorage or the inside of the rule — only a fingerprint does, because `data.set` is projected whole on every catalogue rebuild — that a picture which merely has not hydrated yet is put back rather than deleted, that a deliberate Remove really removes it, and that taking a set apart takes its photograph with it | v1.39.0 |
 | `sets.js` | Set prices with more than two items in them: that a rule of three or four is recognised, that **every** member has to be in the basket before it applies and the saving comes straight back off when one leaves, that the saving is split across all the members in proportion to price — which is what each maker's payout is worked out from — and that two overlapping sets resolve the same way whatever order the stock list is in | v1.38.0 |

@@ -1120,6 +1120,17 @@
       <button class="btn btn-secondary" id="tidySyncBtn" style="width:100%;margin-top:8px;">🧹 Tidy up old deleted records</button>
       <div class="storage-note" id="tidySyncNote"></div>
     </div>
+    <!-- Etsy (v1.55.0): what is kept for Etsy and what each one still needs. -->
+    <div class="card" id="etsyCard">
+      <div class="quick-sell-head">🧡 Etsy</div>
+      <div class="folder-hint" style="margin-bottom:10px;">
+        Items ticked <b>Keep this one for Etsy</b> on the Edit item screen. Each
+        needs at least one real, un-AI-edited photo before it can go on Etsy.
+        Tap one to open it.
+      </div>
+      <div class="storage-note" id="etsySummary"></div>
+      <div id="etsyList"></div>
+    </div>
     <!-- Stall dates for the website (29 Sept 2026). Shown on the front page under
          "Where to find us"; shop-worker reads them from the team workspace, so
          they reach the site within about a quarter of an hour of being saved
@@ -1769,6 +1780,26 @@
         <div class="folder-hint">Large letter: fits through a letterbox, up to 2.5cm thick and 750g. Anything bigger is a small parcel. Not chosen yet is charged as a small parcel.</div>
       </div>
       <div class="state" id="editWebState"></div>
+    </div>
+
+    <!-- Etsy (v1.55.0). Kept for Etsy means not on the website, so ticking one
+         unticks the other. Its photographs are its own, real and unedited,
+         because Etsy will not take the AI-tidied website pictures. Saved the
+         moment they are taken, like the extras above. -->
+    <label>Etsy</label>
+    <div class="web-box">
+      <label class="web-check" for="editEtsyOn" style="margin:0;">
+        <input type="checkbox" id="editEtsyOn">
+        <span>Keep this one for Etsy</span>
+      </label>
+      <div id="editEtsyMore" style="display:none;">
+        <div class="folder-hint" style="margin-top:8px;">Real photos of this item only, straight from the camera: no AI editing, background removal or "enhance". Crop, rotate and brightness are fine. The website photo is never sent to Etsy.</div>
+        <div class="extras-strip" id="editEtsyPics"></div>
+        <button class="btn-generate photo-btn" type="button" id="editEtsyAdd">📷 Add an Etsy photo</button>
+        <input type="file" id="editEtsyInput" accept="image/*" style="display:none;">
+        <div class="folder-hint" id="editEtsyHint"></div>
+      </div>
+      <div class="state" id="editEtsyState"></div>
     </div>
 
     <label>Sold as a set</label>
@@ -4379,9 +4410,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.54.0';
-  const BUILD_DATE  = '11 Oct 2026';
-  const BUILD_TIME  = '02:16';
+  const APP_VERSION = '1.55.0';
+  const BUILD_DATE  = '13 Oct 2026';
+  const BUILD_TIME  = '15:50';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -4778,6 +4809,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       // edit, a record arriving over sync — so this is the one place that keeps
       // the website list honest without every caller having to remember.
       try{ renderWebBanner(); }catch(e){}
+      try{ renderEtsyCard(); }catch(e){}
       return true;
     }catch(e){
       // With photos in IndexedDB this should be very rare now.
@@ -4785,6 +4817,93 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       return false;
     }
   }
+
+  // ETSY: WHAT IS KEPT FOR ETSY (v1.55.0, 13 Oct 2026)
+  //
+  // Kay sells some items on Etsy, and those are KEPT FOR ETSY: not on the
+  // website as well, so one item can never sell in two places at once.
+  //
+  // Etsy will not take AI-made pictures, and every website photograph has been
+  // tidied up with AI. So an Etsy item carries its OWN real photographs, and
+  // nothing here ever falls back to the website one. No real photo, not ready.
+  //
+  // The record holds only fingerprints, in order, as `etsyPics`. The pictures are
+  // up to 2000px for Etsy, several an item, so they live in the workspace's
+  // `etsyPhotos` collection, one document each, and are read only when an item
+  // is opened. On the record they would ride along on every sync of every till
+  // (see the extras notes below for what that costs).
+  const ETSY_PHOTO_MAX = 10;
+
+  function etsyPicsOf(it){
+    const a = it && Array.isArray(it.etsyPics) ? it.etsyPics : [];
+    return a.filter(function(s, i){ return typeof s === 'string' && s && a.indexOf(s) === i; });
+  }
+
+  // The document a photograph lives in. Names the item as well as the picture,
+  // so the same picture on two items is two documents (the extras lesson).
+  function etsyPhotoDocId(bc, fp){
+    return String(bc || '').replace(/[\/\.\#\$\[\]~]/g, '_') + '~' + String(fp || '');
+  }
+
+  // Why an Etsy item cannot go up yet, first problem first, or 'ready'.
+  // 'off' means it is not kept for Etsy at all.
+  function etsyStatus(it){
+    if(!it || !it.etsy) return 'off';
+    if(!etsyPicsOf(it).length) return 'photos';
+    if(!(Number(it.price) > 0)) return 'price';
+    if(!(Number(it.counted) > 0)) return 'stock';
+    return 'ready';
+  }
+
+  const ETSY_WHY = {
+    photos: 'needs a real photo',
+    price:  'needs a price',
+    stock:  'none in stock',
+  };
+
+  // Etsy and the website are one or the other. Whichever was ticked wins.
+  function applyEtsyChoice(it, etsyOn, webOn){
+    if(etsyOn){ it.etsy = 1; delete it.web; }
+    else { delete it.etsy; if(webOn) it.web = 1; else delete it.web; }
+  }
+
+  // The list maintenance is all here so the record can never hold a duplicate,
+  // more than the limit, or an empty list left behind.
+  function etsyAddPic(it, fp){
+    const a = etsyPicsOf(it);
+    if(!fp) return { added:false };
+    if(a.indexOf(fp) !== -1) return { added:false, already:true };
+    if(a.length >= ETSY_PHOTO_MAX) return { added:false, full:true };
+    a.push(fp);
+    it.etsyPics = a;
+    return { added:true };
+  }
+  function etsyRemovePic(it, fp){
+    const a = etsyPicsOf(it).filter(function(s){ return s !== fp; });
+    if(a.length) it.etsyPics = a; else delete it.etsyPics;
+  }
+  function etsyMovePic(it, fp, dir){
+    const a = etsyPicsOf(it), i = a.indexOf(fp), j = i + dir;
+    if(i < 0 || j < 0 || j >= a.length) return false;
+    a[i] = a[j]; a[j] = fp;
+    it.etsyPics = a;
+    return true;
+  }
+
+  // Everything kept for Etsy, split into ready and still waiting, by name.
+  function etsyTodo(all){
+    const out = { ready:[], waiting:[] };
+    Object.keys(all || {}).forEach(function(bc){
+      const st = etsyStatus(all[bc]);
+      if(st === 'off') return;
+      const row = { bc: bc, name: String(all[bc].name || bc), status: st, pics: etsyPicsOf(all[bc]).length };
+      (st === 'ready' ? out.ready : out.waiting).push(row);
+    });
+    const byName = function(a, b){ return a.name.localeCompare(b.name); };
+    out.ready.sort(byName); out.waiting.sort(byName);
+    return out;
+  }
+  // ETSY: END OF THE PURE PART
 
   // ---- the extra photographs: 2 to 6 an item, on this device only ----
   //
@@ -5458,6 +5577,12 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
 
   document.getElementById('editWebOn').addEventListener('change', () => {
     const it = items[currentEditBarcode];
+    // Kept for Etsy means not on the website, so one tick takes the other off.
+    if(document.getElementById('editWebOn').checked && document.getElementById('editEtsyOn').checked){
+      document.getElementById('editEtsyOn').checked = false;
+      renderEditEtsy();
+      showToast('No longer kept for Etsy: it is on the website instead', 'success');
+    }
     if(it) renderEditWebState(it);
   });
 
@@ -5872,7 +5997,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
             ${selectMode ? `<span class="pick">${picked ? '✓' : ''}</span>` : ''}
             ${thumbHtml(it)}
             <div style="min-width:0;">
-              <div class="item-name">${escapeHtml(it.name)}${setOf[bc] ? `<span class="set-badge" title="${escapeAttr(setRuleName(setOf[bc]) + ' — ' + money(setOf[bc].price))}">🎁 SET</span>` : ''}${dealBadgeHtml(dealOf[bc])}${webBadgeHtml(bc)}</div>
+              <div class="item-name">${escapeHtml(it.name)}${setOf[bc] ? `<span class="set-badge" title="${escapeAttr(setRuleName(setOf[bc]) + ' — ' + money(setOf[bc].price))}">🎁 SET</span>` : ''}${dealBadgeHtml(dealOf[bc])}${webBadgeHtml(bc)}${etsyBadgeHtml(bc)}</div>
               <div class="item-meta">${SUPPLIERS ? 'Made by ' + escapeHtml(it.maker||'—') + ' · ' : ''}Expected ${it.qty}${folderTag}</div>
               ${offerLine}
               <div class="item-price">${priceLine}</div>
@@ -7042,6 +7167,224 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       + (waiting
           ? waiting + ' not exported yet — until you do, this device is the only copy.'
           : 'All exported.');
+  }
+
+  // ---- the Etsy box on the edit form (v1.55.0) ----
+  //
+  // The photographs are read from the workspace when an item is opened and kept
+  // here for the rest of the session, so going back to an item costs nothing.
+  const etsyPicCache = {};
+
+  // Etsy suggests 2000px on the long side; a Firestore document must stay under
+  // 1 MiB. So the picture is decoded once and tried at falling sizes until it
+  // fits. Phone photographs nearly always fit at the first.
+  const ETSY_PHOTO_DIMS = [2000, 1600, 1200];
+  const ETSY_PHOTO_QUALITIES = [0.85, 0.72];
+  const ETSY_PHOTO_MAX_CHARS = 900000;
+
+  function fileToEtsyPhoto(file){
+    return new Promise(function(resolve, reject){
+      if(!file || !file.type || !file.type.startsWith('image/')){ reject(new Error('That is not a picture')); return; }
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onerror = function(){ URL.revokeObjectURL(url); reject(new Error('Could not open that picture')); };
+      img.onload = function(){
+        URL.revokeObjectURL(url);
+        try{
+          const long = Math.max(img.width, img.height);
+          for(const dim of ETSY_PHOTO_DIMS){
+            const scale = Math.min(1, dim / long);
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            for(const q of ETSY_PHOTO_QUALITIES){
+              const uri = canvas.toDataURL('image/jpeg', q);
+              if(uri.length <= ETSY_PHOTO_MAX_CHARS) return resolve({ uri: uri, small: long < 1000 });
+            }
+          }
+          reject(new Error('That picture is too big to store'));
+        }catch(e){ reject(e); }
+      };
+      img.src = url;
+    });
+  }
+
+  // The line under the tick. Read from the form as it stands, so it answers for
+  // the price and count being typed, not the ones last saved.
+  function renderEditEtsyState(){
+    const it = items[currentEditBarcode];
+    const el = document.getElementById('editEtsyState');
+    if(!it || !el) return;
+    if(!document.getElementById('editEtsyOn').checked){
+      el.textContent = 'Not kept for Etsy.';
+      return;
+    }
+    const st = etsyStatus(Object.assign({}, it, {
+      etsy: 1,
+      price: parseFloat(document.getElementById('editItemPrice').value) || 0,
+      counted: parseInt(document.getElementById('editItemCounted').value, 10) || 0,
+    }));
+    el.textContent = st === 'ready'
+      ? 'Ready for Etsy. Kept off the website.'
+      : 'Not ready for Etsy yet: ' + ETSY_WHY[st] + '. Kept off the website.';
+  }
+
+  function renderEditEtsy(){
+    const code = currentEditBarcode, it = items[code];
+    const on = document.getElementById('editEtsyOn').checked;
+    document.getElementById('editEtsyMore').style.display = on ? 'block' : 'none';
+    renderEditEtsyState();
+    const strip = document.getElementById('editEtsyPics');
+    const hint = document.getElementById('editEtsyHint');
+    const add = document.getElementById('editEtsyAdd');
+    strip.innerHTML = '';
+    if(!it) return;
+
+    const live = Sync.isConnected();
+    const pics = etsyPicsOf(it);
+    pics.forEach(function(fp, i){
+      const id = etsyPhotoDocId(code, fp);
+      const cell = document.createElement('div');
+      cell.className = 'extra-pic';
+      const img = document.createElement('img');
+      img.alt = '';
+      if(etsyPicCache[id]) img.src = etsyPicCache[id];
+      else if(live){
+        Sync.getEtsyPhoto(code, fp).then(function(uri){
+          if(uri) etsyPicCache[id] = uri;
+          if(currentEditBarcode !== code) return;
+          if(uri) img.src = uri;
+          else img.alt = 'Not uploaded yet';
+        }).catch(function(){ img.alt = 'Could not load'; });
+      }
+      cell.appendChild(img);
+
+      const tools = document.createElement('div');
+      tools.className = 'extra-tools';
+      tools.appendChild(extraBtn('◀', 'Move this photo earlier', i === 0, function(){
+        if(etsyMovePic(it, fp, -1)){ saveItems(); renderEditEtsy(); }
+      }));
+      tools.appendChild(extraBtn('▶', 'Move this photo later', i === pics.length - 1, function(){
+        if(etsyMovePic(it, fp, +1)){ saveItems(); renderEditEtsy(); }
+      }));
+      tools.appendChild(extraBtn('✕', 'Remove this photo', !live, function(){
+        if(!confirm('Remove this Etsy photo?')) return;
+        etsyRemovePic(it, fp);
+        saveItems();
+        delete etsyPicCache[id];
+        Sync.deleteEtsyPhoto(code, fp).catch(function(){});
+        renderEditEtsy();
+      }));
+      cell.appendChild(tools);
+      strip.appendChild(cell);
+    });
+
+    const full = pics.length >= ETSY_PHOTO_MAX;
+    add.style.display = (!live || full) ? 'none' : '';
+    hint.textContent = !live
+      ? 'Turn on Team sync to add or see Etsy photos. They are kept online so they can be sent to Etsy.'
+      : full
+        ? 'That is the ' + ETSY_PHOTO_MAX + ' an Etsy listing can show. Remove one to add another.'
+        : pics.length
+          ? pics.length + ' real photo' + (pics.length === 1 ? '' : 's') + '. The first is the main one on Etsy. Saved as you take them.'
+          : 'Etsy suggests 3 to 5: the front, the back or side, a close-up, and one that shows the size.';
+  }
+
+  document.getElementById('editEtsyOn').addEventListener('change', function(){
+    if(this.checked && document.getElementById('editWebOn').checked){
+      document.getElementById('editWebOn').checked = false;
+      const it = items[currentEditBarcode];
+      if(it) renderEditWebState(it);
+      showToast('Taken off the website: Etsy items are kept for Etsy', 'success');
+    }
+    renderEditEtsy();
+  });
+  ['editItemPrice', 'editItemCounted'].forEach(function(id){
+    document.getElementById(id).addEventListener('input', renderEditEtsyState);
+  });
+
+  document.getElementById('editEtsyAdd').addEventListener('click', function(){
+    document.getElementById('editEtsyInput').click();
+  });
+
+  // Written straight away, like the extras. The record changes at once so the
+  // photo shows; if the workspace then REFUSES the picture (not merely offline,
+  // which the local cache rides out) it comes back off the record.
+  document.getElementById('editEtsyInput').addEventListener('change', async function(e){
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    const code = currentEditBarcode, it = items[code];
+    if(!file || !it) return;
+    if(!Sync.isConnected()){ showToast('Turn on Team sync to add Etsy photos', 'error'); return; }
+    try{
+      const got = await fileToEtsyPhoto(file);
+      const fp = photoFingerprint(got.uri);
+      const pics = etsyPicsOf(it);
+      if(pics.indexOf(fp) !== -1){ showToast('That photo is already on this item', 'error'); return; }
+      if(pics.length >= ETSY_PHOTO_MAX){ showToast('An Etsy listing shows ' + ETSY_PHOTO_MAX + ' photos at most', 'error'); return; }
+      const write = Sync.putEtsyPhoto(code, fp, got.uri);
+      etsyAddPic(it, fp);
+      etsyPicCache[etsyPhotoDocId(code, fp)] = got.uri;
+      saveItems();
+      write.catch(function(){
+        const cur = items[code];
+        if(cur){ etsyRemovePic(cur, fp); saveItems(); }
+        delete etsyPicCache[etsyPhotoDocId(code, fp)];
+        if(currentEditBarcode === code) renderEditEtsy();
+        showToast('That Etsy photo could not be saved. Try again.', 'error');
+      });
+      if(currentEditBarcode === code) renderEditEtsy();
+      showToast(got.small ? 'Added, but it is small: Etsy looks best with bigger photos' : 'Etsy photo added',
+        got.small ? 'error' : 'success');
+    }catch(err){
+      showToast(err && err.message ? err.message : 'Could not use that picture', 'error');
+    }
+  });
+
+  // The Etsy card in Settings: everything kept for Etsy, what still needs doing
+  // first. Redrawn by saveItems, so a remote edit or a new photo shows here too.
+  function renderEtsyCard(){
+    const sum = document.getElementById('etsySummary');
+    const list = document.getElementById('etsyList');
+    if(!sum || !list) return;
+    const t = etsyTodo(items);
+    const n = t.ready.length + t.waiting.length;
+    list.innerHTML = '';
+    if(!n){ sum.textContent = 'Nothing kept for Etsy yet.'; return; }
+    sum.textContent = n + ' kept for Etsy: ' + t.ready.length + ' ready, '
+      + t.waiting.length + ' still to do.';
+    t.waiting.concat(t.ready).forEach(function(row){
+      const r = document.createElement('div');
+      r.className = 'web-row';
+      r.style.cursor = 'pointer';
+      r.setAttribute('role', 'button');
+      const what = document.createElement('div');
+      what.className = 'what';
+      const nm = document.createElement('div');
+      nm.className = 'nm';
+      nm.textContent = row.name;
+      const act = document.createElement('div');
+      act.className = 'act ' + (row.status === 'ready' ? 'add' : 'update');
+      act.textContent = row.status === 'ready'
+        ? 'Ready: ' + row.pics + ' photo' + (row.pics === 1 ? '' : 's')
+        : 'Still ' + ETSY_WHY[row.status];
+      what.appendChild(nm); what.appendChild(act);
+      r.appendChild(what);
+      r.addEventListener('click', function(){ if(items[row.bc]) openEditModal(row.bc); });
+      list.appendChild(r);
+    });
+  }
+  try{ renderEtsyCard(); }catch(e){}
+
+  // The Etsy mark on a stock list row, solid while it still needs something.
+  function etsyBadgeHtml(bc){
+    const st = etsyStatus(items[bc]);
+    if(st === 'off') return '';
+    const due = st !== 'ready';
+    return `<span class="web-badge${due ? ' due' : ''}" title="${due ? 'Kept for Etsy: ' + ETSY_WHY[st] : 'Kept for Etsy, ready'}">Etsy</span>`;
   }
 
   // Everything this device holds, not only what is new. tools/photo-import.py
@@ -13086,6 +13429,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     // stored anywhere that could claim otherwise.
     resetDescSame('edit');
     renderEditWebState(it);
+    document.getElementById('editEtsyOn').checked = !!it.etsy;
+    renderEditEtsy();
 
     // Set pricing: own rule, partner in someone else's rule, or neither
     const owned = setMembers(barcode) ? it.set : null;
@@ -13185,7 +13530,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     else if(editPhotoWasSet){ it.photoCleared = 1; it.photo = ''; }
     // else: the form opened without a photo and still has none — nothing to say.
     it.counted = parseInt(document.getElementById('editItemCounted').value,10) || 0;
-    if(document.getElementById('editWebOn').checked) it.web = 1; else delete it.web;
+    // Website or Etsy, never both: see applyEtsyChoice.
+    applyEtsyChoice(it, document.getElementById('editEtsyOn').checked,
+      document.getElementById('editWebOn').checked);
     // Held on to before it is overwritten: it is what tells the other variants
     // apart from one another once this one has moved on. See offerDescCarryOver.
     const wasDesc = String(it.webDesc || '').trim();
@@ -13284,6 +13631,11 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
           : ''),
       'Delete',
       () => {
+        // Its Etsy photographs go with it. Best effort: with sync off they are
+        // left in the workspace, where nothing points at them any more.
+        if(it) etsyPicsOf(it).forEach(fp => {
+          try{ Sync.deleteEtsyPhoto(bc, fp).catch(() => {}); }catch(e){}
+        });
         delete items[bc];
         // Drop any set rule that pointed at it, on either side
         Object.keys(items).forEach(k => {
@@ -14742,8 +15094,34 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       return done;
     }
 
+    // ---- Etsy photographs (v1.55.0) ----
+    //
+    // One document each in `etsyPhotos`, beside items and sales, which the
+    // workspace rule already covers. NOT listened to: a till reads one only when
+    // that item is opened, so a full sync never carries them. The record's
+    // `etsyPics` says which exist and in what order.
+    function etsyCol(){
+      if(!connected || !db) throw new Error('Turn on Team sync first.');
+      return db.collection('workspaces').doc(workspacePath()).collection('etsyPhotos');
+    }
+    // Resolves when the server has it. Offline, the local cache holds the write
+    // and sends it on reconnect, so the caller must not wait on this to show it.
+    function putEtsyPhoto(bc, fp, uri){
+      return etsyCol().doc(etsyPhotoDocId(bc, fp))
+        .set({ key: String(bc), fp: String(fp), photo: uri, at: Date.now(), by: clientId });
+    }
+    async function getEtsyPhoto(bc, fp){
+      var doc = await etsyCol().doc(etsyPhotoDocId(bc, fp)).get();
+      var d = doc.exists ? (doc.data() || {}) : {};
+      return typeof d.photo === 'string' && d.photo.indexOf('data:image/') === 0 ? d.photo : '';
+    }
+    function deleteEtsyPhoto(bc, fp){
+      return etsyCol().doc(etsyPhotoDocId(bc, fp)).delete();
+    }
+
     return {
       connect:connect, disconnect:disconnect, syncNow:syncNow,
+      putEtsyPhoto:putEtsyPhoto, getEtsyPhoto:getEtsyPhoto, deleteEtsyPhoto:deleteEtsyPhoto,
       saveSettings:saveSettings, onLocalItems:onLocalItems, onLocalSales:onLocalSales,
       onLocalStalls:function(rec){ if(connected){ try{ pushStalls(rec); }catch(e){} } },
       setStatus:setStatus, isOn:isOn, getCfg:getCfg, getTeam:getTeam, getPin:getPin, getEmail:getEmail,

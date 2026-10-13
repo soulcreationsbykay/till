@@ -10,6 +10,54 @@ fixes.
 
 ---
 
+## v1.55.0 - 13 October 2026, 15:50
+
+**Items can be kept for Etsy, each with its own real photographs.**
+
+The till half of selling on Etsy. Nothing is sent to Etsy yet: that link
+comes next, once Kay has an Etsy developer key. Until then this is where the
+Etsy items and their photos are got ready.
+
+- **Edit item → Etsy → Keep this one for Etsy.** Kept for Etsy means NOT on
+  the website as well, so one handmade piece can never sell in two places.
+  Ticking Etsy unticks the website and the other way round, with a note
+  saying so.
+- **Etsy photos of its own.** Etsy will not take AI-made pictures, and every
+  website photo has been tidied up with AI, so an Etsy item has a separate
+  strip of real photos (up to 10, Etsy's limit), with ◀ ▶ to order them and
+  ✕ to remove. The first is the main one. The website photo is **never** sent
+  to Etsy and never counts as an Etsy photo.
+- **Saved the moment they are taken**, like the extra website photos, so a
+  mis-tapped Cancel loses nothing.
+- **Bigger than website photos:** up to 2000px on the long side, which is
+  what Etsy suggests, stepping down to 1600 or 1200 only if a picture would
+  not otherwise fit. A picture under 1000px is kept but Kay is told it is
+  small.
+- **Ready or not.** The line under the tick says what is still missing, in
+  order: a real photo, a price, stock. A stock list row shows an **Etsy**
+  mark, solid while something is still missing.
+- **Settings → 🧡 Etsy** lists everything kept for Etsy, the ones still to do
+  first, each saying what it needs. Tap one to open it.
+- **Deleting an item** deletes its Etsy photos too.
+
+**Where the photos go, which is the design.** Several 2000px photos on the
+item record would ride along on every sync of every till, which is exactly
+what the extras notes (v1.35.0) warn against. So each one is its own document
+in a new collection beside items and sales, `etsyPhotos`, keyed by barcode and
+fingerprint, and a till reads them only when that item is opened. The record
+carries only `etsy: 1` and `etsyPics`, the fingerprints in order. The
+workspace rule already covers the new collection, so the Firestore rules do
+not change. See SHARED.md.
+
+**Needs Team sync on** to add or see Etsy photos, because the Etsy link will
+read them from the workspace. With sync off the box says so and hides the
+button.
+
+`tests/etsy.js` is new: 35 checks, verified against six broken copies. The
+till suite is now 30 files.
+
+---
+
 ## v1.54.0 - 11 October 2026, 02:16
 
 **An orders password hides customers' names and addresses on the Sales tab.**
