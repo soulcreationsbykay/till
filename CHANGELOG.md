@@ -10,6 +10,26 @@ fixes.
 
 ---
 
+## v1.56.1 - 13 October 2026, 17:35
+
+**Etsy items show their photo in the stock list and the till.**
+
+Both lists only ever drew the website photo, and an Etsy item has none, so
+an Etsy item with real photos still showed 📦.
+
+- An item with **no website photo but with Etsy photos** now shows its first
+  Etsy photo (the main one on Etsy) as its picture, on the Stock tab and on
+  the Till tab.
+- **Read once a session at most.** The photo is fetched from the workspace
+  the first time the item is on screen (or taken from the edit form's copy
+  if it is already loaded), shrunk to a small list picture and kept in
+  memory, so the list never carries a 2000px photo per row.
+- Changing which photo comes first updates it.
+- **Needs Team sync connected.** Without it the 📦 stays, as before.
+- An item that has a website photo keeps showing that one.
+
+---
+
 ## v1.56.0 - 13 October 2026, 17:27
 
 **The stock list can be narrowed to where items sell.**
