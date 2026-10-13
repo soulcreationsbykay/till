@@ -1029,7 +1029,7 @@
             <input type="checkbox" id="addDescSame">
             <span id="addDescSameText"></span>
           </label>
-          <label>Description for the website (optional)</label>
+          <label>Description for the website or Etsy (optional)</label>
           <textarea id="manualWebDesc" class="desc-ta" rows="3" placeholder="A longer description than the shop label — what it is, size, stone, who made it."></textarea>
           <label for="manualPost">Postage size</label>
           <select id="manualPost">
@@ -1039,6 +1039,18 @@
           </select>
           <div class="folder-hint">Large letter: fits through a letterbox, up to 2.5cm thick and 750g. Anything bigger is a small parcel. Not chosen yet is charged as a small parcel.</div>
         </div>
+      </div>
+
+      <!-- Etsy (v1.55.1). Same rule as Edit item: kept for Etsy is never on the
+           website too. Its real photographs need the item to exist first, so
+           Add item opens it straight afterwards to take them. -->
+      <label>Etsy</label>
+      <div class="web-box">
+        <label class="web-check" for="manualEtsyOn" style="margin:0;">
+          <input type="checkbox" id="manualEtsyOn">
+          <span>Keep this one for Etsy</span>
+        </label>
+        <div class="folder-hint" style="margin-top:6px;">Takes it off the website. After <b>Add item</b> the till opens it so you can take its real Etsy photos.</div>
       </div>
 
       <button class="btn btn-primary" id="manualAddBtn">Add item</button>
@@ -1769,7 +1781,7 @@
           <input type="checkbox" id="editDescSame">
           <span id="editDescSameText"></span>
         </label>
-        <label>Description for the website (optional)</label>
+        <label>Description for the website or Etsy (optional)</label>
         <textarea id="editWebDesc" class="desc-ta" rows="3" placeholder="A longer description than the shop label — what it is, size, stone, who made it."></textarea>
         <label for="editPost">Postage size</label>
         <select id="editPost">
@@ -4410,9 +4422,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.55.0';
+  const APP_VERSION = '1.55.1';
   const BUILD_DATE  = '13 Oct 2026';
-  const BUILD_TIME  = '15:50';
+  const BUILD_TIME  = '16:56';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -5552,10 +5564,14 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // believed to be showing for this one, and whether that is still true.
   function renderEditWebState(it){
     const on = document.getElementById('editWebOn').checked;
-    document.getElementById('editWebMore').style.display = on ? 'block' : 'none';
+    // The description and postage size are Etsy's too (v1.55.1).
+    const etsyOn = document.getElementById('editEtsyOn').checked;
+    document.getElementById('editWebMore').style.display = (on || etsyOn) ? 'block' : 'none';
     const note = document.getElementById('editWebState');
     if(!on && !webListed(it)){
-      note.textContent = 'Shop only. Nothing about this one is on the website.';
+      note.textContent = etsyOn
+        ? 'Not on the website: it is kept for Etsy.'
+        : 'Shop only. Nothing about this one is on the website.';
       return;
     }
     if(!on && webListed(it)){
@@ -7296,10 +7312,12 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   document.getElementById('editEtsyOn').addEventListener('change', function(){
     if(this.checked && document.getElementById('editWebOn').checked){
       document.getElementById('editWebOn').checked = false;
-      const it = items[currentEditBarcode];
-      if(it) renderEditWebState(it);
       showToast('Taken off the website: Etsy items are kept for Etsy', 'success');
     }
+    // Always, not only when the website was unticked: whether the description
+    // and postage boxes show depends on this tick too.
+    const it = items[currentEditBarcode];
+    if(it) renderEditWebState(it);
     renderEditEtsy();
   });
   ['editItemPrice', 'editItemCounted'].forEach(function(id){
@@ -12636,8 +12654,12 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     // an empty note, so it is left off the record entirely.
     const label = String(f.label || '').trim();
     if(label) it.label = label;
-    if(f.web){
-      it.web = 1;
+    // Kept for Etsy is never on the website as well (v1.55.0), so an Etsy tick
+    // wins over a website one. Both need the description and postage size:
+    // Etsy lists the description and posts it like a website order.
+    if(f.etsy) it.etsy = 1;
+    else if(f.web) it.web = 1;
+    if(f.web || f.etsy){
       const d = String(f.webDesc || '').trim();
       if(d) it.webDesc = d;
       const post = postSize(f.post);
@@ -12657,9 +12679,18 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     return s === 'letter' || s === 'parcel' ? s : '';
   }
 
-  document.getElementById('manualWebOn').addEventListener('change', function(){
-    document.getElementById('manualWebMore').style.display = this.checked ? '' : 'none';
-  });
+  // The description and postage boxes are wanted for the website AND for Etsy,
+  // so they show while either is ticked. Ticking one of the two unticks the
+  // other: kept for Etsy is never on the website as well.
+  function syncManualChannels(changed){
+    const web = document.getElementById('manualWebOn');
+    const etsy = document.getElementById('manualEtsyOn');
+    if(changed === web && web.checked) etsy.checked = false;
+    if(changed === etsy && etsy.checked) web.checked = false;
+    document.getElementById('manualWebMore').style.display = (web.checked || etsy.checked) ? '' : 'none';
+  }
+  document.getElementById('manualWebOn').addEventListener('change', function(){ syncManualChannels(this); });
+  document.getElementById('manualEtsyOn').addEventListener('change', function(){ syncManualChannels(this); });
 
   document.getElementById('manualAddBtn').addEventListener('click', () => {
     const bc = document.getElementById('manualBarcode').value.trim();
@@ -12676,14 +12707,17 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       photo: manualPhoto.value,
       label: document.getElementById('manualLabel').value,
       web: document.getElementById('manualWebOn').checked,
+      etsy: document.getElementById('manualEtsyOn').checked,
       webDesc: document.getElementById('manualWebDesc').value,
       post: document.getElementById('manualPost').value
     });
     if(!saveItems()) return;
+    const forEtsy = !!items[bc].etsy;
     manualPhoto.clear();
     ['manualBarcode','manualName','manualQty','manualMaker','manualPrice','manualFolder','manualLabel','manualWebDesc','manualPost'].forEach(id => document.getElementById(id).value='');
     // Back to ticked, which is the default for a reason - see the form.
     document.getElementById('manualWebOn').checked = true;
+    document.getElementById('manualEtsyOn').checked = false;
     document.getElementById('manualWebMore').style.display = '';
     // Explicitly, and before the name box is read again: the description this
     // one shared is not the next one's, and the box must not be handed back
@@ -12696,6 +12730,17 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     renderMakerUi();   // the counts and next-code lines have moved on
     document.querySelector('.tab[data-tab="list"]').click();
     renderList();
+    // An Etsy item is not ready until it has real photographs, and those can
+    // only be taken once the item exists. So it opens straight away, at them.
+    if(forEtsy){
+      openEditModal(bc);
+      setTimeout(() => {
+        const box = document.getElementById('editEtsyMore');
+        if(box) box.scrollIntoView({ block:'center', behavior:'smooth' });
+      }, 150);
+      showToast('Item added. Now take its Etsy photos', 'success');
+      return;
+    }
     showToast('Item added', 'success');
   });
 
@@ -13428,8 +13473,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     // "these are your own words", which is true either way, and nothing is
     // stored anywhere that could claim otherwise.
     resetDescSame('edit');
-    renderEditWebState(it);
+    // Before the website state is drawn: it decides whether the description
+    // and postage boxes show.
     document.getElementById('editEtsyOn').checked = !!it.etsy;
+    renderEditWebState(it);
     renderEditEtsy();
 
     // Set pricing: own rule, partner in someone else's rule, or neither

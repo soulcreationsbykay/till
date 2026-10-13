@@ -130,5 +130,26 @@ console.log('\nPostage size for the website basket');
     !('post' in newItemRecord({ ...base, web: false, post: 'letter' })));
 }
 
+// v1.55.1: Add item can keep a new item for Etsy. Kept for Etsy is never on
+// the website as well, and Etsy needs the description and postage size just
+// as the website does, so those must not be dropped for want of a web tick.
+console.log('\nKept for Etsy');
+{
+  const it = newItemRecord({ ...base, etsy: true, web: false, webDesc: '  Hand-knotted  ', post: 'letter' });
+  check('the Etsy flag is set', it.etsy === 1);
+  check('it is not on the website', !('web' in it));
+  check('its description is kept', it.webDesc === 'Hand-knotted', 'webDesc=' + it.webDesc);
+  check('its postage size is kept', it.post === 'letter', 'post=' + it.post);
+  const both = newItemRecord({ ...base, etsy: true, web: true });
+  check('with both ticked, Etsy wins and the website does not', both.etsy === 1 && !('web' in both));
+  const webOnly = newItemRecord({ ...base, web: true });
+  check('a website item is not kept for Etsy', webOnly.web === 1 && !('etsy' in webOnly));
+  check('a shop-only item is neither', !('etsy' in newItemRecord(base)) && !('web' in newItemRecord(base)));
+  check('no Etsy photos are invented', !('etsyPics' in it));
+  const allowed = ['name', 'qty', 'maker', 'price', 'folder', 'photo', 'counted', 'addedAt', 'etsy', 'webDesc', 'label', 'post'];
+  check('no unexpected fields on an Etsy item', Object.keys(it).every(k => allowed.includes(k)),
+    Object.keys(it).filter(k => !allowed.includes(k)).join(', '));
+}
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

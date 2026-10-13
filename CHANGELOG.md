@@ -10,6 +10,30 @@ fixes.
 
 ---
 
+## v1.55.1 - 13 October 2026, 16:56
+
+**Add item can keep a new item for Etsy, and Etsy items get a description
+and postage size.**
+
+- **Add item → Etsy → Keep this one for Etsy**, below the Website box. As on
+  Edit item, ticking it unticks the website and the other way round.
+- **After Add item, an Etsy item opens straight away** at its Etsy photos,
+  because they can only be taken once the item exists. A website or
+  shop-only item goes back to the stock list as before.
+- **Fixed: Etsy items had no description or postage size boxes.** Both sat
+  inside the Website section and only showed while "sells on the website"
+  was ticked, which an Etsy item never is. They now show while either
+  Website or Etsy is ticked, on Add and on Edit, and are labelled
+  "Description for the website or Etsy". A new Etsy item keeps them.
+- Under the Website tick, an Etsy item now reads "Not on the website: it is
+  kept for Etsy" rather than "Shop only".
+
+`tests/add-item.js` has 9 new checks (39 in all), verified against three
+broken copies: the website flag set alongside Etsy, the description dropped
+for an Etsy item, and the Etsy flag never set.
+
+---
+
 ## v1.55.0 - 13 October 2026, 15:50
 
 **Items can be kept for Etsy, each with its own real photographs.**
