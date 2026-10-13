@@ -374,6 +374,14 @@
     background:var(--panel);font-size:16px;cursor:pointer;
   }
   .search-row button.sel{background:var(--clay);border-color:var(--clay);color:#fff;}
+  .chan-row{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 12px;}
+  .chan-row button{
+    font:inherit;font-size:13px;padding:5px 11px;border-radius:99px;cursor:pointer;
+    border:1px solid var(--line);background:var(--panel);color:var(--ink);
+  }
+  .chan-row button .n{color:var(--muted);margin-left:4px;font-variant-numeric:tabular-nums;}
+  .chan-row button.sel{background:var(--clay);border-color:var(--clay);color:#fff;}
+  .chan-row button.sel .n{color:#fff;opacity:.85;}
 
   /* Bulk select */
   .bulk-bar{
@@ -897,6 +905,9 @@
       <button type="button" id="offersBtn" title="Show only the items in a set or a deal">🏷</button>
       <button type="button" id="selectModeBtn" title="Select multiple items">☑</button>
     </div>
+    <!-- Where each item sells (v1.56.0). One choice at a time; filled in by
+         renderChannelChips with a count on each. -->
+    <div class="chan-row" id="chanRow" role="group" aria-label="Show items that sell"></div>
     <div class="bulk-bar" id="bulkBar" style="display:none;">
       <span id="bulkCount">0 selected</span>
       <button type="button" id="bulkAllBtn">All</button>
@@ -4432,9 +4443,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.55.3';
+  const APP_VERSION = '1.56.0';
   const BUILD_DATE  = '13 Oct 2026';
-  const BUILD_TIME  = '17:24';
+  const BUILD_TIME  = '17:27';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -5904,6 +5915,66 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // and they have to find the rest of its members to fix it.
   let offersOnly = false;
 
+  // WHERE AN ITEM SELLS (v1.56.0)
+  //
+  // The filter row under the search box. An item is on the website (`web`),
+  // kept for Etsy (`etsy`), or neither, which means stalls only. Never both:
+  // the till keeps those apart, and if a record ever had both, Etsy wins, as
+  // it does everywhere else. "Online" is either of the two.
+  const CHANNELS = [
+    { key:'all',    label:'All' },
+    { key:'online', label:'Online' },
+    { key:'web',    label:'Website' },
+    { key:'etsy',   label:'Etsy' },
+    { key:'none',   label:'Not online' },
+  ];
+  function channelOf(it){
+    if(it && it.etsy) return 'etsy';
+    if(it && it.web) return 'web';
+    return 'none';
+  }
+  function inChannel(it, key){
+    const c = channelOf(it);
+    if(key === 'online') return c !== 'none';
+    if(key === 'web' || key === 'etsy' || key === 'none') return c === key;
+    return true;   // 'all', or anything unknown: never hide stock by mistake
+  }
+  function channelCounts(list){
+    const n = {};
+    CHANNELS.forEach(ch => { n[ch.key] = 0; });
+    (list || []).forEach(it => { CHANNELS.forEach(ch => { if(inChannel(it, ch.key)) n[ch.key]++; }); });
+    return n;
+  }
+  // WHERE AN ITEM SELLS: END
+
+  // Not remembered between visits on purpose: a list that opens already
+  // narrowed looks like stock has gone missing.
+  let channelFilter = 'all';
+
+  function renderChannelChips(inFocus){
+    const row = document.getElementById('chanRow');
+    if(!row) return;
+    const n = channelCounts(inFocus.map(bc => items[bc]));
+    row.innerHTML = '';
+    CHANNELS.forEach(ch => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      const on = channelFilter === ch.key;
+      if(on) b.className = 'sel';
+      b.setAttribute('aria-pressed', String(on));
+      b.append(ch.label);
+      const c = document.createElement('span');
+      c.className = 'n';
+      c.textContent = n[ch.key];
+      b.append(c);
+      b.addEventListener('click', () => {
+        channelFilter = ch.key;
+        renderList(document.getElementById('searchBox').value);
+      });
+      row.append(b);
+    });
+  }
+
   function renderList(filter){
     renderTotals();
     const listEl = document.getElementById('itemList');
@@ -5938,7 +6009,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       offersBtn.setAttribute('aria-pressed', String(offersOnly));
     }
 
+    renderChannelChips(inFocus);
+
     const filtered = inFocus.filter(bc => {
+      if(!inChannel(items[bc], channelFilter)) return false;
       if(offersOnly && !inAnOffer(bc)) return false;
       if(!q) return true;
       const it = items[bc];
@@ -5967,8 +6041,16 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       // Telling somebody to change a word they never typed is no help, so an
       // empty list caused by the offers filter says so rather than blaming a
       // search.
+      const chanEmpty = {
+        online: 'Nothing here is on the website or Etsy.',
+        web:    'Nothing here is on the website.',
+        etsy:   'Nothing here is kept for Etsy.',
+        none:   'Everything here sells online.',
+      };
       listEl.innerHTML = (offersOnly && !q)
         ? '<div class="empty-state">Nothing is in a set or a deal just now.</div>'
+        : (channelFilter !== 'all' && !q)
+          ? `<div class="empty-state">${chanEmpty[channelFilter]} Tap <strong>All</strong> to see everything.</div>`
         : countFocus === null
           ? '<div class="empty-state">No matches found.</div>'
           : `<div class="empty-state">No matches in ${escapeHtml(focusLabel(countFocus))}. Tap <strong>Show all stock</strong> to search the whole shop.</div>`;

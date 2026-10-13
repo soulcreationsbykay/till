@@ -10,6 +10,32 @@ fixes.
 
 ---
 
+## v1.56.0 - 13 October 2026, 17:27
+
+**The stock list can be narrowed to where items sell.**
+
+A row of buttons under the search box: **All · Online · Website · Etsy ·
+Not online**, each with how many items it would show.
+
+- **Online** is everything on the website or kept for Etsy. An item is never
+  on both (the till keeps them apart), so there is no "website and Etsy"
+  group: Online is the two together.
+- **Not online** is everything sold only at stalls.
+- One button at a time. The list keeps its folders, and the search box and
+  the 🏷 offers button work inside whichever is chosen.
+- The counts follow the folder being worked through, if there is one.
+- An empty choice says so, with "Tap All to see everything", rather than
+  "No matches".
+- Not remembered between visits: the till always opens on **All**, so a
+  narrowed list is never mistaken for missing stock.
+
+`tests/channel-filter.js` is new: 19 checks, verified against four broken
+copies (Etsy left out of Online, the website flag beating Etsy, an unknown
+choice hiding everything, the counts not starting from zero). The till suite
+is now 31 files.
+
+---
+
 ## v1.55.3 - 13 October 2026, 17:24
 
 **Etsy photos can be taken on the Add item screen.**
