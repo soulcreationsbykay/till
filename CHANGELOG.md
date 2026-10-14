@@ -10,6 +10,26 @@ fixes.
 
 ---
 
+## v1.68.0 - 14 October 2026
+
+**Etsy's stock follows the till both ways.** Until now the till only ever
+lowered Etsy. Now Etsy is set to the till's count less any Etsy orders the
+till has not recorded yet, so:
+
+- a **restock** raises Etsy (drafts and live listings), and a colour the till
+  switched off at 0 comes back on;
+- a colour Kay hid herself on Etsy stays hidden (the Etsy box says so);
+- a **deactivated** (sold out) listing is never put back on sale by the
+  till: a box says "Back in stock: re-activate on Etsy", once, with the
+  quantity to set; after Kay re-activates it, the till keeps it in step;
+- it also closes a gap: an Etsy sale not yet recorded plus a stall sale could
+  leave a piece on Etsy that was gone. Etsy's orders are read fresh each time,
+  and if they cannot be read nothing is changed.
+
+Needs `kay-etsy` with the new stock sync deployed.
+
+---
+
 ## v1.67.4 - 14 October 2026
 
 **A switched-off button now looks switched off.** Buttons the till disables

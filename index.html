@@ -4579,7 +4579,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.67.4';
+  const APP_VERSION = '1.68.0';
   const BUILD_DATE  = '13 Oct 2026';
   const BUILD_TIME  = '23:01';
   const versionEl = document.getElementById('appVersion');
@@ -12728,11 +12728,13 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // A sale anywhere else takes it off Etsy. After every stock change here
   // (saveItems: a sale, an edit, a count arriving from another till) and
   // every five minutes while a till is open, the count of every item on Etsy
-  // goes to the Etsy service, which LOWERS Etsy to match: a colour at 0 is
-  // switched off, and a live listing with none left is deactivated. It never
-  // raises Etsy; that waits until Etsy's own orders come into the till.
+  // goes to the Etsy service, which sets Etsy to the till's count less any
+  // Etsy orders not yet recorded (v1.68.0): down after a sale (a colour at 0
+  // switched off, a live listing with none left deactivated), up after a
+  // restock. A deactivated listing is never put back on sale from here: Kay
+  // is asked to re-activate it on Etsy herself.
   // Any till may send it, as often as it likes: the service asks Etsy
-  // nothing unless the till has fewer than Etsy could have.
+  // nothing unless the till's count has changed.
   const EtsyStock = (function(){
     let timer = null, busy = false, again = false, last = null;
     function changed(){ clearTimeout(timer); timer = setTimeout(push, 3000); }
@@ -12745,15 +12747,23 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         const r = await EtsyLink.call('/staff/stock', { method:'POST', body: JSON.stringify({ items: list }) });
         last = { at: Date.now(), results: (r && r.results) || {} };
         // One message for what changed on Etsy, not one per colour.
-        const took = [], off = [];
+        const took = [], off = [], back = [], wait = [];
         Object.keys(last.results).forEach(b => {
           const x = last.results[b], it = items[b];
           if(!it) return;
           if(x.result === 'deactivated') took.push(it.name);
           else if(x.result === 'off') off.push(it.name);
+          else if(x.result === 'raised') back.push(it.name + ' (' + x.etsyQty + ')');
+          else if(x.result === 'restock-on-etsy' && !x.repeat) wait.push(it.name + ': set it to ' + x.target);
         });
         if(took.length) showToast('None left, so taken off Etsy: ' + took.join(', '), 'success');
         if(off.length) showToast('None left, so switched off on Etsy: ' + off.join(', '), 'success');
+        if(back.length) showToast('Etsy stock updated: ' + back.join(', '), 'success');
+        // v1.68.0: a listing taken off Etsy is never put back on by the till.
+        if(wait.length) showNotice('Back in stock: re-activate on Etsy',
+          'On Etsy these are deactivated (taken off sale when they sold out). The till does not put a listing back on sale by itself. '
+          + 'When you are ready, open each in the Etsy app, set its quantity and re-activate it: ' + wait.join('; ') + '. '
+          + 'After that, the till keeps Etsy\'s stock in step again.');
         if(currentEditBarcode && last.results[currentEditBarcode]) renderEditEtsyPlan();
       }catch(e){
         last = { at: Date.now(), error: e.message || 'Could not reach the Etsy service' };
@@ -13390,10 +13400,12 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       const none = !(Number(it.counted) > 0);
       hint.textContent = etsyWarn[currentEditBarcode]
         || (seen.result === 'gone' ? 'Etsy says this listing no longer exists. If you deleted it there, press Forget below.'
-        : seen.result === 'deactivated' || (none && seen.state === 'inactive') ? 'None left here, so it was taken off Etsy (deactivated). Once you have more, set the quantity and re-activate it on Etsy yourself.'
+        : seen.result === 'restock-on-etsy' ? 'Back in stock here, but deactivated on Etsy. In the Etsy app, set its quantity to ' + seen.target + ' and re-activate it when you are ready; then the till keeps it in step again.'
+        : seen.result === 'hidden-on-etsy' ? 'This colour is hidden on Etsy (switched off there, not by the till), so the till leaves it hidden. Switch it back on in Etsy if you want it on sale.'
+        : seen.result === 'deactivated' || (none && seen.state === 'inactive') ? 'None left here, so it was taken off Etsy (deactivated). Once you have more, the till will ask you to re-activate it on Etsy.'
         : none ? 'None left here. If this is still a draft on Etsy, do not publish it. If it is live, it comes off Etsy at the next stock check (within a few minutes, while a till is open).'
         : ('On Etsy as a draft' + (it.etsyDraftAt ? ' since ' + new Date(it.etsyDraftAt).toLocaleDateString('en-GB', { day:'numeric', month:'short' }) : '')
-          + '. Check it there and press Publish when it looks right. A sale here lowers Etsy\'s stock by itself; other changes made here are not sent yet.'));
+          + '. Check it there and press Publish when it looks right. Changes to the stock here reach Etsy by themselves; changes to the words, price and photos are not sent yet.'));
       return;
     }
     open.style.display = 'none';
