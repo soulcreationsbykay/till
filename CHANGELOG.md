@@ -10,6 +10,20 @@ fixes.
 
 ---
 
+## v1.66.1 - 14 October 2026
+
+**The tax year is in the report exports too.** Export (CSV and Excel) adds,
+at the end of the Summary: "Gross income, tax year 2026–27 (6 Apr 2026 to
+…)", then either "£1,000 trading allowance left" or, once over, "Over the
+£1,000 trading allowance by" and "Register with HMRC as self-employed by".
+Whole shop, the same figures as the screen. Nothing else in the file moves:
+the row above it is still "Net takings".
+
+`tests/sales-export.js`: 7 new checks (103), verified against two broken
+copies.
+
+---
+
 ## v1.66.0 - 14 October 2026
 
 **Gross income and the £1,000 trading allowance on the sales report.**

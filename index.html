@@ -4536,7 +4536,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.66.0';
+  const APP_VERSION = '1.66.1';
   const BUILD_DATE  = '13 Oct 2026';
   const BUILD_TIME  = '23:01';
   const versionEl = document.getElementById('appVersion');
@@ -11362,6 +11362,18 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       rows.push(['Goods (without postage)', moneyCell(round2(f.net - f.postage))]);
       rows.push(['Postage', moneyCell(f.postage)]);
     }
+    // The tax year against the £1,000 trading allowance (v1.66.1), when the
+    // report supplies it (taxYearFigures). Whole shop, like the screen.
+    const t = f.taxYear;
+    if(t){
+      rows.push(['Gross income, tax year ' + t.label + ' (' + t.period + ')', moneyCell(t.gross)]);
+      if(t.state === 'over'){
+        rows.push(['Over the £1,000 trading allowance by', moneyCell(t.over)]);
+        rows.push(['Register with HMRC as self-employed by', t.registerBy]);
+      } else {
+        rows.push(['£1,000 trading allowance left', moneyCell(t.left)]);
+      }
+    }
     return { cols: [{ h:'Metric' }, { h:'Value' }], rows: rows };
   }
 
@@ -11513,11 +11525,19 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
 
   // The allowance box at the top of the report: the whole shop, for the tax
   // year of the report's last day, up to today. Not narrowed to one maker.
-  function allowanceHtml(toStr){
+  // The tax year's figures for the report and its exports (v1.66.0/1).
+  function taxYearFigures(toStr){
     const today = localDateStr(new Date());
     const ty = taxYearOf(toStr > today ? today : toStr);
     const upTo = ty.to < today ? ty.to : today;
-    const a = allowanceStatus(zFigures(ty.from, upTo).net);
+    const nice = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+    return Object.assign({ label: ty.label, from: ty.from, upTo: upTo, registerBy: ty.registerBy,
+                           period: nice(ty.from) + ' to ' + nice(upTo) }, allowanceStatus(zFigures(ty.from, upTo).net));
+  }
+
+  function allowanceHtml(toStr){
+    const t = taxYearFigures(toStr);
+    const ty = t, a = t, upTo = t.upTo;
     const nice = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
     const colour = a.state === 'over' ? 'var(--danger)' : a.state === 'near' ? '#9a6a0c' : 'inherit';
     return `<div class="report-cell" style="margin-bottom:10px;">`
@@ -11684,6 +11704,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   document.getElementById('zExportBtn').addEventListener('click', () => {
     const r = zCurrentRange();
     const f = zFigures(r.from, r.to);
+    f.taxYear = taxYearFigures(r.to);
     // No Supplier payouts sheet or section when there are no suppliers.
     const p = SUPPLIERS ? makerFigures(r.from, r.to) : null;
     const name = `report-${r.label.replace(/[^0-9a-zA-Z-]+/g,'_')}`;

@@ -405,6 +405,32 @@ function readZip(buf) {
   check('the description reads as text',
         msheet.indexOf('<c r="E2" t="inlineStr"><is><t xml:space="preserve">Tarot reading</t></is></c>') !== -1);
 
+  // v1.66.1: the tax year against the £1,000 trading allowance, at the end of
+  // the summary, ONLY when the report supplies it (the Export button does). A
+  // report built without it is the file it always was, as checked above.
+  console.log('\nThe sales report CSV, with the tax year in it');
+  {
+    const p2 = payoutFigures();
+    const base = ctx.zReportCsv(reportFigures(), '20 August 2026', p2);
+    const under = reportFigures();
+    under.taxYear = { label: '2026–27', period: '6 Apr 2026 to 20 Aug 2026', gross: 412.5, left: 587.5, over: 0, state: 'under', registerBy: '5 October 2027' };
+    const csvU = ctx.zReportCsv(under, '20 August 2026', p2);
+    check('the tax year gross is in the summary',
+          csvU.indexOf('"Gross income, tax year 2026–27 (6 Apr 2026 to 20 Aug 2026)","412.50"') !== -1, csvU.slice(0, 600));
+    check('with what is left of the allowance', csvU.indexOf('"£1,000 trading allowance left","587.50"') !== -1);
+    check('and no register-by date while under', csvU.indexOf('Register with HMRC') === -1);
+    check('it comes after the rest of the summary, before Top sellers',
+          csvU.indexOf('Gross income, tax year') > csvU.indexOf('"Refunds"') && csvU.indexOf('Gross income, tax year') < csvU.indexOf('\nTop sellers\n'));
+    check('nothing else in the file moved',
+          csvU.replace(/"Gross income, tax year[^\n]*\n"£1,000 trading allowance left"[^\n]*\n/, '') === base);
+    const over = reportFigures();
+    over.taxYear = { label: '2026–27', period: '6 Apr 2026 to 14 Oct 2026', gross: 1050, left: 0, over: 50, state: 'over', registerBy: '5 October 2027' };
+    const csvO = ctx.zReportCsv(over, '20 August 2026', p2);
+    check('over: by how much', csvO.indexOf('"Over the £1,000 trading allowance by","50.00"') !== -1);
+    check('over: the date to register', csvO.indexOf('"Register with HMRC as self-employed by","5 October 2027"') !== -1);
+    check('over: no "left" row', csvO.indexOf('allowance left') === -1);
+  }
+
   console.log('\n' + pass + ' passed, ' + fail + ' failed');
   process.exit(fail ? 1 : 0);
 })();
