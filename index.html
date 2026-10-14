@@ -4576,7 +4576,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.67.2';
+  const APP_VERSION = '1.67.3';
   const BUILD_DATE  = '13 Oct 2026';
   const BUILD_TIME  = '23:01';
   const versionEl = document.getElementById('appVersion');
@@ -11445,6 +11445,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       // The date written the way the sales are (v1.67.2), so one sheet reads one way.
       return [new Date(e.date + 'T12:00:00').toLocaleDateString(), e.what, c ? c.label : 'Other', moneyCell(e.amount), e.hasPhoto ? 'yes' : ''];
     });
+    // Said, rather than an empty table that looks like a mistake (v1.67.3).
+    if(!list.length) rows.push(['No expenses recorded for this period', '', '', '', '']);
     rows.push(['TOTAL', '', '', moneyCell(round2(total)), '']);
     return { cols: [{ h:'Date' }, { h:'What for' }, { h:'Kind' }, { h:'Amount' }, { h:'Receipt photo' }], rows: rows };
   }
@@ -11528,11 +11530,12 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const sellers = zSellersTable(f);
     let csv = tableToCsv(summary.cols, summary.rows);
     // v1.67.2: every sale and every expense after the Summary, when supplied.
-    if(f.saleLines && f.saleLines.length){
+    // v1.67.3: always there in the accountant's workbook, empty or not.
+    if(f.saleLines){
       const sl = zSaleLinesTable(f);
       csv += '\nSales\n' + tableToCsv(sl.cols, sl.rows);
     }
-    if(f.saleLines && f.expenseLines && f.expenseLines.length){
+    if(f.saleLines){
       const ex = zExpensesTable(f);
       csv += '\nExpenses\n' + tableToCsv(ex.cols, ex.rows);
     }
@@ -11598,6 +11601,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         fe == null ? 'not known' : moneyCell(round2(fe)), fe == null ? '' : moneyCell(round2(n - fe)),
       ];
     });
+    if(!rows.length) rows.push(['No sales in this period', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
     rows.push(['TOTAL', '', '', '', '', '', '', '', '', moneyCell(round2(gross)), moneyCell(round2(disc)), moneyCell(round2(net)),
                '', '', moneyCell(round2(fee)) , unknown ? '' : moneyCell(round2(after))]);
     return {
@@ -11617,11 +11621,12 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     ];
     // v1.67.2: for an accountant, every sale and every expense straight after
     // the Summary, when the report supplies them.
-    if(f.saleLines && f.saleLines.length){
+    // v1.67.3: always there in the accountant's workbook, empty or not.
+    if(f.saleLines){
       const sl = zSaleLinesTable(f);
       sheets.push({ name:'Sales', cols: sl.cols, rows: sl.rows });
     }
-    if(f.saleLines && f.expenseLines && f.expenseLines.length){
+    if(f.saleLines){
       const ex = zExpensesTable(f);
       sheets.push({ name:'Expenses', cols: ex.cols, rows: ex.rows });
     }

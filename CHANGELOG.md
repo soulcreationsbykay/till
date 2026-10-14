@@ -10,6 +10,17 @@ fixes.
 
 ---
 
+## v1.67.3 - 14 October 2026
+
+**The Sales and Expenses tabs are always in the report export.** They were
+left out when the period had none, which looked like something was missing.
+Now they are always there; an empty one says "No sales in this period" or
+"No expenses recorded for this period".
+
+`tests/sales-export.js`: 4 new checks (128).
+
+---
+
 ## v1.67.2 - 14 October 2026
 
 **The report export is the accountant's workbook.** Export from the sales

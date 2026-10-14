@@ -505,6 +505,24 @@ function readZip(buf) {
     check('without them, no Sales tab', plain.indexOf('Sales') === -1 || plain.indexOf('Sales,') === -1 && !/(^|,)Sales(,|$)/.test(plain), plain);
   }
 
+  // v1.67.3: in the accountant's workbook the Sales and Expenses tabs are
+  // always there, saying so when there is nothing, never silently missing.
+  console.log('\nThe accountant\'s workbook always has its Sales and Expenses tabs');
+  {
+    const p5 = payoutFigures();
+    const f = reportFigures();
+    f.rates = { card: 1.69, web: 2.5 };
+    f.saleLines = [];
+    f.expenseLines = [];
+    const names = ctx.zReportSheets(f, 'Tax year 2026–27', p5).map(x => x.name).join();
+    check('no sales and no expenses: both tabs still there, in order', names.indexOf('Summary,Sales,Expenses,Top sellers') === 0, names);
+    const csv = ctx.zReportCsv(f, 'Tax year 2026–27', p5);
+    check('the empty Sales tab says so', csv.indexOf('"No sales in this period"') !== -1);
+    check('the empty Expenses tab says so', csv.indexOf('"No expenses recorded for this period"') !== -1);
+    f.expenseLines = [{ id: '1', date: '2026-08-02', what: 'Yarn', cat: 'materials', amount: 3, hasPhoto: false }];
+    check('with an expense, no "none" line', ctx.zReportCsv(f, 'x', p5).indexOf('No expenses recorded') === -1);
+  }
+
   console.log('\n' + pass + ' passed, ' + fail + ' failed');
   process.exit(fail ? 1 : 0);
 })();
