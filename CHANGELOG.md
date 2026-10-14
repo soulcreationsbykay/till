@@ -10,6 +10,30 @@ fixes.
 
 ---
 
+## v1.66.0 - 14 October 2026
+
+**Gross income and the £1,000 trading allowance on the sales report.**
+
+- The top of the report shows **gross income for the tax year so far** (6
+  April to 5 April, the tax year of the report's last day, up to today), for
+  the whole shop whatever period or maker is chosen, against the UK £1,000
+  trading allowance: how much is left, "getting close" from £800, and once
+  over it, by how much and the date to register with HMRC as self-employed
+  (5 October after that tax year ends).
+- Gross income is everything customers paid, after discounts and refunds,
+  with postage, website and Etsy sales (before Etsy's fees) included. Card
+  and Etsy fees are expenses and are not taken off. Only sales recorded in
+  this till count.
+- The period figure "Net takings" is now called **Gross income** on screen
+  and when printed (same number: "net" meant after discounts, not after
+  costs). Spreadsheet exports are unchanged.
+
+`tests/trading-allowance.js` (new): 13 checks. They caught two mistakes
+before release: the register-by year was a year late, and refunds could
+show more than £1,000 left.
+
+---
+
 ## v1.65.0 - 14 October 2026
 
 **Etsy orders come into the till (Etsy step 3b).**

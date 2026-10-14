@@ -4536,7 +4536,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.65.0';
+  const APP_VERSION = '1.66.0';
   const BUILD_DATE  = '13 Oct 2026';
   const BUILD_TIME  = '23:01';
   const versionEl = document.getElementById('appVersion');
@@ -11487,11 +11487,55 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   }
   /* =================== end spreadsheet export =================== */
 
+  // ---- trading allowance ----
+  // The UK trading allowance (v1.66.0): up to £1,000 of GROSS trading income
+  // in a tax year (6 April to 5 April) needs no registering with HMRC. Gross
+  // means before expenses: everything customers paid, after discounts and
+  // refunds, postage and Etsy sales (before Etsy's fees) included, which is
+  // exactly zFigures' `net`. Over it, the deadline to register as
+  // self-employed is 5 October after that tax year ends.
+  const TRADING_ALLOWANCE = 1000;
+  // The tax year a 'YYYY-MM-DD' date falls in.
+  function taxYearOf(dateStr){
+    const y = Number(String(dateStr).slice(0, 4)), md = String(dateStr).slice(5, 10);
+    const start = md >= '04-06' ? y : y - 1;
+    return { from: start + '-04-06', to: (start + 1) + '-04-05', label: start + '–' + String(start + 1).slice(2),
+             // The year ends 5 April (start + 1); registering is due that October.
+             registerBy: '5 October ' + (start + 1) };
+  }
+  // Where a tax year's gross income stands against the allowance.
+  function allowanceStatus(gross){
+    const g = round2(Number(gross) || 0);
+    return { gross: g, left: round2(Math.min(TRADING_ALLOWANCE, Math.max(0, TRADING_ALLOWANCE - g))), over: round2(Math.max(0, g - TRADING_ALLOWANCE)),
+             state: g > TRADING_ALLOWANCE ? 'over' : g >= TRADING_ALLOWANCE * 0.8 ? 'near' : 'under' };
+  }
+  // ---- end trading allowance ----
+
+  // The allowance box at the top of the report: the whole shop, for the tax
+  // year of the report's last day, up to today. Not narrowed to one maker.
+  function allowanceHtml(toStr){
+    const today = localDateStr(new Date());
+    const ty = taxYearOf(toStr > today ? today : toStr);
+    const upTo = ty.to < today ? ty.to : today;
+    const a = allowanceStatus(zFigures(ty.from, upTo).net);
+    const nice = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+    const colour = a.state === 'over' ? 'var(--danger)' : a.state === 'near' ? '#9a6a0c' : 'inherit';
+    return `<div class="report-cell" style="margin-bottom:10px;">`
+      + `<div class="rc-label">Gross income, tax year ${ty.label} (${nice(ty.from)} to ${nice(upTo)})</div>`
+      + `<div class="rc-value" style="color:${colour}">${money(a.gross)}</div>`
+      + `<div class="folder-hint" style="margin-top:4px;">`
+      + (a.state === 'over'
+          ? `Over the £1,000 trading allowance by <b>${money(a.over)}</b>. Register with HMRC as self-employed by <b>${ty.registerBy}</b> and file a Self Assessment return.`
+          : `£1,000 trading allowance: <b>${money(a.left)}</b> left this tax year.`
+            + (a.state === 'near' ? ' Getting close.' : ''))
+      + ` Everything customers paid, after discounts and refunds, postage and Etsy (before Etsy's fees) included; only what was recorded in this till. Check gov.uk if unsure.</div></div>`;
+  }
+
   function zBodyHtml(fromStr, toStr, maker){
     const f = zFigures(fromStr, toStr, maker);
     const top = Object.keys(f.sellers).map(k => f.sellers[k]).sort((a,b) => b.net-a.net).slice(0,5);
-    let h = `<div class="report-grid">
-      <div class="report-cell"><div class="rc-label">Net takings</div><div class="rc-value">${money(f.net)}</div></div>
+    let h = allowanceHtml(toStr) + `<div class="report-grid">
+      <div class="report-cell"><div class="rc-label">Gross income</div><div class="rc-value">${money(f.net)}</div></div>
       <div class="report-cell"><div class="rc-label">Sales</div><div class="rc-value">${f.txns}</div></div>
       <div class="report-cell"><div class="rc-label">Items sold</div><div class="rc-value">${f.units}</div></div>
       <div class="report-cell"><div class="rc-label">Avg sale</div><div class="rc-value">${money(f.txns ? f.net/f.txns : 0)}</div></div>
