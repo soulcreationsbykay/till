@@ -28,6 +28,7 @@ node tests/card-idempotency.js index.html
 node tests/backup-reminder.js index.html
 node tests/settings-backup.js index.html
 node tests/web-orders.js index.html
+node tests/etsy-orders.js index.html
 node tests/orders-lock.js index.html
 node tests/etsy.js index.html
 node tests/channel-filter.js index.html

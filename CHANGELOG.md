@@ -10,6 +10,33 @@ fixes.
 
 ---
 
+## v1.65.0 - 14 October 2026
+
+**Etsy orders come into the till (Etsy step 3b).**
+
+- Every minute while a till is open and signed in, it asks the Etsy service
+  for paid Etsy orders no till has recorded yet. Each is claimed first (only
+  one till ever records an order) and rung through as an **Etsy** sale: the
+  stock comes off, postage is its own line, and an Etsy coupon shows as each
+  line's discount.
+- **No customer details.** No name, address, email or message reaches the
+  till, so none can reach a sale, a backup or a spreadsheet. Post from the
+  Etsy app, which has the address.
+- Something sold on Etsy that the till does not know is still in the
+  takings, with no stock taken; a box names it. So does an order for
+  something the till had none of.
+- New payment type **Etsy** (🧡) on receipts and the sold list. The report
+  shows Etsy takings on their own and **Etsy card fees** beside them (not
+  taken off the takings). An order whose fee Etsy did not give is counted as
+  "not known", never as £0. Etsy's other fees (transaction fee, listing
+  renewals) are not included yet.
+- Needs `kay-etsy` with `/staff/orders` deployed.
+
+`tests/etsy-orders.js` (new): 20 checks, verified against four broken
+copies.
+
+---
+
 ## v1.64.1 - 14 October 2026
 
 **Selling an Etsy item here tells Etsy at once, or says it could not.**

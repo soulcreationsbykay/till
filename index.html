@@ -4536,7 +4536,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.64.1';
+  const APP_VERSION = '1.65.0';
   const BUILD_DATE  = '13 Oct 2026';
   const BUILD_TIME  = '23:01';
   const versionEl = document.getElementById('appVersion');
@@ -10397,8 +10397,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // ---- Receipts ----
   // One place for what each payment method is called, so the printed receipt,
   // the plain-text receipt and the sold list cannot drift apart.
-  const PAY_NAMES = { cash:'Cash', card:'Card', web:'Website', other:'Other' };
-  const PAY_ICONS = { cash:'💵', card:'💳', web:'🌐', other:'✨' };
+  const PAY_NAMES = { cash:'Cash', card:'Card', web:'Website', etsy:'Etsy', other:'Other' };
+  const PAY_ICONS = { cash:'💵', card:'💳', web:'🌐', etsy:'🧡', other:'✨' };
   let receiptTxnId = null;
 
   // The sale a refund came from. A refund is always raised against one sale, so
@@ -10787,7 +10787,11 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   function zFigures(fromStr, toStr, maker){
     const f = { gross:0, discounts:0, refunds:0, net:0, txns:0, units:0,
                 misc:0, miscLines:[], postage:0, webOrders:[],
-                pay:{cash:0, card:0, web:0, other:0}, sellers:{} };
+                pay:{cash:0, card:0, web:0, etsy:0, other:0}, sellers:{},
+                // Etsy's card fees on Etsy orders (v1.65.0), and how many
+                // orders came without one, so a total is never passed off as
+                // complete when it is not.
+                etsyFees:0, etsyFeesUnknown:0 };
     const seen = {};
     sales.forEach(s => {
       const ld = localDateStr(new Date(s.at));
@@ -10829,9 +10833,13 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
                            qty:q, pay:s.pay||'', net:net, kind:s.kind||'sale' });
       }
       f.net += net;
-      const p = (s.pay==='cash'||s.pay==='card'||s.pay==='web') ? s.pay : 'other';
+      const p = (s.pay==='cash'||s.pay==='card'||s.pay==='web'||s.pay==='etsy') ? s.pay : 'other';
       f.pay[p] += net;
+      if(s.etsyRef && (s.kind || 'sale') === 'sale'){
+        if(s.etsyFee == null) f.etsyFeesUnknown++; else f.etsyFees += Number(s.etsyFee) || 0;
+      }
     });
+    f.etsyFees = round2(f.etsyFees);
     f.txns = Object.keys(seen).length;
     // One row per website order: what the goods came to and what the postage
     // was, side by side, so a payment in SumUp can be matched to its parts.
@@ -11335,6 +11343,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       ['Cash', moneyCell(f.pay.cash)],
       ['Card', moneyCell(f.pay.card)],
       ['Website', moneyCell(f.pay.web)],
+      // Etsy (v1.65.0): only when there was any, so a report from before Etsy
+      // looks exactly as it always did.
+      ...(f.pay.etsy ? [['Etsy', moneyCell(f.pay.etsy)]] : []),
+      ...(f.etsyFees || f.etsyFeesUnknown ? [['Etsy card fees' + (f.etsyFeesUnknown ? ' (' + f.etsyFeesUnknown + ' order(s) not known)' : ''), moneyCell(f.etsyFees)]] : []),
       ['Other', moneyCell(f.pay.other)],
       ['Discounts', moneyCell(f.discounts)],
       ['Refunds', moneyCell(f.refunds)]
@@ -11498,6 +11510,12 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     }
     if(f.pay.web){
       h += `<div class="report-cell" style="margin-bottom:8px;"><div class="rc-label">🌐 Website</div><div class="rc-value">${money(f.pay.web)}</div></div>`;
+    }
+    if(f.pay.etsy){
+      h += `<div class="report-cell" style="margin-bottom:8px;"><div class="rc-label">🧡 Etsy</div><div class="rc-value">${money(f.pay.etsy)}</div></div>`;
+      h += `<div class="report-cell" style="margin-bottom:8px;"><div class="rc-label">Etsy card fees (not taken off the takings above)`
+        + (f.etsyFeesUnknown ? `; ${f.etsyFeesUnknown} order${f.etsyFeesUnknown > 1 ? 's' : ''} not known yet` : '')
+        + `</div><div class="rc-value">−${money(f.etsyFees)}</div></div>`;
     }
     if(f.pay.other){
       h += `<div class="report-cell" style="margin-bottom:8px;"><div class="rc-label">✨ Other payments</div><div class="rc-value">${money(f.pay.other)}</div></div>`;
@@ -11906,6 +11924,65 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     return { lines: lines, short: short };
   }
   // ---- end website orders plan ----
+
+  // ---- etsy orders plan ----
+  // An Etsy order as a till sale (v1.65.0, Etsy step 3b), worked out with no
+  // page and no storage so it can be tested. `o` comes from the Etsy service:
+  // { ref, paidAt, lines:[{barcode|null, name, qty, price, net}], postage,
+  // fee|null }, and NOTHING about the buyer: Kay posts from the Etsy app,
+  // which has the address, so the till never holds it.
+  //   - each known item is its own line at what the buyer paid after any Etsy
+  //     coupon; stock comes off it
+  //   - something the till does not know is still takings, as a misc line
+  //     with no stock, and is named in `unknown` so Kay hears about it
+  //   - postage is its own line, flagged `postage`, as on website orders
+  //   - Etsy's card fee rides on the first line (`etsyFee`, null when Etsy
+  //     did not say), with the order number (`etsyRef`)
+  function planEtsyOrderSale(o, itemsNow, ctx){
+    const at = o.paidAt ? new Date(o.paidAt).toISOString() : ctx.now;
+    const base = {
+      txn: ctx.txn, receiptNo: ctx.receiptNo, pay: 'etsy', tendered: null, change: null,
+      sumupTxId: null, cardRefund: null, setDisc: null, dealDisc: null, deal: null,
+      kind: 'sale', refundOfLine: null, promo: null, staff: 'Etsy', at: at, fromEtsy: true,
+    };
+    const lines = [], short = [], unknown = [];
+    (o.lines || []).forEach(l => {
+      const qty = Math.max(0, Math.floor(Number(l.qty) || 0));
+      if(!qty) return;
+      const price = round2(Number(l.price) || 0);
+      const net = round2(Number(l.net) || 0);
+      const it = l.barcode ? itemsNow[l.barcode] : null;
+      if(it){
+        if((Number(it.counted) || 0) < qty) short.push(l.barcode);
+        lines.push(Object.assign({}, base, {
+          id: ctx.id(), barcode: l.barcode, name: String(it.name || l.name || l.barcode),
+          maker: it.maker || '', price: price, qty: qty,
+          disc: round2(qty * price - net), net: net, misc: null, postage: null,
+        }));
+      } else {
+        unknown.push(String(l.name || 'Etsy item'));
+        lines.push(Object.assign({}, base, {
+          id: ctx.id(), barcode: 'ETSY', name: 'Etsy: ' + String(l.name || 'item'),
+          maker: '', price: price, qty: qty, disc: round2(qty * price - net), net: net,
+          misc: true, postage: null,
+        }));
+      }
+    });
+    const post = round2(Number(o.postage) || 0);
+    if(post > 0){
+      lines.push(Object.assign({}, base, {
+        id: ctx.id(), barcode: 'POSTAGE', name: 'Postage (Etsy)',
+        maker: '', price: post, qty: 1, disc: 0, net: post, misc: true, postage: true,
+      }));
+    }
+    if(lines.length){
+      lines[0].etsyRef = String(o.ref);
+      lines[0].etsyFee = (o.fee == null || !isFinite(Number(o.fee))) ? null : round2(Number(o.fee));
+      lines.slice(1).forEach(l => { l.etsyRef = null; l.etsyFee = null; });
+    }
+    return { lines: lines, short: short, unknown: unknown };
+  }
+  // ---- end etsy orders plan ----
 
   // ---- orders lock ----
   // Hides customers' names and addresses in the Website orders panel until the
@@ -12353,6 +12430,67 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     setInterval(push, 5 * 60 * 1000);
     window.addEventListener('online', () => setTimeout(push, 5000));
     return { changed: changed, push: push, sold: sold, last: () => last };
+  })();
+
+  // ---- Etsy orders (step 3b, v1.65.0) ----
+  // Paid Etsy orders come into the till by themselves: every minute while a
+  // till is open and signed in, it asks the Etsy service what no till has
+  // recorded yet, claims each one (only the first till to claim records it)
+  // and rings it through as an Etsy sale: stock comes off, postage is its own
+  // line, Etsy's card fee is kept for the report. There is no address and no
+  // name: Kay posts from the Etsy app.
+  const EtsyOrders = (function(){
+    const POLL_MS = 60 * 1000;
+    let busy = false, lastError = '', lastAt = 0, stopped = false;
+    function tillId(){ try{ return localStorage.getItem('posTillId') || 'till'; }catch(e){ return 'till'; } }
+    function haveSale(ref){ return sales.some(s => s.etsyRef === String(ref) && (s.kind || 'sale') !== 'refund'); }
+
+    function record(o){
+      const plan = planEtsyOrderSale(o, items, {
+        txn: uid('T'), receiptNo: nextReceiptNo(), now: new Date().toISOString(), id: () => uid('L'),
+      });
+      plan.lines.forEach(l => {
+        if(!l.misc && items[l.barcode]){
+          items[l.barcode].counted = Math.max(0, (Number(items[l.barcode].counted) || 0) - l.qty);
+        }
+        sales.push(l);
+      });
+      saveItems();
+      saveSales();
+      renderSold();
+      showToast('Etsy order ' + o.ref + ' recorded. Post it from the Etsy app.', 'success');
+      if(plan.short.length || plan.unknown.length){
+        showNotice('Etsy order ' + o.ref,
+          (plan.short.length ? 'The till had fewer than this order took: ' + plan.short.map(b => (items[b] && items[b].name) || b).join(', ') + '. Check you still have it to send. ' : '')
+          + (plan.unknown.length ? 'The till does not know: ' + plan.unknown.join(', ') + '. It is in the takings, but no stock came off for it. ' : '')
+          + 'The order is in the Etsy app.');
+      }
+    }
+
+    async function check(){
+      if(busy || stopped || !Sync.isConnected()) return;
+      busy = true;
+      try{
+        const out = await EtsyLink.call('/staff/orders');
+        // Not connected to Etsy: nothing to do, and nothing to complain about.
+        if(!out || !out.connected){ lastError = ''; return; }
+        for(const o of (out.orders || [])){
+          if(haveSale(o.ref)) continue;
+          const claimed = await EtsyLink.call('/staff/orders/recorded', { method:'POST', body: JSON.stringify({ ref: String(o.ref), by: tillId() }) });
+          if(claimed && claimed.ok && !haveSale(o.ref)) record(o);
+        }
+        lastError = '';
+        lastAt = Date.now();
+      }catch(e){
+        lastError = e.message || 'Could not reach the Etsy service';
+        if(e.code === 'email-unverified') stopped = true;   // says so in Settings; no point asking every minute
+      }finally{
+        busy = false;
+      }
+    }
+    setTimeout(check, 25000);
+    setInterval(check, POLL_MS);
+    return { check: check, status: () => ({ lastAt: lastAt, lastError: lastError }) };
   })();
 
   (function initEtsyLink(){
