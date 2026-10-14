@@ -25,7 +25,7 @@ const SRC = HTML.slice(VA, VB) + HTML.slice(a, b);
 
 const ctx = { console };
 vm.createContext(ctx);
-vm.runInContext(SRC + '\nthis.T = { ETSY_PHOTO_MAX, etsyPicsOf, etsyPhotoDocId, etsyStatus, applyEtsyChoice, etsyAddPic, etsyRemovePic, etsyMovePic, etsyTodo, cleanEtsyTitle, parseEtsyTags, etsyTagsOf, ETSY_TITLE_MAX, ETSY_TAG_MAX, ETSY_TAG_LEN, isEarring, etsyReturnsFor, etsyDeliveryFor, etsyDraftPayload, searchEtsyCategories, etsyFolderLevels, etsyCategoryFor, etsyWords, suggestEtsyCategories, etsyColourGroup, etsyGroupPayload };', ctx);
+vm.runInContext(SRC + '\nthis.T = { ETSY_PHOTO_MAX, etsyPicsOf, etsyPhotoDocId, etsyStatus, applyEtsyChoice, etsyAddPic, etsyRemovePic, etsyMovePic, etsyTodo, cleanEtsyTitle, parseEtsyTags, etsyTagsOf, ETSY_TITLE_MAX, ETSY_TAG_MAX, ETSY_TAG_LEN, isEarring, etsyReturnsFor, etsyDeliveryFor, etsyDraftPayload, searchEtsyCategories, etsyFolderLevels, etsyCategoryFor, etsyWords, suggestEtsyCategories, etsyColourGroup, etsyGroupPayload, etsyStockList };', ctx);
 const T = ctx.T;
 
 let pass = 0, fail = 0;
@@ -312,6 +312,24 @@ console.log('\nColour groups go as ONE listing, with only the colours ticked for
     T.etsyGroupPayload(Object.assign({}, all['KA-1'], { etsyTitle: 'Crochet tarot pouch' }), 'KA-1', cat, g, all).title === 'Crochet tarot pouch');
   const g2 = T.etsyColourGroup('KA-2', all);
   check('no description of its own borrows a colour\'s', T.etsyGroupPayload(all['KA-2'], 'KA-2', cat, g2, all).description === 'Hand crocheted.');
+}
+
+console.log('\nWhat the Etsy service is told after a stock change (v1.64.0)');
+{
+  const all = {
+    'KA-2': { name: 'B', etsy: 1, etsyListingId: 9, counted: 0 },
+    'KA-1': { name: 'A', etsy: 1, etsyListingId: 9, counted: 2.7 },
+    'KA-3': { name: 'C', etsy: 1, counted: 4 },
+    'KA-4': { name: 'D', web: 1, counted: 1 },
+    'KA-5': { name: 'E', etsy: 1, etsyListingId: 7, counted: -3 },
+    'KA-6': { name: 'F', etsy: 1, etsyListingId: 7 },
+  };
+  const list = T.etsyStockList(all);
+  check('only items that are on Etsy', list.map(x => x.barcode).join() === 'KA-1,KA-2,KA-5,KA-6', JSON.stringify(list));
+  check('0 is sent as 0, not left out (that is the sale that matters)', list[1].counted === 0);
+  check('never a fraction', list[0].counted === 2);
+  check('never a negative, and a missing count is 0', list[2].counted === 0 && list[3].counted === 0);
+  check('nothing on Etsy, nothing to send', T.etsyStockList({ a: { counted: 1 } }).length === 0 && T.etsyStockList(null).length === 0);
 }
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

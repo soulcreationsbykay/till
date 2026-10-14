@@ -10,6 +10,30 @@ fixes.
 
 ---
 
+## v1.64.0 - 14 October 2026
+
+**A sale anywhere else takes it off Etsy (Etsy step 3a).**
+
+- After every stock change (a sale, an edit, a count arriving from another
+  till) and every five minutes while a till is open and signed in, the
+  count of every item on Etsy goes to the Etsy service.
+- Where the till has fewer than Etsy, Etsy comes down to match. A colour
+  with none left is switched off; a live listing with none left at all is
+  deactivated (it stays in Etsy's shop manager, ready to re-activate). A
+  draft is left alone: nobody can buy a draft.
+- **Etsy is never raised.** Until Etsy's own orders come into the till
+  (step 3b), a higher till count may just mean Etsy sold one the till has
+  not heard about. After restocking, set the quantity on Etsy yourself.
+- One message says what was taken off Etsy. The Etsy box on a sent item
+  warns when there are none left here, and says when Etsy reports the
+  listing gone (press Forget).
+- Needs `kay-etsy` with `/staff/stock` deployed.
+
+`tests/etsy.js`: 5 new checks (117), verified against a copy that left
+the items at 0 out (the sale that matters most).
+
+---
+
 ## v1.63.1 - 14 October 2026
 
 **The Etsy title hint is right for colours.** On a colour item with no Etsy

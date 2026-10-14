@@ -4536,7 +4536,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.63.1';
+  const APP_VERSION = '1.64.0';
   const BUILD_DATE  = '13 Oct 2026';
   const BUILD_TIME  = '23:01';
   const versionEl = document.getElementById('appVersion');
@@ -4936,6 +4936,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       // the website list honest without every caller having to remember.
       try{ renderWebBanner(); }catch(e){}
       try{ renderEtsyCard(); }catch(e){}
+      // And Etsy's stock with it (v1.64.0): a sale here lowers Etsy's.
+      try{ EtsyStock.changed(); }catch(e){}
       return true;
     }catch(e){
       // With photos in IndexedDB this should be very rare now.
@@ -5204,6 +5206,14 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       .sort(function(a, b){ return a.path.length - b.path.length || a.path.localeCompare(b.path); })
       .slice(0, max || 40);
   }
+  // What the Etsy service is told after a stock change (v1.64.0): every item
+  // that is on Etsy, with how many the till has. Never a negative, never a
+  // fraction, and nothing that is not on Etsy.
+  function etsyStockList(all){
+    return Object.keys(all || {}).filter(function(b){ return all[b] && all[b].etsyListingId; }).sort()
+      .map(function(b){ return { barcode: b, counted: Math.max(0, Math.floor(Number(all[b].counted) || 0)) }; });
+  }
+
   // Colour groups (v1.63.0). Items named "Tarot card holder — Purple",
   // "… — Green" are one product in colours, grouped by name exactly as the
   // website groups them (variantSplit). On Etsy they become ONE listing with
@@ -12270,6 +12280,49 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     return { get:get, set:set, call:call, DEFAULT:DEFAULT };
   })();
 
+  // ---- Etsy stock (step 3a, v1.64.0) ----
+  // A sale anywhere else takes it off Etsy. After every stock change here
+  // (saveItems: a sale, an edit, a count arriving from another till) and
+  // every five minutes while a till is open, the count of every item on Etsy
+  // goes to the Etsy service, which LOWERS Etsy to match: a colour at 0 is
+  // switched off, and a live listing with none left is deactivated. It never
+  // raises Etsy; that waits until Etsy's own orders come into the till.
+  // Any till may send it, as often as it likes: the service asks Etsy
+  // nothing unless the till has fewer than Etsy could have.
+  const EtsyStock = (function(){
+    let timer = null, busy = false, again = false, last = null;
+    function changed(){ clearTimeout(timer); timer = setTimeout(push, 3000); }
+    async function push(){
+      if(busy){ again = true; return; }
+      const list = etsyStockList(items);
+      if(!list.length || !Sync.isConnected()) return;
+      busy = true;
+      try{
+        const r = await EtsyLink.call('/staff/stock', { method:'POST', body: JSON.stringify({ items: list }) });
+        last = { at: Date.now(), results: (r && r.results) || {} };
+        // One message for what changed on Etsy, not one per colour.
+        const took = [], off = [];
+        Object.keys(last.results).forEach(b => {
+          const x = last.results[b], it = items[b];
+          if(!it) return;
+          if(x.result === 'deactivated') took.push(it.name);
+          else if(x.result === 'off') off.push(it.name);
+        });
+        if(took.length) showToast('None left, so taken off Etsy: ' + took.join(', '), 'success');
+        if(off.length) showToast('None left, so switched off on Etsy: ' + off.join(', '), 'success');
+        if(currentEditBarcode && last.results[currentEditBarcode]) renderEditEtsyPlan();
+      }catch(e){
+        last = { at: Date.now(), error: e.message || 'Could not reach the Etsy service' };
+      }finally{
+        busy = false;
+        if(again){ again = false; changed(); }
+      }
+    }
+    setTimeout(push, 20000);                 // once sync has had time to connect
+    setInterval(push, 5 * 60 * 1000);
+    return { changed: changed, push: push, last: () => last };
+  })();
+
   (function initEtsyLink(){
     const note = document.getElementById('etsyConnNote');
     const detail = document.getElementById('etsyConnDetail');
@@ -12604,8 +12657,15 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       send.style.display = 'none';
       open.style.display = '';
       open.href = etsyEditUrl(it.etsyListingId);
-      hint.textContent = etsyWarn[currentEditBarcode] || ('On Etsy as a draft' + (it.etsyDraftAt ? ' since ' + new Date(it.etsyDraftAt).toLocaleDateString('en-GB', { day:'numeric', month:'short' }) : '')
-        + '. Check it there and press Publish when it looks right. Changes made here are not sent yet.');
+      // What the last stock check heard back (v1.64.0), this device only.
+      const seen = (EtsyStock.last() && EtsyStock.last().results || {})[currentEditBarcode] || {};
+      const none = !(Number(it.counted) > 0);
+      hint.textContent = etsyWarn[currentEditBarcode]
+        || (seen.result === 'gone' ? 'Etsy says this listing no longer exists. If you deleted it there, press Forget below.'
+        : seen.result === 'deactivated' || (none && seen.state === 'inactive') ? 'None left here, so it was taken off Etsy (deactivated). Once you have more, set the quantity and re-activate it on Etsy yourself.'
+        : none ? 'None left here. If this is still a draft on Etsy, do not publish it. If it is live, it comes off Etsy at the next stock check (within a few minutes, while a till is open).'
+        : ('On Etsy as a draft' + (it.etsyDraftAt ? ' since ' + new Date(it.etsyDraftAt).toLocaleDateString('en-GB', { day:'numeric', month:'short' }) : '')
+          + '. Check it there and press Publish when it looks right. A sale here lowers Etsy\'s stock by itself; other changes made here are not sent yet.'));
       return;
     }
     open.style.display = 'none';
