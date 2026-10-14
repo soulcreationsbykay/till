@@ -453,12 +453,56 @@ function readZip(buf) {
           csv.indexOf('"Card fees (SumUp)","1.69"') !== -1 && csv.indexOf('"Website card fees","1.00"') !== -1
           && csv.indexOf('"Etsy\'s card fees","1.50"') !== -1 && csv.indexOf('"Expenses","14.85"') !== -1);
     check('an Expenses section lists each one, quotes doubled', at !== -1
-          && csv.indexOf('"2026-08-02","Yarn, ""Hobbycraft""","Materials","10.25","yes"') !== -1, csv.slice(at, at + 300));
+          && csv.indexOf('"' + new Date('2026-08-02T12:00:00').toLocaleDateString() + '","Yarn, ""Hobbycraft""","Materials","10.25","yes"') !== -1, csv.slice(at, at + 300));
     check('with a total', csv.indexOf('"TOTAL","","","14.85",""') !== -1);
     check('it sits before Supplier payouts', at < csv.indexOf('\nSupplier payouts\n'));
     check('without them, the file it always was', ctx.zReportCsv(reportFigures(), '20 August 2026', p3) === base);
     const none = reportFigures(); none.expenseLines = [];
     check('no expenses in the period: no Expenses section', ctx.zReportCsv(none, '20 August 2026', p3).indexOf('\nExpenses\n') === -1);
+  }
+
+  // v1.67.2: the accountant's workbook. Every sale line and every expense of
+  // the period, straight after the Summary, when the report supplies them.
+  console.log('\nThe report export for an accountant: a Sales tab and the Expenses beside it');
+  {
+    const p4 = payoutFigures();
+    const at = (h) => '2026-08-20T' + h + ':00:00.000Z';
+    const f = reportFigures();
+    f.rates = { card: 1.69, web: 2.5 };
+    f.saleLines = [
+      { id: 'a', txn: 'T1', receiptNo: 11, pay: 'card', kind: 'sale', barcode: 'KA-1', name: 'Bracelet', maker: 'Kay', price: 10, qty: 3, disc: 2, net: 28, at: at('09') },
+      { id: 'b', txn: 'T2', receiptNo: 12, pay: 'card', kind: 'refund', barcode: 'KA-1', name: 'Bracelet', maker: 'Kay', price: 10, qty: -1, disc: 0, net: -10, at: at('10') },
+      { id: 'c', txn: 'T3', receiptNo: 13, pay: 'cash', kind: 'sale', barcode: 'KA-2', name: 'Ring', maker: 'Kay', price: 5, qty: 1, disc: 0, net: 5, at: at('11') },
+      { id: 'd', txn: 'T4', receiptNo: 14, pay: 'web', kind: 'sale', barcode: 'KA-3', name: 'Hanging', maker: 'Kay', price: 40, qty: 1, disc: 0, net: 40, at: at('12'), webRef: 'SC-1001' },
+      { id: 'e', txn: 'T5', receiptNo: 15, pay: 'etsy', kind: 'sale', barcode: 'KA-4', name: 'Spider', maker: 'Kay', price: 15, qty: 1, disc: 0, net: 15, at: at('13'), etsyRef: '5001', etsyFee: 0.61 },
+      { id: 'f', txn: 'T5', receiptNo: 15, pay: 'etsy', kind: 'sale', barcode: 'POSTAGE', name: 'Postage (Etsy)', maker: '', price: 3.55, qty: 1, disc: 0, net: 3.55, at: at('13'), etsyRef: null, etsyFee: null, misc: true, postage: true },
+      { id: 'g', txn: 'T6', receiptNo: 16, pay: 'etsy', kind: 'sale', barcode: 'KA-5', name: 'Holder', maker: 'Kay', price: 18, qty: 1, disc: 0, net: 18, at: at('14'), etsyRef: '5002', etsyFee: null },
+    ];
+    f.expenseLines = [{ id: '1', date: '2026-08-02', what: 'Yarn', cat: 'materials', amount: 10.25, hasPhoto: true }];
+    const csv = ctx.zReportCsv(f, 'Tax year 2026–27', p4);
+    const s = csv.indexOf('\nSales\n'), e = csv.indexOf('\nExpenses\n'), t = csv.indexOf('\nTop sellers\n');
+    check('Sales, then Expenses, straight after the Summary and before Top sellers', s > 0 && s < e && e < t, [s, e, t].join());
+    const sales = csv.slice(s, e);
+    check('the Sales columns an accountant needs',
+      sales.indexOf('Date,Time,Receipt,Type,Barcode,Item,Made By,Unit Price,Qty,Gross,Discount,Net received,Payment,Order No,Payment fee,Net after fee') !== -1, sales.slice(0, 300));
+    check('a card sale: gross 3 × £10, discount, net received, 1.69% fee, net after fee',
+      sales.indexOf('"sale","KA-1","Bracelet","Kay","10.00","3","30.00","2.00","28.00","Card","","0.47","27.53"') !== -1, sales);
+    check('a card refund: negative, and no fee back', sales.indexOf('"refund","KA-1","Bracelet","Kay","10.00","-1","-10.00","0.00","-10.00","Card","","0.00","-10.00"') !== -1);
+    check('cash: no fee', sales.indexOf('"Ring","Kay","5.00","1","5.00","0.00","5.00","Cash","","0.00","5.00"') !== -1);
+    check('a website order: its order number and the website rate', sales.indexOf('"Website","SC-1001","1.00","39.00"') !== -1);
+    check('an Etsy order: its order number and Etsy\'s own fee', sales.indexOf('"Etsy","5001","0.61","14.39"') !== -1);
+    check('the rest of that Etsy order carries no second fee', sales.indexOf('"Postage (Etsy)","","3.55","1","3.55","0.00","3.55","Etsy","","0.00","3.55"') !== -1);
+    check('an Etsy fee not known says so, never £0', sales.indexOf('"Etsy","5002","not known",""') !== -1);
+    // 28 − 10 + 5 + 40 + 15 + 3.55 + 18 = 99.55 received; fees 0.4732 + 1 + 0.61 = 2.0832
+    check('totals: gross, discount, net received and the known fees; after-fees blank while one is unknown',
+      sales.indexOf('"TOTAL","","","","","","","","","101.55","2.00","99.55","","","2.08",""') !== -1, sales.slice(sales.lastIndexOf('"TOTAL"')));
+    // Written the way this machine writes a date, as the Date column of the sales is.
+    check('the Expenses tab lists the purchases', csv.slice(e, t).indexOf('"' + new Date('2026-08-02T12:00:00').toLocaleDateString() + '","Yarn","Materials","10.25","yes"') !== -1);
+    check('and appears once', csv.split('\nExpenses\n').length === 2);
+    const sheets = ctx.zReportSheets(f, 'Tax year 2026–27', p4).map(x => x.name).join();
+    check('the workbook: Summary, Sales, Expenses, then the rest', sheets.indexOf('Summary,Sales,Expenses,Top sellers') === 0, sheets);
+    const plain = ctx.zReportSheets(reportFigures(), 'x', p4).map(x => x.name).join();
+    check('without them, no Sales tab', plain.indexOf('Sales') === -1 || plain.indexOf('Sales,') === -1 && !/(^|,)Sales(,|$)/.test(plain), plain);
   }
 
   console.log('\n' + pass + ' passed, ' + fail + ' failed');

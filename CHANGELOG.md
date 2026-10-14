@@ -10,6 +10,29 @@ fixes.
 
 ---
 
+## v1.67.2 - 14 October 2026
+
+**The report export is the accountant's workbook.** Export from the sales
+report (CSV or Excel) now has, straight after the Summary:
+
+- a **Sales** tab: every sale line in the chosen period (choose Tax year for
+  a tax return), with date, time, receipt, sale or refund, barcode, item,
+  maker, unit price, quantity, **gross** (price × quantity), discount, **net
+  received**, payment, **order number** (website or Etsy), **payment fee** and
+  **net after fee**, with totals. The fee is the Settings rate on a card or
+  website sale (none back on a refund), Etsy's own fee on an Etsy order (on
+  its first line; "not known" when Etsy did not say), none on cash. The fee
+  total matches the Summary's.
+- the **Expenses** tab beside it, every purchase in the period. Its dates are
+  now written the way the sales dates are.
+
+Sales tab → Export sales now fills in the Order No for Etsy orders too.
+
+`tests/sales-export.js`: 14 new checks (124), verified against four broken
+copies; checked in the preview by exporting a tax year to CSV and Excel.
+
+---
+
 ## v1.67.1 - 14 October 2026
 
 **Tax year on the sales report.** Beside Day, Month, Year and Dates there is

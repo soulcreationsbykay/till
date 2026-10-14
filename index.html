@@ -4576,7 +4576,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.67.1';
+  const APP_VERSION = '1.67.2';
   const BUILD_DATE  = '13 Oct 2026';
   const BUILD_TIME  = '23:01';
   const versionEl = document.getElementById('appVersion');
@@ -11341,7 +11341,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         moneyCell(s.disc),
         moneyCell(net),
         s.pay || '',
-        s.webRef || '',
+        // v1.67.2: an Etsy order's number too, not only a website order's
+        s.webRef || s.etsyRef || '',
         s.staff || ''
       ]);
     });
@@ -11441,7 +11442,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const rows = list.map(e => {
       total += Number(e.amount) || 0;
       const c = EXPENSE_CATS.find(x => x.key === e.cat);
-      return [e.date, e.what, c ? c.label : 'Other', moneyCell(e.amount), e.hasPhoto ? 'yes' : ''];
+      // The date written the way the sales are (v1.67.2), so one sheet reads one way.
+      return [new Date(e.date + 'T12:00:00').toLocaleDateString(), e.what, c ? c.label : 'Other', moneyCell(e.amount), e.hasPhoto ? 'yes' : ''];
     });
     rows.push(['TOTAL', '', '', moneyCell(round2(total)), '']);
     return { cols: [{ h:'Date' }, { h:'What for' }, { h:'Kind' }, { h:'Amount' }, { h:'Receipt photo' }], rows: rows };
@@ -11525,6 +11527,15 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const summary = zSummaryTable(f, label);
     const sellers = zSellersTable(f);
     let csv = tableToCsv(summary.cols, summary.rows);
+    // v1.67.2: every sale and every expense after the Summary, when supplied.
+    if(f.saleLines && f.saleLines.length){
+      const sl = zSaleLinesTable(f);
+      csv += '\nSales\n' + tableToCsv(sl.cols, sl.rows);
+    }
+    if(f.saleLines && f.expenseLines && f.expenseLines.length){
+      const ex = zExpensesTable(f);
+      csv += '\nExpenses\n' + tableToCsv(ex.cols, ex.rows);
+    }
     csv += '\nTop sellers\n' + tableToCsv(sellers.cols, sellers.rows);
     // Only written when there were any, so a shop that never takes a misc
     // amount gets exactly the file it has always got.
@@ -11536,7 +11547,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       const wo = zWebOrdersTable(f);
       csv += '\nWebsite orders\n' + tableToCsv(wo.cols, wo.rows);
     }
-    if(f.expenseLines && f.expenseLines.length){
+    if(!f.saleLines && f.expenseLines && f.expenseLines.length){
       const ex = zExpensesTable(f);
       csv += '\nExpenses\n' + tableToCsv(ex.cols, ex.rows);
     }
@@ -11550,13 +11561,71 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   }
 
   // The same report as a workbook, one table per sheet.
+  // The payment fee on one sale line (v1.67.2), unrounded, or null when not
+  // known. Card and website: the Settings rate on a SALE (a refund gets no fee
+  // back, as in payouts and net profit). Etsy: Etsy's own fee, carried on the
+  // first line of the order. Cash and the rest: none.
+  function saleLineFee(s, rates){
+    const net = lineNet(s);
+    if(s.pay === 'card') return net > 0 ? net * (Number(rates.card) || 0) / 100 : 0;
+    if(s.pay === 'web') return net > 0 ? net * (Number(rates.web) || 0) / 100 : 0;
+    if(s.pay === 'etsy'){
+      if(!s.etsyRef) return 0;                       // the order's other lines
+      return s.etsyFee == null ? null : Number(s.etsyFee) || 0;
+    }
+    return 0;
+  }
+
+  // Every sale line in the report's period, for an accountant (v1.67.2): what
+  // it was, gross (price × quantity), the discount, what was received, how it
+  // was paid, the order number (website or Etsy), the payment fee and what
+  // was left after it. Only written when the report supplies the lines.
+  function zSaleLinesTable(f){
+    const rates = f.rates || { card: 0, web: 0 };
+    let gross = 0, disc = 0, net = 0, fee = 0, after = 0, unknown = 0;
+    const rows = (f.saleLines || []).map(s => {
+      const d = new Date(s.at);
+      const q = lineQty(s), n = lineNet(s);
+      const g = (Number(s.price) || 0) * q;
+      const fe = saleLineFee(s, rates);
+      gross += g; disc += Number(s.disc) || 0; net += n;
+      if(fe == null) unknown++; else { fee += fe; after += n - fe; }
+      return [
+        d.toLocaleDateString(), d.toLocaleTimeString(), fmtReceiptNo(s.receiptNo),
+        s.kind === 'refund' ? 'refund' : 'sale', s.barcode, s.name, s.maker || '',
+        moneyCell(s.price), q, moneyCell(round2(g)), moneyCell(s.disc), moneyCell(n),
+        (PAY_NAMES_EXPORT[s.pay] || s.pay || ''), s.webRef || s.etsyRef || '',
+        fe == null ? 'not known' : moneyCell(round2(fe)), fe == null ? '' : moneyCell(round2(n - fe)),
+      ];
+    });
+    rows.push(['TOTAL', '', '', '', '', '', '', '', '', moneyCell(round2(gross)), moneyCell(round2(disc)), moneyCell(round2(net)),
+               '', '', moneyCell(round2(fee)) , unknown ? '' : moneyCell(round2(after))]);
+    return {
+      cols: [{ h:'Date' }, { h:'Time' }, { h:'Receipt' }, { h:'Type' }, { h:'Barcode' }, { h:'Item' }, { h:'Made By' },
+             { h:'Unit Price' }, { h:'Qty' }, { h:'Gross' }, { h:'Discount' }, { h:'Net received' },
+             { h:'Payment' }, { h:'Order No' }, { h:'Payment fee' }, { h:'Net after fee' }],
+      rows: rows,
+    };
+  }
+  const PAY_NAMES_EXPORT = { cash:'Cash', card:'Card', web:'Website', etsy:'Etsy', other:'Other' };
+
   function zReportSheets(f, label, p){
     const summary = zSummaryTable(f, label);
     const sellers = zSellersTable(f);
     const sheets = [
       { name:'Summary', cols: summary.cols, rows: summary.rows },
-      { name:'Top sellers', cols: sellers.cols, rows: sellers.rows }
     ];
+    // v1.67.2: for an accountant, every sale and every expense straight after
+    // the Summary, when the report supplies them.
+    if(f.saleLines && f.saleLines.length){
+      const sl = zSaleLinesTable(f);
+      sheets.push({ name:'Sales', cols: sl.cols, rows: sl.rows });
+    }
+    if(f.saleLines && f.expenseLines && f.expenseLines.length){
+      const ex = zExpensesTable(f);
+      sheets.push({ name:'Expenses', cols: ex.cols, rows: ex.rows });
+    }
+    sheets.push({ name:'Top sellers', cols: sellers.cols, rows: sellers.rows });
     if(f.miscLines && f.miscLines.length){
       const misc = zMiscTable(f);
       sheets.push({ name:'Miscellaneous', cols: misc.cols, rows: misc.rows });
@@ -11565,7 +11634,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       const wo = zWebOrdersTable(f);
       sheets.push({ name:'Website orders', cols: wo.cols, rows: wo.rows });
     }
-    if(f.expenseLines && f.expenseLines.length){
+    // Expenses without the sales (an older caller): where they always went.
+    if(!f.saleLines && f.expenseLines && f.expenseLines.length){
       const ex = zExpensesTable(f);
       sheets.push({ name:'Expenses', cols: ex.cols, rows: ex.rows });
     }
@@ -11914,6 +11984,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     // Net profit and the expenses behind it (v1.67.0).
     f.expenseLines = expensesIn(Expenses.all(), r.from, r.to).slice().sort((a, b) => a.date.localeCompare(b.date));
     f.profit = profitFigures(f, f.expenseLines, { card: cardFeePct(), web: webFeePct() });
+    // Every sale line in the period, oldest first, for the Sales tab (v1.67.2).
+    f.rates = { card: cardFeePct(), web: webFeePct() };
+    f.saleLines = sales.filter(s => { const d = s.at ? localDateStr(new Date(s.at)) : ''; return d && d >= r.from && d <= r.to; })
+      .slice().sort((a, b) => String(a.at).localeCompare(String(b.at)));
     // No Supplier payouts sheet or section when there are no suppliers.
     const p = SUPPLIERS ? makerFigures(r.from, r.to) : null;
     const name = `report-${r.label.replace(/[^0-9a-zA-Z-]+/g,'_')}`;
