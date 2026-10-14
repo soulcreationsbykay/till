@@ -10,6 +10,21 @@ fixes.
 
 ---
 
+## v1.64.1 - 14 October 2026
+
+**Selling an Etsy item here tells Etsy at once, or says it could not.**
+
+- A sale of anything that is on Etsy is sent to Etsy straight away, not
+  after the usual few seconds, so closing the till at once does not delay it.
+- If Etsy cannot be told right then (no signal, Team sync not connected, or
+  Etsy not answering), a box that stays until OK says so: it comes off Etsy
+  by itself later, but until then it could sell there too, so take it off in
+  the Etsy app if you can.
+- When the device gets its signal back, the till checks Etsy's stock within
+  seconds instead of waiting for the five-minute check.
+
+---
+
 ## v1.64.0 - 14 October 2026
 
 **A sale anywhere else takes it off Etsy (Etsy step 3a).**

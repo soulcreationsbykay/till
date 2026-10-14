@@ -4536,7 +4536,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.64.0';
+  const APP_VERSION = '1.64.1';
   const BUILD_DATE  = '13 Oct 2026';
   const BUILD_TIME  = '23:01';
   const versionEl = document.getElementById('appVersion');
@@ -5699,8 +5699,15 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     document.getElementById('confirmModal').style.display = 'flex';
     confirmCallback = onConfirm;
   }
+  // The same box with only OK, for something that must be read, not chosen
+  // (v1.64.1: an Etsy item sold while Etsy cannot be told).
+  function showNotice(title, message){
+    askConfirm(title, message, 'OK', null);
+    document.getElementById('confirmCancelBtn').style.display = 'none';
+  }
   function closeConfirm(){
     document.getElementById('confirmModal').style.display = 'none';
+    document.getElementById('confirmCancelBtn').style.display = '';
     confirmCallback = null;
   }
   document.getElementById('confirmCancelBtn').addEventListener('click', closeConfirm);
@@ -10337,10 +10344,14 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     // see "Sold on the website". Before the basket is emptied, because this
     // reads its lines.
     if(pay === 'web') noteOwnWebSale(txnId, receiptNo, webRef, cart.lines, at);
+    // Anything sold here that is also on Etsy (v1.64.1), read before the
+    // basket is emptied: Etsy is told straight away, or Kay is warned.
+    const etsySold = cart.lines.map(l => l.barcode).filter(b => items[b] && items[b].etsyListingId);
 
     cart = { lines: [], disc: null, promo: null };
     saveCart();
     saveItems();
+    if(etsySold.length){ try{ EtsyStock.sold(etsySold); }catch(e){} }
     saveSales();
     renderTill();
     renderList(document.getElementById('searchBox').value);
@@ -12318,9 +12329,30 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         if(again){ again = false; changed(); }
       }
     }
+    // A sale of something on Etsy (v1.64.1): sent at once rather than after
+    // the usual pause, so closing the till straight after does not delay it.
+    // If Etsy cannot be told now (no signal, or this till not signed in to
+    // Team sync), Kay is told, because until it is, the same piece can be
+    // bought on Etsy. It still goes by itself once this till is back online.
+    function sold(barcodes){
+      const names = barcodes.map(b => items[b] && items[b].name).filter(Boolean);
+      const warn = (why, when) => showNotice('Sold here, still on Etsy',
+        names.join(', ') + (names.length > 1 ? ' are' : ' is') + ' also on Etsy, and this till cannot tell Etsy right now (' + why + '). '
+        + 'It comes off Etsy by itself ' + (when || 'once this till is back online and open') + '. Until then it could sell there too: '
+        + 'if you can, take it off in the Etsy app now.');
+      clearTimeout(timer);
+      if(navigator.onLine === false){ warn('no signal'); return; }
+      if(!Sync.isConnected()){ warn('Team sync is not connected', 'once this till is connected to Team sync (Settings) with signal'); return; }
+      push().then(() => {
+        const x = last;
+        if(x && x.error) warn('it could not reach Etsy');
+        else if(x && x.results && barcodes.some(b => x.results[b] && x.results[b].result === 'error')) warn('Etsy did not answer');
+      });
+    }
     setTimeout(push, 20000);                 // once sync has had time to connect
     setInterval(push, 5 * 60 * 1000);
-    return { changed: changed, push: push, last: () => last };
+    window.addEventListener('online', () => setTimeout(push, 5000));
+    return { changed: changed, push: push, sold: sold, last: () => last };
   })();
 
   (function initEtsyLink(){
