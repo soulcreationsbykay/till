@@ -17,11 +17,15 @@ const START = '  // ETSY: WHAT IS KEPT FOR ETSY';
 const END = '  // ETSY: END OF THE PURE PART';
 const a = HTML.indexOf(START), b = HTML.indexOf(END);
 if (a < 0 || b < 0 || b < a) { console.error('could not locate the Etsy block'); process.exit(2); }
-const SRC = HTML.slice(a, b);
+// v1.63.0: colour groups use the website's name rule, which lives in its own
+// block; it is loaded too, so what is checked is the shipped rule.
+const VA = HTML.indexOf('  // ---- variant names ----'), VB = HTML.indexOf('  // ---- end variant names ----');
+if (VA < 0 || VB < 0) { console.error('could not locate the variant names block'); process.exit(2); }
+const SRC = HTML.slice(VA, VB) + HTML.slice(a, b);
 
 const ctx = { console };
 vm.createContext(ctx);
-vm.runInContext(SRC + '\nthis.T = { ETSY_PHOTO_MAX, etsyPicsOf, etsyPhotoDocId, etsyStatus, applyEtsyChoice, etsyAddPic, etsyRemovePic, etsyMovePic, etsyTodo, cleanEtsyTitle, parseEtsyTags, etsyTagsOf, ETSY_TITLE_MAX, ETSY_TAG_MAX, ETSY_TAG_LEN, isEarring, etsyReturnsFor, etsyDeliveryFor, etsyDraftPayload, searchEtsyCategories, etsyFolderLevels, etsyCategoryFor, etsyWords, suggestEtsyCategories };', ctx);
+vm.runInContext(SRC + '\nthis.T = { ETSY_PHOTO_MAX, etsyPicsOf, etsyPhotoDocId, etsyStatus, applyEtsyChoice, etsyAddPic, etsyRemovePic, etsyMovePic, etsyTodo, cleanEtsyTitle, parseEtsyTags, etsyTagsOf, ETSY_TITLE_MAX, ETSY_TAG_MAX, ETSY_TAG_LEN, isEarring, etsyReturnsFor, etsyDeliveryFor, etsyDraftPayload, searchEtsyCategories, etsyFolderLevels, etsyCategoryFor, etsyWords, suggestEtsyCategories, etsyColourGroup, etsyGroupPayload };', ctx);
 const T = ctx.T;
 
 let pass = 0, fail = 0;
@@ -264,6 +268,50 @@ console.log('\nThe category that IS the thing beats one that merely contains it'
   ];
   const y = T.suggestEtsyCategories(etsy, ['Yarn'], []);
   check('Yarn itself first, though the other path is shorter', y[0] && y[0].id === 7, JSON.stringify(y));
+}
+
+console.log('\nColour groups go as ONE listing, with only the colours ticked for Etsy (v1.63.0)');
+{
+  const D = ' — ';
+  const col = (label, over) => Object.assign({ name: 'Tarot card holder' + D + label, etsy: 1, etsyPics: ['f-' + label], price: 18, counted: 2, folder: 'Kay/Crochet', post: 'letter' }, over || {});
+  const all = {
+    'KA-1': col('Purple', { etsyTags: ['tarot', 'crochet'], webDesc: 'Hand crocheted.' }),
+    'KA-2': col('Green', { etsyTags: ['Crochet', 'witchy'] }),
+    'KA-3': col('Blue', { etsyPics: [] }),
+    'KA-4': col('Red', { etsy: undefined }),
+    'KA-5': { name: 'Tarot card holder', etsy: 1, etsyPics: ['x'], price: 5, counted: 1 },
+    'KA-6': { name: 'tarot CARD holder' + D + 'Amber', etsy: 1, etsyPics: ['a'], price: 20, counted: 1, post: 'parcel' },
+  };
+  const g = T.etsyColourGroup('KA-1', all);
+  check('grouped by the name before the dash, ignoring case, like the website', g && g.group === 'Tarot card holder');
+  check('only colours ticked for Etsy and ready are offered, sorted by colour',
+    g.ready.map(r => r.label).join() === 'Amber,Green,Purple', JSON.stringify(g.ready));
+  check('a ticked colour that is not ready is listed as left out, with why',
+    g.waiting.length === 1 && g.waiting[0].label === 'Blue' && /photo/.test(g.waiting[0].why), JSON.stringify(g.waiting));
+  check('a colour not ticked for Etsy is not mentioned at all', !JSON.stringify(g).includes('Red'));
+  check('the plain item with the same words and no dash is not in the group', !JSON.stringify(g).includes('KA-5'));
+  check('an item with no dash is in no group', T.etsyColourGroup('KA-5', all) === null);
+  const sent = Object.assign({}, all, { 'KA-2': Object.assign({}, all['KA-2'], { etsyListingId: 77 }) });
+  const gs = T.etsyColourGroup('KA-1', sent);
+  check('a colour already on Etsy is counted as sent, not offered again',
+    gs.sent.length === 1 && gs.sent[0].bc === 'KA-2' && !gs.ready.some(r => r.bc === 'KA-2'));
+
+  const cat = { key: 'kay/crochet', keys: ['kay/crochet', 'kay'], label: 'Crochet' };
+  const p = T.etsyGroupPayload(all['KA-1'], 'KA-1', cat, g, all);
+  check('the title is the group, never one colour', p.title === 'Tarot card holder', p.title);
+  check('one entry per ready colour, each with its own barcode, price and stock',
+    JSON.stringify(p.variants) === JSON.stringify([
+      { barcode: 'KA-6', label: 'Amber', price: 20, quantity: 1 },
+      { barcode: 'KA-2', label: 'Green', price: 18, quantity: 2 },
+      { barcode: 'KA-1', label: 'Purple', price: 18, quantity: 2 },
+    ]), JSON.stringify(p.variants));
+  check('no single price or stock is sent for a colour listing', !('price' in p) && !('quantity' in p));
+  check('tags from every colour, no repeats ignoring case', p.tags.join() === 'tarot,crochet,witchy', p.tags.join());
+  check('a parcel if any colour is a parcel', p.post === 'parcel');
+  check('its own Etsy title wins over the group name',
+    T.etsyGroupPayload(Object.assign({}, all['KA-1'], { etsyTitle: 'Crochet tarot pouch' }), 'KA-1', cat, g, all).title === 'Crochet tarot pouch');
+  const g2 = T.etsyColourGroup('KA-2', all);
+  check('no description of its own borrows a colour\'s', T.etsyGroupPayload(all['KA-2'], 'KA-2', cat, g2, all).description === 'Hand crocheted.');
 }
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

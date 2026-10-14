@@ -10,6 +10,37 @@ fixes.
 
 ---
 
+## v1.63.0 - 14 October 2026
+
+**Colours go to Etsy as one listing.**
+
+Items named like "Tarot card holder — Purple", "Tarot card holder — Green"
+(the same name rule the website uses for its colour dropdown) now go to Etsy
+as ONE listing with a **Colour** choice, not one listing per colour.
+
+- Only the colours **ticked for Etsy** are offered. Each keeps its own price,
+  stock and photos, and carries its barcode on Etsy (as the SKU), so later
+  steps can change one colour without touching the others.
+- The Etsy box on any colour says what the listing will hold, and which
+  ticked colours are left out and why (no real photo, none in stock…).
+- The title is the group's name (or the item's own Etsy title); the tags of
+  all the colours are used, this item's first; a parcel if any colour is.
+- Photos: each colour's first photo first, then the rest, up to 10, and each
+  colour's first photo is linked to it on Etsy.
+- Sent from any colour, every colour in it is marked as on Etsy. **Forget**
+  on any colour forgets the whole listing.
+- If Etsy will not take the colours, the draft stays but the till says **do
+  not publish it**, because it would sell as one thing with every colour's
+  stock added together.
+- Adding a colour to a listing already on Etsy is not possible yet (it comes
+  with the next Etsy step); the till says so instead of making a second one.
+- Needs `kay-etsy` with colour support deployed.
+
+`tests/etsy.js` has 14 new checks (112 in all), verified against three
+broken copies, and now loads the website's name rule as well.
+
+---
+
 ## v1.62.0 - 14 October 2026
 
 **Forget this Etsy draft.**

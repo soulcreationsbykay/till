@@ -4536,7 +4536,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.62.0';
+  const APP_VERSION = '1.63.0';
   const BUILD_DATE  = '13 Oct 2026';
   const BUILD_TIME  = '23:01';
   const versionEl = document.getElementById('appVersion');
@@ -5203,6 +5203,63 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       .filter(function(c){ const p = String(c.path || '').toLowerCase(); return words.every(function(w){ return p.indexOf(w) !== -1; }); })
       .sort(function(a, b){ return a.path.length - b.path.length || a.path.localeCompare(b.path); })
       .slice(0, max || 40);
+  }
+  // Colour groups (v1.63.0). Items named "Tarot card holder — Purple",
+  // "… — Green" are one product in colours, grouped by name exactly as the
+  // website groups them (variantSplit). On Etsy they become ONE listing with
+  // a Colour choice, offering only the colours ticked for Etsy, each with its
+  // own stock, price, photo and barcode. Null for an item in no group.
+  function etsyColourGroup(bc, all){
+    const it = all && all[bc];
+    const g = it ? variantSplit(it.name).group : '';
+    if(!g) return null;
+    const key = g.toLowerCase();
+    const out = { group: g, ready: [], waiting: [], sent: [] };
+    Object.keys(all).filter(function(b){
+      const o = all[b];
+      return o && o.etsy && variantSplit(o.name).group.toLowerCase() === key;
+    }).sort(function(a, b){
+      const la = variantSplit(all[a].name).label, lb = variantSplit(all[b].name).label;
+      return la.localeCompare(lb) || (a < b ? -1 : 1);
+    }).forEach(function(b){
+      const o = all[b], label = variantSplit(o.name).label;
+      const st = etsyStatus(o);
+      if(o.etsyListingId) out.sent.push({ bc: b, label: label, listingId: o.etsyListingId });
+      else if(!label) out.waiting.push({ bc: b, label: '(no colour)', why: 'needs a colour after the —' });
+      else if(st !== 'ready') out.waiting.push({ bc: b, label: label, why: ETSY_WHY[st] });
+      else out.ready.push({ bc: b, label: label });
+    });
+    return out;
+  }
+
+  // The draft for a whole colour group: the group's name as the title (or
+  // this item's Etsy title), every ready colour as an option, the tags of all
+  // of them, and a parcel if any one of them is a parcel. Photos are added at
+  // sending time, colour by colour.
+  function etsyGroupPayload(it, bc, cat, grp, all){
+    const p = etsyDraftPayload(it, bc, cat);
+    p.title = String(it.etsyTitle || grp.group).trim();
+    if(!p.description){
+      const other = grp.ready.map(function(r){ return String(all[r.bc].webDesc || '').trim(); }).filter(Boolean)[0];
+      if(other) p.description = other;
+    }
+    // This item's tags first, so if Etsy's 13 run out it is the other
+    // colours' that are cut.
+    const seen = {}, tags = [];
+    [bc].concat(grp.ready.map(function(r){ return r.bc; }).filter(function(b){ return b !== bc; })).forEach(function(b){
+      etsyTagsOf(all[b]).forEach(function(t){
+        const k = t.toLowerCase();
+        if(!seen[k] && tags.length < ETSY_TAG_MAX){ seen[k] = 1; tags.push(t); }
+      });
+    });
+    p.tags = tags;
+    if(grp.ready.some(function(r){ return all[r.bc].post !== 'letter'; })) p.post = 'parcel';
+    p.variants = grp.ready.map(function(r){
+      const o = all[r.bc];
+      return { barcode: r.bc, label: r.label, price: Number(o.price) || 0, quantity: Number(o.counted) || 0 };
+    });
+    delete p.price; delete p.quantity;
+    return p;
   }
   // ETSY: END OF THE PURE PART
 
@@ -12512,6 +12569,24 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         : etsyCats == null ? 'the one chosen for ' + c.label + ' in Settings → Etsy'
         : 'not chosen for ' + c.label + ' yet (Settings → Etsy)'),
     ];
+    // A colour group (v1.63.0): say what the one listing will hold.
+    const all = Object.assign({}, items); all[currentEditBarcode] = view;
+    const grp = etsyColourGroup(currentEditBarcode, all);
+    if(grp){
+      if(grp.sent.length && !it.etsyListingId){
+        lines.unshift('Colours of "' + grp.group + '" already on Etsy as one listing: ' + grp.sent.map(s => s.label).join(', ') + '.');
+      } else if(!it.etsyListingId){
+        lines.unshift('Goes as ONE listing, "' + (view.etsyTitle || grp.group) + '", with a Colour choice: '
+          + (grp.ready.length ? grp.ready.map(s => s.label).join(', ') : 'none ready yet') + '.');
+        if(grp.waiting.length) lines.splice(1, 0, 'Left out: ' + grp.waiting.map(w => w.label + ' (' + w.why + ')').join(', ') + '.');
+        // The listing is a parcel if any colour in it is (etsyGroupPayload).
+        const parcel = grp.ready.filter(s => s.bc !== currentEditBarcode && all[s.bc].post !== 'letter');
+        if(view.post === 'letter' && parcel.length){
+          const i = lines.findIndex(t => t.indexOf('Delivery profile:') === 0);
+          lines[i] = 'Delivery profile: Small parcel, because ' + parcel.map(s => s.label).join(', ') + (parcel.length > 1 ? ' are parcels' : ' is a parcel');
+        }
+      }
+    }
     ul.innerHTML = '';
     lines.forEach(t => { const li = document.createElement('li'); li.textContent = t; ul.appendChild(li); });
 
@@ -12524,21 +12599,28 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       send.style.display = 'none';
       open.style.display = '';
       open.href = etsyEditUrl(it.etsyListingId);
-      hint.textContent = 'On Etsy as a draft' + (it.etsyDraftAt ? ' since ' + new Date(it.etsyDraftAt).toLocaleDateString('en-GB', { day:'numeric', month:'short' }) : '')
-        + '. Check it there and press Publish when it looks right. Changes made here are not sent yet.';
+      hint.textContent = etsyWarn[currentEditBarcode] || ('On Etsy as a draft' + (it.etsyDraftAt ? ' since ' + new Date(it.etsyDraftAt).toLocaleDateString('en-GB', { day:'numeric', month:'short' }) : '')
+        + '. Check it there and press Publish when it looks right. Changes made here are not sent yet.');
       return;
     }
     open.style.display = 'none';
     send.style.display = '';
     const st = etsyStatus(view);
     const blocked = st !== 'ready' ? 'Not ready for Etsy yet: ' + ETSY_WHY[st] + '.'
+      : (grp && grp.sent.length) ? 'Its other colours are already on Etsy as one listing. Adding a colour to it comes with the next Etsy step; until then, Forget that draft (after deleting it on Etsy) and send them all again.'
       : !c.key ? 'Put it in a folder like Kay/Crochet first.'
       : (etsyCats && !got) ? 'Choose an Etsy category for ' + c.label
           + (c.keys.length > 1 ? ', or for its folder,' : '') + ' first, in Settings → Etsy.'
       : '';
     send.disabled = !!blocked;
-    hint.textContent = blocked || 'Saves the item, then sends it with its photos. It arrives on Etsy as a DRAFT: nobody can see or buy it until you publish it there.';
+    hint.textContent = blocked || (grp
+      ? 'Saves the item, then sends its colours as one listing with their photos. It arrives on Etsy as a DRAFT: nobody can see or buy it until you publish it there.'
+      : 'Saves the item, then sends it with its photos. It arrives on Etsy as a DRAFT: nobody can see or buy it until you publish it there.');
   }
+
+  // A warning about a draft that must not be published as it is (its colours
+  // did not go on), kept on this device until the draft is forgotten.
+  const etsyWarn = {};
 
   ['editEtsyReturns', 'editPost'].forEach(id => document.getElementById(id).addEventListener('change', renderEditEtsyPlan));
   ['editItemFolder', 'editItemName'].forEach(id => document.getElementById(id).addEventListener('input', renderEditEtsyPlan));
@@ -12566,11 +12648,19 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if(!it || !it.etsyListingId) return;
     showToast('Checking with Etsy…', 'success');
     try{
-      await EtsyLink.call('/staff/listings/forget', { method:'POST', body: JSON.stringify({ barcode: bc }) });
-      const cur = items[bc];
-      if(cur){ delete cur.etsyListingId; delete cur.etsyDraftAt; saveItems(); }
+      const r = await EtsyLink.call('/staff/listings/forget', { method:'POST', body: JSON.stringify({ barcode: bc }) });
+      // A colour listing is forgotten for every colour that was in it, but
+      // only those still pointing at this same listing.
+      const was = it.etsyListingId;
+      const list = (r && Array.isArray(r.barcodes) && r.barcodes.length) ? r.barcodes : [bc];
+      list.forEach(b => {
+        const cur = items[b];
+        if(cur && String(cur.etsyListingId) === String(was)){ delete cur.etsyListingId; delete cur.etsyDraftAt; }
+        delete etsyWarn[b];
+      });
+      saveItems();
       renderList(document.getElementById('searchBox').value);
-      showToast('Forgotten. It can be sent to Etsy again.', 'success');
+      showToast(list.length > 1 ? 'Forgotten, for all ' + list.length + ' colours. They can be sent to Etsy again.' : 'Forgotten. It can be sent to Etsy again.', 'success');
       // Only the Etsy box is redrawn, so nothing typed in the form is lost.
       if(currentEditBarcode === bc) renderEditEtsyPlan();
     }catch(e){
@@ -12589,31 +12679,55 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if(st !== 'ready'){ showToast('Not ready for Etsy yet: ' + ETSY_WHY[st], 'error'); return; }
     const c = etsyCatOf(it.folder);
     if(!c.key){ showToast('Put it in a folder like Kay/Crochet first', 'error'); return; }
+    const grp = etsyColourGroup(bc, items);
+    if(grp && grp.sent.length){ showToast('Its other colours are already on Etsy as one listing', 'error'); return; }
     showToast('Sending to Etsy…', 'success');
-    try{
-      const photos = [];
-      for(const fp of etsyPicsOf(it)){
-        const id = etsyPhotoDocId(bc, fp);
+    // One item's real photos, from this device's copy or the workspace.
+    async function photosOf(b){
+      const out = [];
+      for(const fp of etsyPicsOf(items[b])){
+        const id = etsyPhotoDocId(b, fp);
         let uri = etsyPicCache[id];
-        if(!uri){ uri = await Sync.getEtsyPhoto(bc, fp); if(uri) etsyPicCache[id] = uri; }
-        if(!uri) throw new Error('One of its Etsy photos has not finished uploading. Try again in a minute.');
-        photos.push(uri);
+        if(!uri){ uri = await Sync.getEtsyPhoto(b, fp); if(uri) etsyPicCache[id] = uri; }
+        if(!uri) throw new Error('One of ' + (b === bc ? 'its' : items[b].name + '\'s') + ' Etsy photos has not finished uploading. Try again in a minute.');
+        out.push(uri);
       }
-      const payload = etsyDraftPayload(it, bc, c);
-      payload.photos = photos;
+      return out;
+    }
+    try{
+      let payload;
+      if(grp){
+        payload = etsyGroupPayload(it, bc, c, grp, items);
+        for(const v of payload.variants) v.photos = await photosOf(v.barcode);
+      } else {
+        payload = etsyDraftPayload(it, bc, c);
+        payload.photos = await photosOf(bc);
+      }
       const r = await EtsyLink.call('/staff/listings', { method:'POST', body: JSON.stringify(payload) });
-      const cur = items[bc];
-      if(cur && r && r.listingId){
-        cur.etsyListingId = r.listingId;
-        cur.etsyDraftAt = new Date().toISOString();
+      // Every colour the listing holds is marked; a colour it does not hold
+      // is left alone (an older listing of the group, sent without it).
+      const marked = (r && Array.isArray(r.barcodes) && r.barcodes.length) ? r.barcodes : [bc];
+      if(r && r.listingId){
+        const at = new Date().toISOString();
+        marked.forEach(b => { if(items[b]){ items[b].etsyListingId = r.listingId; items[b].etsyDraftAt = at; } });
         saveItems();
       }
       renderList(document.getElementById('searchBox').value);
       const bad = r && r.failedPhotos && r.failedPhotos.length;
-      showToast(r && r.already ? 'It was already on Etsy as a draft'
-        : bad ? 'Draft made, but photo ' + r.failedPhotos.join(', ') + ' did not upload: add it on Etsy'
-        : 'Draft made on Etsy with ' + (r ? r.photos : 0) + ' photo' + (r && r.photos === 1 ? '' : 's'),
-        bad ? 'error' : 'success');
+      const col = r && r.colours;
+      if(col && !col.ok){
+        // Published like this it would sell as one thing with every colour's
+        // stock added together, so it is said where it stays visible.
+        const w = 'DO NOT PUBLISH this draft: its colours did not go on (Etsy said: ' + col.error + '). Delete it on Etsy, press Forget, and tell Claude what Etsy said.';
+        marked.forEach(b => { etsyWarn[b] = w; });
+        showToast('Draft made, but its colours did not go on. Do not publish it.', 'error');
+      } else {
+        const colourNote = col ? ' and ' + col.count + ' colours' + (col.linkedPhotos < col.count ? ' (link a photo to each colour on Etsy)' : '') : '';
+        showToast(r && r.already ? (marked.indexOf(bc) < 0 ? 'Its colour group is already on Etsy without this colour' : 'It was already on Etsy as a draft')
+          : bad ? 'Draft made, but photo ' + r.failedPhotos.join(', ') + ' did not upload: add it on Etsy'
+          : 'Draft made on Etsy with ' + (r ? r.photos : 0) + ' photo' + (r && r.photos === 1 ? '' : 's') + colourNote,
+          bad ? 'error' : 'success');
+      }
       openEditModal(bc);
       setTimeout(() => { const el = document.getElementById('editEtsySendHint'); if(el) el.scrollIntoView({ block:'center' }); }, 150);
     }catch(e){
