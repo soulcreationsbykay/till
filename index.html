@@ -1922,6 +1922,8 @@
         <a class="btn btn-secondary" id="editEtsyOpen" href="#" target="_blank" rel="noopener noreferrer"
            style="display:none;width:100%;margin-top:10px;text-align:center;text-decoration:none;box-sizing:border-box;">Open the draft on Etsy</a>
         <div class="folder-hint" id="editEtsySendHint"></div>
+        <!-- v1.62.0: after the draft has been deleted on Etsy, so it can be sent again. -->
+        <button class="btn btn-secondary" type="button" id="editEtsyForget" style="display:none;width:100%;margin-top:10px;">Forget this Etsy draft</button>
       </div>
       <div class="state" id="editEtsyState"></div>
     </div>
@@ -4534,7 +4536,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.61.0';
+  const APP_VERSION = '1.62.0';
   const BUILD_DATE  = '13 Oct 2026';
   const BUILD_TIME  = '23:01';
   const versionEl = document.getElementById('appVersion');
@@ -12516,6 +12518,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const send = document.getElementById('editEtsySend');
     const open = document.getElementById('editEtsyOpen');
     const hint = document.getElementById('editEtsySendHint');
+    const forget = document.getElementById('editEtsyForget');
+    forget.style.display = it.etsyListingId ? '' : 'none';
     if(it.etsyListingId){
       send.style.display = 'none';
       open.style.display = '';
@@ -12545,6 +12549,34 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       'The item is saved first, then sent to Etsy with its real photos. It arrives as a draft: nobody can see or buy it until you publish it on Etsy.',
       'Save and send', () => sendEtsyDraft(bc));
   });
+
+  // Forget this Etsy draft (v1.62.0). For a draft Kay has deleted on Etsy:
+  // the till lets go of it so Send works again. The Etsy service first asks
+  // Etsy, and refuses while the listing still exists there, because sending
+  // again then would make a duplicate. Nothing is deleted on Etsy from here.
+  document.getElementById('editEtsyForget').addEventListener('click', () => {
+    const bc = currentEditBarcode;
+    askConfirm('Forget this Etsy draft?',
+      'Only for a draft you have already deleted on Etsy. The till checks with Etsy first and will not forget one that is still there. Afterwards you can send the item again.',
+      'Forget it', () => forgetEtsyDraft(bc));
+  });
+
+  async function forgetEtsyDraft(bc){
+    const it = items[bc];
+    if(!it || !it.etsyListingId) return;
+    showToast('Checking with Etsy…', 'success');
+    try{
+      await EtsyLink.call('/staff/listings/forget', { method:'POST', body: JSON.stringify({ barcode: bc }) });
+      const cur = items[bc];
+      if(cur){ delete cur.etsyListingId; delete cur.etsyDraftAt; saveItems(); }
+      renderList(document.getElementById('searchBox').value);
+      showToast('Forgotten. It can be sent to Etsy again.', 'success');
+      // Only the Etsy box is redrawn, so nothing typed in the form is lost.
+      if(currentEditBarcode === bc) renderEditEtsyPlan();
+    }catch(e){
+      showToast(e.code === 'email-unverified' ? 'Verify the till\'s sign-in email first (Settings → Etsy)' : (e.message || 'Could not forget it'), 'error');
+    }
+  }
 
   async function sendEtsyDraft(bc){
     // The real Save, so what is sent is what is on the record. If Save refuses

@@ -10,6 +10,26 @@ fixes.
 
 ---
 
+## v1.62.0 - 14 October 2026
+
+**Forget this Etsy draft.**
+
+Once an item had been sent to Etsy, the till would never send it again, even
+after the draft was deleted on Etsy.
+
+- An item that has been sent now shows **Forget this Etsy draft** under
+  **Open the draft on Etsy**. It is for a draft already deleted on Etsy.
+- The till asks the Etsy service, which asks Etsy. If the listing is still
+  there (as a draft or anything else), it refuses and says so, because
+  sending again would make a duplicate. Delete it on Etsy first.
+- Once it is gone on Etsy, the till clears `etsyListingId` and `etsyDraftAt`,
+  and **Send to Etsy as a draft** comes back.
+- Nothing is deleted on Etsy from the till. Only the Etsy box is redrawn, so
+  anything typed in the form and not yet saved stays.
+- Needs `kay-etsy` with the `/staff/listings/forget` route deployed.
+
+---
+
 ## v1.61.0 - 13 October 2026, 23:01
 
 **The Etsy category picker suggests the best matches.**
