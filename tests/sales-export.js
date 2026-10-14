@@ -20,12 +20,16 @@ const START = '  /* ===================== Spreadsheet export ===================
 const END = '  /* =================== end spreadsheet export =================== */';
 const a = HTML.indexOf(START), b = HTML.indexOf(END);
 if (a < 0 || b < 0) { console.error('could not locate the spreadsheet export block'); process.exit(2); }
-const SRC = HTML.slice(a, b);
+// v1.67.0: the Expenses section names each kind from the expenses block.
+const ea = HTML.indexOf('  // ---- expenses ----'), eb = HTML.indexOf('  // ---- end expenses ----');
+if (ea < 0 || eb < 0) { console.error('could not locate the expenses block'); process.exit(2); }
+const SRC = HTML.slice(ea, eb) + HTML.slice(a, b);
 
 // The page's own bits that the export leans on. sales and items are the real
 // shape the app stores; the rest are the one-line helpers it calls.
 const ctx = {
   console, TextEncoder, Blob, Uint8Array, Uint32Array,
+  round2: (n) => Math.round((Number(n) || 0) * 100) / 100,
   sales: [],
   items: {},
   // copied from index.html - a sale line carries its own net, already signed
@@ -429,6 +433,32 @@ function readZip(buf) {
     check('over: by how much', csvO.indexOf('"Over the £1,000 trading allowance by","50.00"') !== -1);
     check('over: the date to register', csvO.indexOf('"Register with HMRC as self-employed by","5 October 2027"') !== -1);
     check('over: no "left" row', csvO.indexOf('allowance left') === -1);
+  }
+
+  // v1.67.0: net profit and the expenses behind it, ONLY when supplied.
+  console.log('\nThe sales report CSV, with net profit and expenses in it');
+  {
+    const p3 = payoutFigures();
+    const base = ctx.zReportCsv(reportFigures(), '20 August 2026', p3);
+    const f = reportFigures();
+    f.profit = { gross: 200, cardFees: 1.69, webFees: 1, etsyFees: 1.5, etsyFeesUnknown: 0, expenses: 14.85, byCat: {}, net: 180.96 };
+    f.expenseLines = [
+      { id: '1', date: '2026-08-02', what: 'Yarn, "Hobbycraft"', cat: 'materials', amount: 10.25, hasPhoto: true },
+      { id: '2', date: '2026-08-20', what: 'Stamps', cat: 'postage', amount: 4.6, hasPhoto: false },
+    ];
+    const csv = ctx.zReportCsv(f, '20 August 2026', p3);
+    const at = csv.indexOf('\nExpenses\n');
+    check('net profit is in the summary', csv.indexOf('"Net profit","180.96"') !== -1, csv.slice(0, 700));
+    check('with each fee and the expenses above it',
+          csv.indexOf('"Card fees (SumUp)","1.69"') !== -1 && csv.indexOf('"Website card fees","1.00"') !== -1
+          && csv.indexOf('"Etsy\'s card fees","1.50"') !== -1 && csv.indexOf('"Expenses","14.85"') !== -1);
+    check('an Expenses section lists each one, quotes doubled', at !== -1
+          && csv.indexOf('"2026-08-02","Yarn, ""Hobbycraft""","Materials","10.25","yes"') !== -1, csv.slice(at, at + 300));
+    check('with a total', csv.indexOf('"TOTAL","","","14.85",""') !== -1);
+    check('it sits before Supplier payouts', at < csv.indexOf('\nSupplier payouts\n'));
+    check('without them, the file it always was', ctx.zReportCsv(reportFigures(), '20 August 2026', p3) === base);
+    const none = reportFigures(); none.expenseLines = [];
+    check('no expenses in the period: no Expenses section', ctx.zReportCsv(none, '20 August 2026', p3).indexOf('\nExpenses\n') === -1);
   }
 
   console.log('\n' + pass + ' passed, ' + fail + ' failed');

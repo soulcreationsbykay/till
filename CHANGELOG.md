@@ -10,6 +10,39 @@ fixes.
 
 ---
 
+## v1.67.0 - 14 October 2026
+
+**Expenses, and net profit on the sales report.**
+
+- **🧾 Expenses** (Sales tab, under Report): add each cost with the date
+  paid, what it was for, the kind (Materials, Packaging, Postage, Stall and
+  event fees, Etsy fees from the Etsy statement, Tools and equipment,
+  Travel, Other), the amount and, optionally, a **receipt photo**. Tap one to
+  change or delete it. Listed newest first with a total per tax year.
+- Expenses sync to every till (collection `expenses`; the later change to an
+  expense wins, and a deleted one stays deleted). Receipt photos need Team
+  sync and are fetched only when opened (`expensePhotos`). Without sync a
+  photo is not kept, and the till says so; the figures still save.
+- **Net profit** on the report, for the chosen period: gross income, less
+  SumUp card fees (the Settings rate, on card sales), website card fees,
+  Etsy's card fees, and the expenses by kind, each step shown. Not shown for
+  a single maker, because costs are the whole shop's.
+- The tax-year box adds the **net profit this tax year**, with a reminder
+  that for tax you take off either the £1,000 trading allowance or your
+  actual expenses, not both.
+- Exports add Card fees, Website card fees, Etsy's card fees, Expenses and
+  Net profit to the Summary, the tax year's net profit, and an **Expenses**
+  section (sheet) listing each one. Nothing else in the file moves.
+- The weekly backup carries the expenses (figures only; receipt photos stay
+  in the workspace). Restoring merges them, never undoing a newer change.
+- Card fees and Etsy's card fees are worked out already, so are not entered
+  as expenses; Etsy's other fees (listing, transaction) are.
+
+New `tests/expenses.js` (27 checks, verified against four broken copies);
+`tests/sales-export.js` 7 more (110).
+
+---
+
 ## v1.66.1 - 14 October 2026
 
 **The tax year is in the report exports too.** Export (CSV and Excel) adds,

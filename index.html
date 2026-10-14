@@ -1116,6 +1116,8 @@
     </div>
 
     <button class="btn btn-primary" id="zReportBtn" style="margin-bottom:12px;">📊 Report</button>
+    <!-- v1.67.0: what the shop spends, so the report can show net profit. -->
+    <button class="btn btn-secondary" id="expensesBtn" style="margin-bottom:12px;">🧾 Expenses</button>
 
     <div class="card">
       <div class="quick-sell-head">Sales</div>
@@ -2192,6 +2194,38 @@
       <button class="btn btn-secondary" id="zExportBtn">⤓ Export</button>
     </div>
     <button class="btn btn-primary" id="zCloseBtn" style="margin-top:8px;">Close</button>
+  </div>
+</div>
+
+<!-- Expenses (v1.67.0) -->
+<div class="modal-overlay" id="expensesModal" style="display:none;">
+  <div class="modal">
+    <h2 id="expFormTitle">Add an expense</h2>
+    <label for="expDate">Date paid</label>
+    <input type="date" id="expDate">
+    <label for="expWhat">What for</label>
+    <input type="text" id="expWhat" maxlength="100" autocomplete="off" placeholder="e.g. Crochet yarn, Hobbycraft">
+    <label for="expCat">Kind of cost</label>
+    <select id="expCat"></select>
+    <label for="expAmount">Amount (£)</label>
+    <input type="number" id="expAmount" inputmode="decimal" min="0" step="0.01" placeholder="0.00">
+    <label>Receipt photo (optional)</label>
+    <div class="btn-row">
+      <button type="button" class="btn btn-secondary" id="expPhotoBtn">📷 Add receipt photo</button>
+      <button type="button" class="btn btn-secondary" id="expPhotoView" style="display:none;">View receipt</button>
+    </div>
+    <input type="file" id="expPhotoInput" accept="image/*" style="display:none;">
+    <div class="folder-hint" id="expPhotoNote"></div>
+    <div class="btn-row" style="margin-top:10px;">
+      <button type="button" class="btn btn-primary" id="expSave">Save expense</button>
+      <button type="button" class="btn btn-secondary" id="expCancelEdit" style="display:none;">Cancel</button>
+    </div>
+    <button type="button" class="btn btn-danger" id="expDelete" style="display:none;width:100%;margin-top:8px;">Delete this expense</button>
+    <div class="folder-hint" id="expHint" style="margin-top:6px;">Card fees and Etsy's card fees are worked out by the till already; don't add them here. Do add Etsy's other fees (listing, transaction) from your Etsy statement.</div>
+
+    <div class="quick-sell-head" style="margin-top:16px;" id="expListHead">Expenses</div>
+    <div id="expList"></div>
+    <button type="button" class="btn btn-primary" id="expClose" style="margin-top:10px;">Close</button>
   </div>
 </div>
 
@@ -4536,7 +4570,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.66.1';
+  const APP_VERSION = '1.67.0';
   const BUILD_DATE  = '13 Oct 2026';
   const BUILD_TIME  = '23:01';
   const versionEl = document.getElementById('appVersion');
@@ -10791,7 +10825,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
                 // Etsy's card fees on Etsy orders (v1.65.0), and how many
                 // orders came without one, so a total is never passed off as
                 // complete when it is not.
-                etsyFees:0, etsyFeesUnknown:0 };
+                etsyFees:0, etsyFeesUnknown:0, cardSales:0, webSales:0 };
     const seen = {};
     sales.forEach(s => {
       const ld = localDateStr(new Date(s.at));
@@ -10838,8 +10872,14 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       if(s.etsyRef && (s.kind || 'sale') === 'sale'){
         if(s.etsyFee == null) f.etsyFeesUnknown++; else f.etsyFees += Number(s.etsyFee) || 0;
       }
+      // Card and website SALES (v1.67.0), for the fees in net profit: the fee
+      // is charged on the sale and not given back on a refund, as in payouts.
+      if(net > 0 && p === 'card') f.cardSales += net;
+      if(net > 0 && p === 'web') f.webSales += net;
     });
     f.etsyFees = round2(f.etsyFees);
+    f.cardSales = round2(f.cardSales);
+    f.webSales = round2(f.webSales);
     f.txns = Object.keys(seen).length;
     // One row per website order: what the goods came to and what the postage
     // was, side by side, so a payment in SumUp can be matched to its parts.
@@ -11373,8 +11413,32 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       } else {
         rows.push(['£1,000 trading allowance left', moneyCell(t.left)]);
       }
+      if(t.profit) rows.push(['Net profit, tax year ' + t.label, moneyCell(t.profit.net)]);
+    }
+    // Net profit for the period (v1.67.0), when the report supplies it.
+    const pf = f.profit;
+    if(pf){
+      rows.push(['Card fees (SumUp)', moneyCell(pf.cardFees)]);
+      rows.push(['Website card fees', moneyCell(pf.webFees)]);
+      rows.push(["Etsy's card fees" + (pf.etsyFeesUnknown ? ' (' + pf.etsyFeesUnknown + ' not known)' : ''), moneyCell(pf.etsyFees)]);
+      rows.push(['Expenses', moneyCell(pf.expenses)]);
+      rows.push(['Net profit', moneyCell(pf.net)]);
     }
     return { cols: [{ h:'Metric' }, { h:'Value' }], rows: rows };
+  }
+
+  // Each expense in the period on one row (v1.67.0). Only written when the
+  // report supplies them and there are any.
+  function zExpensesTable(f){
+    const list = f.expenseLines || [];
+    let total = 0;
+    const rows = list.map(e => {
+      total += Number(e.amount) || 0;
+      const c = EXPENSE_CATS.find(x => x.key === e.cat);
+      return [e.date, e.what, c ? c.label : 'Other', moneyCell(e.amount), e.hasPhoto ? 'yes' : ''];
+    });
+    rows.push(['TOTAL', '', '', moneyCell(round2(total)), '']);
+    return { cols: [{ h:'Date' }, { h:'What for' }, { h:'Kind' }, { h:'Amount' }, { h:'Receipt photo' }], rows: rows };
   }
 
   // Each website order on one row: goods and postage apart, with the total
@@ -11466,6 +11530,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       const wo = zWebOrdersTable(f);
       csv += '\nWebsite orders\n' + tableToCsv(wo.cols, wo.rows);
     }
+    if(f.expenseLines && f.expenseLines.length){
+      const ex = zExpensesTable(f);
+      csv += '\nExpenses\n' + tableToCsv(ex.cols, ex.rows);
+    }
     // the payouts heading goes in even when no maker sold anything in the
     // period, which is how this report has always come out
     if(p){
@@ -11490,6 +11558,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if(f.webOrders && f.webOrders.length){
       const wo = zWebOrdersTable(f);
       sheets.push({ name:'Website orders', cols: wo.cols, rows: wo.rows });
+    }
+    if(f.expenseLines && f.expenseLines.length){
+      const ex = zExpensesTable(f);
+      sheets.push({ name:'Expenses', cols: ex.cols, rows: ex.rows });
     }
     if(p){
       const pay = payoutTable(p);
@@ -11523,6 +11595,82 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   }
   // ---- end trading allowance ----
 
+  // ---- expenses ----
+  // What the shop spends (v1.67.0), so the report can show NET PROFIT: gross
+  // income, less the payment fees the till already knows (SumUp card and
+  // website fees from the rates in Settings, Etsy's card fee from each order),
+  // less the expenses Kay records. One record per expense:
+  //   { id, date:'YYYY-MM-DD', what, cat, amount, hasPhoto, updatedAt, deleted? }
+  // A deleted one is kept as `deleted:true` so another till cannot bring it
+  // back; it counts for nothing.
+  const EXPENSE_CATS = [
+    { key:'materials', label:'Materials' },
+    { key:'packaging', label:'Packaging' },
+    { key:'postage',   label:'Postage (stamps, parcels)' },
+    { key:'stall',     label:'Stall and event fees' },
+    { key:'etsy',      label:'Etsy fees (from your Etsy statement)' },
+    { key:'equipment', label:'Tools and equipment' },
+    { key:'travel',    label:'Travel' },
+    { key:'other',     label:'Other' },
+  ];
+  const EXPENSE_MAX = 100000;
+
+  // A record from the form, checked. Throws an Error with a message for Kay.
+  function cleanExpense(raw, now){
+    const date = String(raw.date || '');
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(new Date(date + 'T12:00:00').getTime())) throw new Error('Choose the date it was paid.');
+    const what = String(raw.what || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+    if(!what) throw new Error('Say what it was for.');
+    const amount = round2(Number(raw.amount));
+    if(!(amount > 0)) throw new Error('Enter how much it was.');
+    if(amount > EXPENSE_MAX) throw new Error('That amount looks wrong.');
+    const cat = EXPENSE_CATS.some(c => c.key === raw.cat) ? raw.cat : 'other';
+    const id = String(raw.id || '');
+    if(!/^[A-Za-z0-9_-]{4,40}$/.test(id)) throw new Error('Something went wrong: no id.');
+    return { id: id, date: date, what: what, cat: cat, amount: amount, hasPhoto: !!raw.hasPhoto, updatedAt: Number(now) || 0 };
+  }
+
+  // Another till's copy against this one's: the later change wins, per
+  // expense. Returns the merged list and whether this till's copy changed.
+  function mergeExpenses(local, remote){
+    const byId = {};
+    (local || []).forEach(e => { if(e && e.id) byId[e.id] = e; });
+    let changed = false;
+    (remote || []).forEach(r => {
+      if(!r || !r.id) return;
+      const l = byId[r.id];
+      if(!l || (Number(r.updatedAt) || 0) > (Number(l.updatedAt) || 0)){ byId[r.id] = r; changed = true; }
+    });
+    const list = Object.keys(byId).map(k => byId[k])
+      .sort((a, b) => b.date.localeCompare(a.date) || (Number(b.updatedAt) || 0) - (Number(a.updatedAt) || 0));
+    return { list: list, changed: changed };
+  }
+
+  // The expenses paid between two dates (inclusive), deleted ones left out.
+  function expensesIn(list, fromStr, toStr){
+    return (list || []).filter(e => e && !e.deleted && e.date >= fromStr && e.date <= toStr);
+  }
+
+  // Net profit for a period from the report's figures (zFigures), the
+  // expenses in it, and the fee rates as percentages.
+  function profitFigures(f, expenses, rates){
+    const byCat = {};
+    let spent = 0;
+    (expenses || []).forEach(e => { if(e.deleted) return; spent += Number(e.amount) || 0; byCat[e.cat] = round2((byCat[e.cat] || 0) + (Number(e.amount) || 0)); });
+    const cardFees = round2((Number(f.cardSales) || 0) * (Number(rates.card) || 0) / 100);
+    const webFees = round2((Number(f.webSales) || 0) * (Number(rates.web) || 0) / 100);
+    const etsyFees = round2(Number(f.etsyFees) || 0);
+    const gross = round2(Number(f.net) || 0);
+    const expensesTotal = round2(spent);
+    return {
+      gross: gross, cardFees: cardFees, webFees: webFees, etsyFees: etsyFees,
+      etsyFeesUnknown: Number(f.etsyFeesUnknown) || 0,
+      expenses: expensesTotal, byCat: byCat,
+      net: round2(gross - cardFees - webFees - etsyFees - expensesTotal),
+    };
+  }
+  // ---- end expenses ----
+
   // The allowance box at the top of the report: the whole shop, for the tax
   // year of the report's last day, up to today. Not narrowed to one maker.
   // The tax year's figures for the report and its exports (v1.66.0/1).
@@ -11531,8 +11679,12 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const ty = taxYearOf(toStr > today ? today : toStr);
     const upTo = ty.to < today ? ty.to : today;
     const nice = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+    const zf = zFigures(ty.from, upTo);
+    // And the tax year's net profit (v1.67.0), whole shop.
+    let profit = null;
+    try{ profit = profitFigures(zf, expensesIn(Expenses.all(), ty.from, upTo), { card: cardFeePct(), web: webFeePct() }); }catch(e){}
     return Object.assign({ label: ty.label, from: ty.from, upTo: upTo, registerBy: ty.registerBy,
-                           period: nice(ty.from) + ' to ' + nice(upTo) }, allowanceStatus(zFigures(ty.from, upTo).net));
+                           period: nice(ty.from) + ' to ' + nice(upTo), profit: profit }, allowanceStatus(zf.net));
   }
 
   function allowanceHtml(toStr){
@@ -11548,7 +11700,26 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
           ? `Over the £1,000 trading allowance by <b>${money(a.over)}</b>. Register with HMRC as self-employed by <b>${ty.registerBy}</b> and file a Self Assessment return.`
           : `£1,000 trading allowance: <b>${money(a.left)}</b> left this tax year.`
             + (a.state === 'near' ? ' Getting close.' : ''))
-      + ` Everything customers paid, after discounts and refunds, postage and Etsy (before Etsy's fees) included; only what was recorded in this till. Check gov.uk if unsure.</div></div>`;
+      + ` Everything customers paid, after discounts and refunds, postage and Etsy (before Etsy's fees) included; only what was recorded in this till. Check gov.uk if unsure.</div>`
+      + (t.profit ? `<div class="folder-hint" style="margin-top:6px;">Net profit this tax year: <b>${t.profit.net < 0 ? '−' + money(-t.profit.net) : money(t.profit.net)}</b>`
+          + ` (fees and recorded expenses of ${money(round2(t.profit.cardFees + t.profit.webFees + t.profit.etsyFees + t.profit.expenses))} taken off).`
+          + ` For tax you take off either the £1,000 trading allowance or your actual expenses, not both.</div>` : '')
+      + `</div>`;
+  }
+
+  // The net profit box (v1.67.0): each step shown, so it can be checked.
+  function profitHtml(p){
+    const row = (label, v, minus) => `<div style="display:flex;justify-content:space-between;gap:8px;"><span>${label}</span><span>${minus ? '−' : ''}${money(v)}</span></div>`;
+    let h = `<div class="report-cell" style="margin-bottom:10px;"><div class="rc-label">Net profit</div>`
+      + `<div class="rc-value" style="color:${p.net < 0 ? 'var(--danger)' : 'inherit'}">${p.net < 0 ? '−' + money(-p.net) : money(p.net)}</div>`
+      + `<div class="folder-hint" style="margin-top:6px;">`
+      + row('Gross income', p.gross)
+      + (p.cardFees ? row('Card fees (SumUp, ' + cardFeePct() + '%)', p.cardFees, true) : '')
+      + (p.webFees ? row('Website card fees (' + webFeePct() + '%)', p.webFees, true) : '')
+      + (p.etsyFees || p.etsyFeesUnknown ? row("Etsy's card fees" + (p.etsyFeesUnknown ? ' (' + p.etsyFeesUnknown + ' not known yet)' : ''), p.etsyFees, true) : '');
+    EXPENSE_CATS.forEach(c => { if(p.byCat[c.key]) h += row(escapeHtml(c.label), p.byCat[c.key], true); });
+    if(!p.expenses) h += `<div style="margin-top:4px;">No expenses recorded for this period. Add them under 🧾 Expenses.</div>`;
+    return h + `</div></div>`;
   }
 
   function zBodyHtml(fromStr, toStr, maker){
@@ -11575,6 +11746,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if(f.pay.web){
       h += `<div class="report-cell" style="margin-bottom:8px;"><div class="rc-label">🌐 Website</div><div class="rc-value">${money(f.pay.web)}</div></div>`;
     }
+    // Net profit (v1.67.0): the whole shop's, so not shown for one maker.
+    if(!maker) h += profitHtml(profitFigures(f, expensesIn(Expenses.all(), fromStr, toStr), { card: cardFeePct(), web: webFeePct() }));
     if(f.pay.etsy){
       h += `<div class="report-cell" style="margin-bottom:8px;"><div class="rc-label">🧡 Etsy</div><div class="rc-value">${money(f.pay.etsy)}</div></div>`;
       h += `<div class="report-cell" style="margin-bottom:8px;"><div class="rc-label">Etsy card fees (not taken off the takings above)`
@@ -11705,6 +11878,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const r = zCurrentRange();
     const f = zFigures(r.from, r.to);
     f.taxYear = taxYearFigures(r.to);
+    // Net profit and the expenses behind it (v1.67.0).
+    f.expenseLines = expensesIn(Expenses.all(), r.from, r.to).slice().sort((a, b) => a.date.localeCompare(b.date));
+    f.profit = profitFigures(f, f.expenseLines, { card: cardFeePct(), web: webFeePct() });
     // No Supplier payouts sheet or section when there are no suppliers.
     const p = SUPPLIERS ? makerFigures(r.from, r.to) : null;
     const name = `report-${r.label.replace(/[^0-9a-zA-Z-]+/g,'_')}`;
@@ -12556,6 +12732,208 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     setTimeout(check, 25000);
     setInterval(check, POLL_MS);
     return { check: check, status: () => ({ lastAt: lastAt, lastError: lastError }) };
+  })();
+
+  // ---- Expenses (v1.67.0) ----
+  // Kept on this device under stockTakeExpenses and in the team workspace as
+  // `expenses`, one document each; the later change to an expense wins. The
+  // receipt photographs are in `expensePhotos` and need Team sync. The rules
+  // and the arithmetic are in the "expenses" block.
+  const Expenses = (function(){
+    const KEY = 'stockTakeExpenses';
+    const PUSHED_KEY = 'stockTakeExpensesPushed';   // id -> the updatedAt the workspace has
+    let list = load();
+    let editing = null;        // the id being changed, or null for a new expense
+    let pendingPhoto = null;   // a receipt chosen in the form, not saved yet
+    const photoCache = {};
+
+    function load(){ try{ const v = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(v) ? v : []; }catch(e){ return []; } }
+    function save(){
+      try{ localStorage.setItem(KEY, JSON.stringify(list)); return true; }
+      catch(e){ showToast('Storage full on this device', 'error'); return false; }
+    }
+    function pushedMap(){ try{ return JSON.parse(localStorage.getItem(PUSHED_KEY) || '{}') || {}; }catch(e){ return {}; } }
+    function markPushed(e){
+      const p = pushedMap(); p[e.id] = e.updatedAt;
+      try{ localStorage.setItem(PUSHED_KEY, JSON.stringify(p)); }catch(x){}
+    }
+    // Anything this till has that the workspace has not acknowledged. Offline,
+    // Firestore holds the write and sends it later; it is marked on the reply.
+    function pushPending(){
+      if(!Sync.isConnected()) return;
+      const p = pushedMap();
+      list.forEach(e => { if(p[e.id] !== e.updatedAt){ Sync.putExpense(e).then(() => markPushed(e)).catch(() => {}); } });
+    }
+    function applyRemote(remote){
+      const m = mergeExpenses(list, remote);
+      if(m.changed){ list = m.list; save(); render(); }
+      // What came from the workspace is, by definition, there already.
+      remote.forEach(r => { const l = list.find(e => e.id === r.id); if(l && l.updatedAt === r.updatedAt) markPushed(l); });
+      pushPending();
+    }
+    // A backup being restored: merged, never replacing newer changes.
+    function restore(incoming){
+      if(!Array.isArray(incoming)) return 0;
+      const m = mergeExpenses(list, incoming);
+      list = m.list; save(); pushPending(); render();
+      return incoming.length;
+    }
+    function all(){ return list.slice(); }
+
+    // ---- the form ----
+    const $ = (id) => document.getElementById(id);
+    function catLabel(k){ const c = EXPENSE_CATS.find(x => x.key === k); return c ? c.label : 'Other'; }
+    function resetForm(){
+      editing = null; pendingPhoto = null;
+      $('expFormTitle').textContent = 'Add an expense';
+      $('expDate').value = localDateStr(new Date());
+      $('expWhat').value = ''; $('expAmount').value = ''; $('expCat').value = 'materials';
+      $('expSave').textContent = 'Save expense';
+      $('expCancelEdit').style.display = 'none';
+      $('expDelete').style.display = 'none';
+      $('expPhotoView').style.display = 'none';
+      $('expPhotoBtn').textContent = '📷 Add receipt photo';
+      $('expPhotoNote').textContent = '';
+    }
+    function startEdit(id){
+      const e = list.find(x => x.id === id && !x.deleted);
+      if(!e) return;
+      editing = id; pendingPhoto = null;
+      $('expFormTitle').textContent = 'Change this expense';
+      $('expDate').value = e.date; $('expWhat').value = e.what;
+      $('expCat').value = e.cat; $('expAmount').value = e.amount.toFixed(2);
+      $('expSave').textContent = 'Save changes';
+      $('expCancelEdit').style.display = '';
+      $('expDelete').style.display = '';
+      $('expPhotoView').style.display = e.hasPhoto ? '' : 'none';
+      $('expPhotoBtn').textContent = e.hasPhoto ? '📷 Replace receipt photo' : '📷 Add receipt photo';
+      $('expPhotoNote').textContent = '';
+      $('expFormTitle').scrollIntoView({ block:'start' });
+    }
+
+    function onSave(){
+      const was = editing ? list.find(x => x.id === editing) : null;
+      let rec;
+      try{
+        rec = cleanExpense({
+          id: editing || uid('E'), date: $('expDate').value, what: $('expWhat').value,
+          cat: $('expCat').value, amount: $('expAmount').value,
+          hasPhoto: !!pendingPhoto || !!(was && was.hasPhoto),
+        }, Date.now());
+      }catch(err){ showToast(err.message, 'error'); return; }
+      if(pendingPhoto){
+        if(!Sync.isConnected()){
+          // Dropped, and said so, so a second press saves the figures alone.
+          pendingPhoto = null;
+          $('expPhotoView').style.display = (was && was.hasPhoto) ? '' : 'none';
+          $('expPhotoNote').textContent = 'Receipt photos need Team sync, so this one was not kept. Press Save again to save the expense without it, or turn on Team sync first.';
+          showToast('Receipt photo not kept: Team sync is off', 'error');
+          return;
+        }
+        Sync.putExpensePhoto(rec.id, pendingPhoto).catch(() => showToast('The receipt photo did not save. Try adding it again.', 'error'));
+        photoCache[rec.id] = pendingPhoto;
+      }
+      list = list.filter(x => x.id !== rec.id).concat([rec]);
+      list = mergeExpenses(list, []).list;     // sorted, newest first
+      if(!save()) return;
+      pushPending();
+      showToast(was ? 'Expense changed' : 'Expense saved', 'success');
+      resetForm();
+      render();
+    }
+
+    function onDelete(){
+      const e = list.find(x => x.id === editing);
+      if(!e) return;
+      const when = new Date(e.date + 'T12:00:00').toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+      askConfirm('Delete this expense?', e.what + ', ' + money(e.amount) + ', paid ' + when + '. It is removed on every till and no longer counted in net profit.' + (e.hasPhoto ? ' Its receipt photo is deleted too.' : ''), 'Delete', () => {
+        const gone = Object.assign({}, e, { deleted: true, updatedAt: Date.now() });
+        list = list.map(x => x.id === e.id ? gone : x);
+        if(e.hasPhoto && Sync.isConnected()) Sync.deleteExpensePhoto(e.id).catch(() => {});
+        delete photoCache[e.id];
+        save(); pushPending();
+        showToast('Expense deleted', 'success');
+        resetForm(); render();
+      });
+    }
+
+    async function choosePhoto(file){
+      if(!file) return;
+      $('expPhotoNote').textContent = 'Getting the photo ready…';
+      try{
+        const r = await fileToEtsyPhoto(file);      // the same resizing as Etsy photos: fits one document
+        pendingPhoto = r.uri;
+        $('expPhotoNote').textContent = 'Receipt photo ready. It is saved with the expense.';
+        $('expPhotoView').style.display = '';
+      }catch(err){
+        pendingPhoto = null;
+        $('expPhotoNote').textContent = err.message || 'Could not use that picture';
+      }
+    }
+
+    async function viewPhoto(){
+      let uri = pendingPhoto || (editing && photoCache[editing]);
+      if(!uri && editing){
+        if(!Sync.isConnected()){ showToast('Turn on Team sync to see receipt photos', 'error'); return; }
+        $('expPhotoNote').textContent = 'Fetching the receipt…';
+        try{ uri = await Sync.getExpensePhoto(editing); }catch(e){ uri = ''; }
+        $('expPhotoNote').textContent = uri ? '' : 'That receipt photo could not be found.';
+        if(uri) photoCache[editing] = uri;
+      }
+      if(!uri) return;
+      // Full screen; a tap anywhere closes it.
+      const box = document.createElement('div');
+      box.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:12px;';
+      const img = document.createElement('img');
+      img.src = uri; img.alt = 'Receipt';
+      img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;background:#fff;';
+      box.appendChild(img);
+      box.addEventListener('click', () => box.remove());
+      document.body.appendChild(box);
+    }
+
+    // ---- the list: newest first, a heading and total per tax year ----
+    function render(){
+      const el = $('expList');
+      if(!el) return;
+      const live = list.filter(e => !e.deleted);
+      if(!live.length){ el.innerHTML = '<div class="folder-hint">No expenses yet. Add one above whenever you buy something for the shop.</div>'; return; }
+      const years = {};
+      live.forEach(e => { const ty = taxYearOf(e.date); (years[ty.label] = years[ty.label] || { ty: ty, list: [], total: 0 }).list.push(e); years[ty.label].total += e.amount; });
+      let h = '';
+      Object.keys(years).sort().reverse().forEach(k => {
+        const y = years[k];
+        h += `<div class="folder-hint" style="margin:10px 0 4px;"><b>Tax year ${escapeHtml(k)}</b>: ${money(round2(y.total))}</div>`;
+        y.list.forEach(e => {
+          h += `<div class="web-order" data-exp="${escapeAttr(e.id)}" style="cursor:pointer;">`
+            + `<div class="wo-head"><b>${escapeHtml(e.what)}</b><span>${money(e.amount)}</span></div>`
+            + `<div class="wo-when">${escapeHtml(new Date(e.date + 'T12:00:00').toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }))}`
+            + ` · ${escapeHtml(catLabel(e.cat))}${e.hasPhoto ? ' · 📎 receipt' : ''}</div></div>`;
+        });
+      });
+      el.innerHTML = h;
+      el.querySelectorAll('[data-exp]').forEach(d => d.addEventListener('click', () => startEdit(d.getAttribute('data-exp'))));
+    }
+
+    function open(){
+      resetForm(); render();
+      $('expensesModal').style.display = 'flex';
+    }
+
+    (function wire(){
+      if(!$('expensesModal')) return;
+      $('expCat').innerHTML = EXPENSE_CATS.map(c => `<option value="${c.key}">${escapeHtml(c.label)}</option>`).join('');
+      $('expensesBtn').addEventListener('click', open);
+      $('expClose').addEventListener('click', () => { $('expensesModal').style.display = 'none'; });
+      $('expSave').addEventListener('click', onSave);
+      $('expCancelEdit').addEventListener('click', resetForm);
+      $('expDelete').addEventListener('click', onDelete);
+      $('expPhotoBtn').addEventListener('click', () => $('expPhotoInput').click());
+      $('expPhotoInput').addEventListener('change', (ev) => { const f = ev.target.files && ev.target.files[0]; ev.target.value = ''; choosePhoto(f); });
+      $('expPhotoView').addEventListener('click', viewPhoto);
+    })();
+
+    return { all: all, applyRemote: applyRemote, restore: restore, pushPending: pushPending, render: render };
   })();
 
   (function initEtsyLink(){
@@ -15950,6 +16328,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       shopFooter: getShopFooter(),
       items: items,
       sales: sales,
+      // v1.67.0: the expenses, figures only; receipt photos stay in the workspace.
+      expenses: Expenses.all(),
       photos: photosIncluded,  // so a restore can say what the file actually holds
       // The Settings page. shopName / shopFooter / receiptSeq above are the
       // three that were already carried and stay where they are, so a v1.43.0
@@ -16067,6 +16447,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
             return;
           }
           saveSales();
+          // Expenses are merged, not replaced: a change made since the backup wins.
+          if(Array.isArray(data.expenses)){ try{ Expenses.restore(data.expenses); }catch(e){} }
 
           if(data.sessionDate){
             sessionDate = data.sessionDate;
@@ -16494,6 +16876,16 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         // website" section.
         try{ noteWebSales(arrived, clientId); }catch(e){}
       }, onSnapErr));
+      // Expenses (v1.67.0): merged by newest change, then anything this till
+      // holds that the workspace has not got yet goes up.
+      // Guarded: nothing about expenses may stop the listeners below attaching.
+      try{
+        listeners.push(db.collection('workspaces').doc(workspacePath()).collection('expenses').onSnapshot(function(snap){
+          var remote = [];
+          snap.docChanges().forEach(function(ch){ var d = ch.doc.data(); if(d && d.data) remote.push(d.data); });
+          try{ Expenses.applyRemote(remote); }catch(e){}
+        }, onSnapErr));
+      }catch(e){}
       listeners.push(metaDoc.onSnapshot(function(doc){
         if(doc.exists && applyRemoteMeta(doc.data())){ saveTimes(); renderSession(); renderList(); renderSold(); }
       }, onSnapErr));
@@ -16854,9 +17246,34 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       return etsyCol().doc(etsyPhotoDocId(bc, fp)).delete();
     }
 
+    // ---- Expenses (v1.67.0) ----
+    // One document each in `expenses`, listened to like sales so every till
+    // has them all; and the receipt photographs one each in `expensePhotos`,
+    // NOT listened to, read only when a receipt is opened. The workspace rule
+    // already covers both.
+    function wsCol(name){
+      if(!connected || !db) throw new Error('Turn on Team sync first.');
+      return db.collection('workspaces').doc(workspacePath()).collection(name);
+    }
+    function putExpense(e){
+      return wsCol('expenses').doc(docSafe(e.id)).set({ data: e, updatedAt: Number(e.updatedAt) || Date.now(), by: clientId });
+    }
+    function putExpensePhoto(id, uri){
+      return wsCol('expensePhotos').doc(docSafe(id)).set({ photo: uri, at: Date.now(), by: clientId });
+    }
+    async function getExpensePhoto(id){
+      var doc = await wsCol('expensePhotos').doc(docSafe(id)).get();
+      var d = doc.exists ? (doc.data() || {}) : {};
+      return typeof d.photo === 'string' && d.photo.indexOf('data:image/') === 0 ? d.photo : '';
+    }
+    function deleteExpensePhoto(id){
+      return wsCol('expensePhotos').doc(docSafe(id)).delete();
+    }
+
     return {
       connect:connect, disconnect:disconnect, syncNow:syncNow,
       putEtsyPhoto:putEtsyPhoto, getEtsyPhoto:getEtsyPhoto, deleteEtsyPhoto:deleteEtsyPhoto,
+      putExpense:putExpense, putExpensePhoto:putExpensePhoto, getExpensePhoto:getExpensePhoto, deleteExpensePhoto:deleteExpensePhoto,
       saveSettings:saveSettings, onLocalItems:onLocalItems, onLocalSales:onLocalSales,
       onLocalStalls:function(rec){ if(connected){ try{ pushStalls(rec); }catch(e){} } },
       setStatus:setStatus, isOn:isOn, getCfg:getCfg, getTeam:getTeam, getPin:getPin, getEmail:getEmail,
