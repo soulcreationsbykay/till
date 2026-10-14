@@ -35,6 +35,7 @@ node tests/orders-lock.js index.html
 node tests/etsy.js index.html
 node tests/channel-filter.js index.html
 node tests/etsy-link.js index.html
+node tests/ad-words.js index.html
 ```
 
 Each prints a pass/fail line per check and exits non-zero on failure.

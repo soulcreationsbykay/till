@@ -10,6 +10,33 @@ fixes.
 
 ---
 
+## v1.69.0 - 14 October 2026
+
+**✨ Write it for me: AI-written descriptions, and an advertising word check.**
+
+- Under the description on Add item and Edit item there is now a line for
+  facts the photo can't show (stones, size, metal, yarn), a choice of AI
+  (Claude Opus, Sonnet or Haiku, or ChatGPT once its key is added) and a
+  **✨ Write it for me** button. It writes a draft from the item's photo: the
+  first Etsy photo for an Etsy item, otherwise the website photo. For an Etsy
+  item it also fills the Etsy title and tags if they are empty. Nothing is
+  saved until Add item or Save, and words already in the box are only
+  replaced if you say yes. The AI chosen is remembered on each device.
+- **The advertising word check** runs on every description as it is typed,
+  however it was written: health claims (heal, cure, anxiety...), "known
+  for", metal claims (sterling, 925, 9ct), superlatives (best, guaranteed),
+  green and safety claims each show in amber with the reason. It warns and
+  never stops a save.
+- The AI is given the UK advertising rules (CAP Code) every time: no health
+  claims, stone meanings only as tradition, no stone, metal or size unless
+  you typed it.
+
+Needs the new `kay-words` service deployed with its API keys (see
+words-worker/README.md). Until then the button says it can't reach it; the
+word check works without it.
+
+---
+
 ## v1.68.0 - 14 October 2026
 
 **Etsy's stock follows the till both ways.** Until now the till only ever

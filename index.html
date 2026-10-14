@@ -486,6 +486,17 @@
      group. Greyed rather than hidden: what is about to be shared is the thing
      you want to be able to read before you agree to share it. */
   .desc-ta[readonly]{background:var(--paper);color:var(--muted);}
+  /* The advertising word check (v1.69.0): amber, because it warns and never
+     stops a save. Then the AI box, kept compact under the description. */
+  .ad-warn{margin:6px 0 4px;padding:8px 10px;border-radius:8px;background:#fff6e0;border:1px solid #e8c56a;color:#6b4a00;font-size:12px;line-height:1.45;}
+  .ad-warn b{font-weight:700;}
+  .ad-warn ul{margin:4px 0 0;padding-left:18px;}
+  .ai-box{margin:8px 0 12px;display:grid;gap:6px;}
+  .ai-box input{width:100%;}
+  .ai-row{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;}
+  .ai-row select{flex:3 1 190px;min-width:0;margin:0;}
+  .ai-row .ai-go{flex:1 0 auto;margin:0;padding-inline:14px;}
+  .ai-box .folder-hint{margin:0;}
 
   .value-summary{
     display:flex;justify-content:space-between;align-items:center;
@@ -1054,6 +1065,17 @@
           </label>
           <label>Description for the website or Etsy (optional)<span class="etsy-need"> · recommended for Etsy</span></label>
           <textarea id="manualWebDesc" class="desc-ta" rows="3" placeholder="A longer description than the shop label — what it is, size, stone, who made it."></textarea>
+          <!-- Advertising word check and AI writing (v1.69.0). Inside the box
+               that moves to the Etsy section, so they follow the description. -->
+          <div class="ad-warn" id="manualAdWarn" hidden></div>
+          <div class="ai-box">
+            <input type="text" id="manualAiFacts" maxlength="600" autocomplete="off" placeholder="Facts the photo can't show: stones, size, metal, yarn…">
+            <div class="ai-row">
+              <select id="manualAiModel" aria-label="Which AI writes it"></select>
+              <button type="button" class="btn-generate ai-go" id="manualAiGo">✨ Write it for me</button>
+            </div>
+            <div class="folder-hint" id="manualAiHint">Writes a draft from the photo. Nothing is saved until you save the item.</div>
+          </div>
           <label for="manualPost">Postage size<span class="etsy-need"> · recommended for Etsy</span></label>
           <select id="manualPost">
             <option value="">Not chosen yet</option>
@@ -1878,6 +1900,15 @@
         </label>
         <label>Description for the website or Etsy (optional)<span class="etsy-need"> · recommended for Etsy</span></label>
         <textarea id="editWebDesc" class="desc-ta" rows="3" placeholder="A longer description than the shop label — what it is, size, stone, who made it."></textarea>
+        <div class="ad-warn" id="editAdWarn" hidden></div>
+        <div class="ai-box">
+          <input type="text" id="editAiFacts" maxlength="600" autocomplete="off" placeholder="Facts the photo can't show: stones, size, metal, yarn…">
+          <div class="ai-row">
+            <select id="editAiModel" aria-label="Which AI writes it"></select>
+            <button type="button" class="btn-generate ai-go" id="editAiGo">✨ Write it for me</button>
+          </div>
+          <div class="folder-hint" id="editAiHint">Writes a draft from the photo. Nothing is saved until you press Save.</div>
+        </div>
         <label for="editPost">Postage size<span class="etsy-need"> · recommended for Etsy</span></label>
         <select id="editPost">
           <option value="">Not chosen yet</option>
@@ -4579,9 +4610,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.68.0';
-  const BUILD_DATE  = '13 Oct 2026';
-  const BUILD_TIME  = '23:01';
+  const APP_VERSION = '1.69.0';
+  const BUILD_DATE  = '14 Oct 2026';
+  const BUILD_TIME  = '19:25';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -7897,6 +7928,204 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     }
   }
   try{ placeEtsyLayout('manual'); }catch(e){}
+
+  // ---- advertising word check and AI writing (v1.69.0), on Add ('add') and Edit ('edit') ----
+  //
+  // The word check runs as Kay types, on any description, however it was
+  // written. The ✨ button sends the photo and what the form knows to the
+  // kay-words service, which asks the AI Kay picked (the keys live there, not
+  // here: this page is public). The draft goes into the boxes; nothing is
+  // saved until Add item or Save, as always.
+  const AI_FORM = {
+    add:  { desc:'manualWebDesc', warn:'manualAdWarn', facts:'manualAiFacts', model:'manualAiModel', go:'manualAiGo', hint:'manualAiHint',
+            name:'manualName', folder:'manualFolder', price:'manualPrice', etsy:'manualEtsyOn', title:'manualEtsyTitle', tags:'manualEtsyTags' },
+    edit: { desc:'editWebDesc',   warn:'editAdWarn',   facts:'editAiFacts',   model:'editAiModel',   go:'editAiGo',   hint:'editAiHint',
+            name:'editItemName', folder:'editItemFolder', price:'editItemPrice', etsy:'editEtsyOn', title:'editEtsyTitle', tags:'editEtsyTags' },
+  };
+  const AI_HINT = {
+    add: 'Writes a draft from the photo. Nothing is saved until you save the item.',
+    edit: 'Writes a draft from the photo. Nothing is saved until you press Save.',
+  };
+
+  function renderAdWarn(which){
+    const F = AI_FORM[which];
+    const box = document.getElementById(F.warn);
+    const ta = document.getElementById(F.desc);
+    if(!box || !ta) return;
+    const hits = adWordCheck(ta.value);
+    box.hidden = !hits.length;
+    box.innerHTML = hits.length
+      ? '<b>Check against the advertising rules</b> (a warning; you can still save):<ul>'
+        + hits.map(h => '<li><b>' + escapeHtml(h.words.join(', ')) + '</b>: ' + escapeHtml(h.why) + '</li>').join('') + '</ul>'
+      : '';
+  }
+
+  const WordsLink = (function(){
+    const URL_KEY = 'posWordsServiceUrl', MODEL_KEY = 'posAiModel', LIST_KEY = 'posAiModels';
+    const DEFAULT = 'https://kay-words.soulcreations-sales.workers.dev';
+    // Shown until the service has said which AIs it has keys for.
+    const FALLBACK = [
+      { id:'claude-opus-5-5', label:'Claude Opus 5.5 (best)' },
+      { id:'claude-sonnet-5-5', label:'Claude Sonnet 5.5' },
+      { id:'claude-haiku-5-5', label:'Claude Haiku 5.5 (cheapest)' },
+    ];
+    function base(){ try{ return localStorage.getItem(URL_KEY) || DEFAULT; }catch(e){ return DEFAULT; } }
+    function list(){
+      try{ const l = JSON.parse(localStorage.getItem(LIST_KEY) || 'null'); if(Array.isArray(l) && l.length) return l; }catch(e){}
+      return FALLBACK;
+    }
+    function chosen(){ try{ return localStorage.getItem(MODEL_KEY) || ''; }catch(e){ return ''; } }
+    function choose(id){ try{ localStorage.setItem(MODEL_KEY, id); }catch(e){} }
+    async function call(path, opts, fresh){
+      const token = await Sync.getIdToken(fresh);
+      if(!token){ const e = new Error('Turn on Team sync first: AI writing only answers a signed-in till.'); e.code = 'no-sync'; throw e; }
+      let res;
+      try{
+        res = await fetch(base() + path, Object.assign({
+          headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + token }
+        }, opts || {}));
+      }catch(e){ throw new Error('Could not reach the AI writing service. Check the connection.'); }
+      let body = null;
+      try{ body = await res.json(); }catch(e){}
+      if(res.status === 401 && body && body.error === 'email-unverified'){
+        if(!fresh) return call(path, opts, true);
+        throw new Error('The till\'s sign-in email is not verified yet (Settings → Etsy → Send verification email).');
+      }
+      if(!res.ok) throw new Error((body && body.error) || ('AI writing service error (' + res.status + ')'));
+      return body;
+    }
+    let fetched = false;
+    async function refresh(){
+      if(fetched || typeof Sync === 'undefined' || !Sync.isConnected()) return;
+      fetched = true;
+      try{
+        const r = await call('/staff/models', { method:'GET' });
+        if(r && Array.isArray(r.models)){
+          try{ localStorage.setItem(LIST_KEY, JSON.stringify(r.models)); }catch(e){}
+          Object.keys(AI_FORM).forEach(fillModels);
+        }
+      }catch(e){ fetched = false; }
+    }
+    return { list:list, chosen:chosen, choose:choose, call:call, refresh:refresh };
+  })();
+
+  function fillModels(which){
+    const sel = document.getElementById(AI_FORM[which].model);
+    if(!sel) return;
+    const l = WordsLink.list();
+    const want = WordsLink.chosen();
+    sel.innerHTML = l.map(m => '<option value="' + escapeAttr(m.id) + '">' + escapeHtml(m.label || m.id) + '</option>').join('');
+    if(want && l.some(m => m.id === want)) sel.value = want;
+  }
+
+  function resetAiBox(which){
+    const F = AI_FORM[which];
+    const facts = document.getElementById(F.facts);
+    if(facts) facts.value = '';
+    const hint = document.getElementById(F.hint);
+    if(hint) hint.textContent = AI_HINT[which];
+    fillModels(which);
+    renderAdWarn(which);
+  }
+
+  // The photo the form shows now, as the AI should see it: a picture held in
+  // the page is shrunk to 1200px here; a website photo goes as its address,
+  // which the service fetches from the website's own photo hosts.
+  function aiPhotoFor(which){
+    const etsy = document.getElementById(AI_FORM[which].etsy).checked;
+    let etsyPhoto = '';
+    if(which === 'edit'){
+      const it = items[currentEditBarcode];
+      const fp = it && etsyPicsOf(it)[0];
+      if(fp) etsyPhoto = etsyPicCache[etsyPhotoDocId(currentEditBarcode, fp)] || '';
+    } else {
+      const fp = etsyPicsOf(addEtsy)[0];
+      if(fp) etsyPhoto = addEtsyUris[fp] || '';
+    }
+    const web = which === 'edit' ? editPhoto.value : manualPhoto.value;
+    const webPhoto = ownPhotoSrc(web) || web;
+    return aiPickPhoto({ etsy: etsy, etsyPhoto: etsyPhoto, webPhoto: webPhoto });
+  }
+
+  function shrinkForAi(uri){
+    return new Promise(function(resolve){
+      const img = new Image();
+      img.onload = function(){
+        try{
+          const scale = Math.min(1, 1200 / Math.max(img.width, img.height));
+          const c = document.createElement('canvas');
+          c.width = Math.round(img.width * scale);
+          c.height = Math.round(img.height * scale);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          resolve(c.toDataURL('image/jpeg', 0.85));
+        }catch(e){ resolve(uri); }
+      };
+      img.onerror = function(){ resolve(uri); };
+      img.src = uri;
+    });
+  }
+
+  async function aiWrite(which){
+    const F = AI_FORM[which];
+    const $ = id => document.getElementById(id);
+    const ta = $(F.desc), hint = $(F.hint), go = $(F.go);
+    if(ta.readOnly){ hint.textContent = 'Untick "Use the same description" above first: this box is shared with the group.'; return; }
+    if(!$(F.name).value.trim()){ hint.textContent = 'Give the item a name first.'; return; }
+    const photo = aiPhotoFor(which);
+    if(!photo){ hint.textContent = 'Add a photo first: the description is written from it.'; return; }
+    if(photo.image) photo.image = await shrinkForAi(photo.image);
+    const model = $(F.model).value;
+    WordsLink.choose(model);
+    const etsy = $(F.etsy).checked;
+    go.disabled = true;
+    hint.textContent = 'Writing… (this can take up to a minute)';
+    try{
+      const r = await WordsLink.call('/staff/describe', { method:'POST', body: JSON.stringify(Object.assign({
+        model: model,
+        name: $(F.name).value,
+        folder: $(F.folder) ? $(F.folder).value : '',
+        price: Number($(F.price) ? $(F.price).value : 0) || 0,
+        etsy: etsy,
+        facts: $(F.facts).value,
+        current: ta.value,
+      }, photo)) });
+      const plan = aiFillPlan(r && r.draft, { desc: ta.value, etsy: etsy, title: $(F.title).value, tags: $(F.tags).value });
+      if(plan.ask && !confirm('Replace the description that is there with the AI\'s draft? You can still change it before saving.')){
+        hint.textContent = 'Kept your description. Here is the draft if you want any of it: ' + plan.desc;
+        return;
+      }
+      ta.value = plan.desc;
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+      if(plan.title != null){ $(F.title).value = plan.title; $(F.title).dispatchEvent(new Event('input', { bubbles: true })); }
+      if(plan.tags != null){ $(F.tags).value = plan.tags; $(F.tags).dispatchEvent(new Event('input', { bubbles: true })); }
+      const notes = [];
+      notes.push('Draft written' + (r.model ? ' by ' + ((WordsLink.list().find(m => m.id === r.model) || {}).label || r.model) : '') + '. Read it through before saving.');
+      if(r.draft && r.draft.unsure) notes.push('Check: ' + r.draft.unsure);
+      if(plan.offer.length) notes.push('Kept your Etsy ' + (plan.offer.length > 1 ? 'title and tags' : plan.offer[0].split(':')[0].toLowerCase()) + '. Suggested: ' + plan.offer.join(' · '));
+      if(r.used && r.limit) notes.push(r.used + ' of ' + r.limit + ' today.');
+      hint.textContent = notes.join(' ');
+    }catch(e){
+      hint.textContent = e.message || 'That did not work. Try again.';
+    }finally{
+      go.disabled = false;
+    }
+  }
+
+  Object.keys(AI_FORM).forEach(function(which){
+    const F = AI_FORM[which];
+    const ta = document.getElementById(F.desc);
+    if(!ta) return;
+    ta.addEventListener('input', () => renderAdWarn(which));
+    // Ticking "Use the same description" changes the box without typing.
+    const same = document.getElementById(DESC_SAME[which].box);
+    if(same) same.addEventListener('change', () => renderAdWarn(which));
+    const sel = document.getElementById(F.model);
+    sel.addEventListener('change', () => { WordsLink.choose(sel.value); Object.keys(AI_FORM).forEach(fillModels); });
+    sel.addEventListener('pointerdown', () => WordsLink.refresh());
+    sel.addEventListener('focus', () => WordsLink.refresh());
+    document.getElementById(F.go).addEventListener('click', () => aiWrite(which));
+    fillModels(which);
+  });
 
   // ---- Etsy title and tags boxes (v1.57.0), on Edit ('edit') and Add ('manual') ----
   //
@@ -12636,6 +12865,82 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     return { get:get, set:set, isSet:isSet, check:check, start:start, render:render, call:call };
   })();
 
+  // AD WORDS: THE ADVERTISING WORD CHECK (v1.69.0)
+  //
+  // A description on the website or Etsy is advertising, and the UK code
+  // (CAP, enforced by the ASA) has rules that crystal and jewellery sellers
+  // trip over: health claims above all, then metals, superlatives, green and
+  // safety claims. This looks for the words that usually mean one of those and
+  // says why, under the box. It WARNS and never stops a save: "a little treat"
+  // and "natural light" are fine, and only Kay knows which she means.
+  // The same rules are given to the AI (kay-words, src/rules.js).
+  const AD_RULES = [
+    { re: /\bheal(s|ed|ing|er|ers)?\b|\bcur(e|es|ed|ing)\b|\bremed(y|ies)\b|\btherap(y|ies|eutic)\b/i,
+      why: 'Health claim. Crystals and stones must never be said to heal or cure: give meanings as tradition only ("traditionally associated with…").' },
+    { re: /\banxiety\b|\bdepression\b|\binsomnia\b|\bmigraines?\b|\bheadaches?\b|\bpain\b|\bdetox\w*\b|\bimmun(e|ity)\b|\bstress\b/i,
+      why: 'Names a condition. Linking an item to a health or mental-health condition is a medical claim, even as "may help".' },
+    { re: /\b(relieves?|reliefs?|treats?|treatment|soothes?|prevents?|boosts?|promotes?|balances?|aligns?|protects?|protection)\b/i,
+      why: 'States an effect as fact. Say what a stone is traditionally associated with, not what it does. ("A little treat" as a gift is fine.)' },
+    { re: /\bknown (for|as)\b|\bproven\b|\bscientifically\b/i,
+      why: 'Presents a belief as fact. "Traditionally associated with" or "in crystal lore" is safer.' },
+    { re: /\bsterling\b|\b925\b|\bsolid (silver|gold)\b|\bgold[- ]filled\b|\b(9|14|18|22|24) ?(ct|k|carat)\b/i,
+      why: 'Precious metal claim. Only if it is hallmarked or you have proof; otherwise "silver-toned" or "gold-coloured".' },
+    { re: /\b(genuine|real|authentic)\b/i,
+      why: 'Only if you know it is (a real stone, real leather). Otherwise leave it out.' },
+    { re: /\bbest\b|\bfinest\b|\bhighest quality\b|\bcheapest\b|\bguarantee(d|s)?\b|\bno\.? ?1\b|\bnumber one\b/i,
+      why: 'A claim that would need proof. Describe the item instead.' },
+    { re: /\beco\b|\beco-friendly\b|\bsustainabl(e|y)\b|\bethical(ly)?\b|\bplastic[- ]free\b|\bbiodegradable\b|\benvironmentally\b/i,
+      why: 'Green claim. Only with proof of exactly what makes it so.' },
+    { re: /\bhypoallergenic\b|\bnickel[- ]free\b|\bnon[- ]toxic\b|\bbaby[- ]safe\b|\bsafe for (babies|baby|children|kids)\b/i,
+      why: 'Safety claim. Only if you know it is true for every part of the item.' },
+  ];
+
+  // Each rule that fires once, with the words that fired it, in the order
+  // they are written. An empty list means nothing to warn about.
+  function adWordCheck(text){
+    const s = String(text || '');
+    const hits = [];
+    AD_RULES.forEach(function(rule){
+      const g = new RegExp(rule.re.source, 'gi');
+      const found = [];
+      let m;
+      while((m = g.exec(s))){ const w = m[0].toLowerCase(); if(found.indexOf(w) === -1) found.push(w); }
+      if(found.length) hits.push({ words: found, why: rule.why, at: s.search(rule.re) });
+    });
+    return hits.sort(function(a, b){ return a.at - b.at; }).map(function(h){ return { words: h.words, why: h.why }; });
+  }
+
+  // The AI's draft, put into the form. The description is only replaced with
+  // Kay's say-so when she had written something; the Etsy title and tags are
+  // filled only when empty, and offered in the hint otherwise, so nothing she
+  // typed is lost without her knowing.
+  function aiFillPlan(draft, form){
+    const d = draft || {};
+    const plan = { desc: String(d.webDesc || '').trim(), ask: false, title: null, tags: null, offer: [] };
+    const had = String(form.desc || '').trim();
+    plan.ask = !!had && had !== plan.desc;
+    if(form.etsy){
+      const title = String(d.etsyTitle || '').trim();
+      const tags = (Array.isArray(d.etsyTags) ? d.etsyTags : []).map(function(t){ return String(t).trim(); }).filter(Boolean).join(', ');
+      if(title){ if(!String(form.title || '').trim()) plan.title = title; else if(title !== String(form.title).trim()) plan.offer.push('Title: ' + title); }
+      if(tags){ if(!String(form.tags || '').trim()) plan.tags = tags; else if(tags !== String(form.tags).trim()) plan.offer.push('Tags: ' + tags); }
+    }
+    return plan;
+  }
+
+  // Which photo to write from: for an Etsy item its first real Etsy photo,
+  // otherwise the website photo, each falling back to the other.
+  function aiPickPhoto(p){
+    const order = p.etsy ? [p.etsyPhoto, p.webPhoto] : [p.webPhoto, p.etsyPhoto];
+    for(let i = 0; i < order.length; i++){
+      const v = String(order[i] || '');
+      if(/^data:image\//i.test(v)) return { image: v };
+      if(/^https:\/\//i.test(v)) return { imageUrl: v };
+    }
+    return null;
+  }
+  // AD WORDS: END OF THE PURE PART
+
   // ETSY LINK: WHAT THE TILL SAYS (v1.58.0)
   //
   // The kay-etsy service's answer about the shop, put into plain words for the
@@ -14869,6 +15174,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     // one shared is not the next one's, and the box must not be handed back
     // whatever was in it before the tick.
     resetDescSame('add');
+    resetAiBox('add');
     manualCodeLetter = '';
     resetFolderPicks('add');
     resetLabelPicks('add');
@@ -15623,6 +15929,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     // "these are your own words", which is true either way, and nothing is
     // stored anywhere that could claim otherwise.
     resetDescSame('edit');
+    resetAiBox('edit');
     // Before the website state is drawn: it decides whether the description
     // and postage boxes show.
     document.getElementById('editEtsyOn').checked = !!it.etsy;
