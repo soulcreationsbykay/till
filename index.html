@@ -2161,7 +2161,13 @@
       <button type="button" data-zr="day" class="sel">Day</button>
       <button type="button" data-zr="month">Month</button>
       <button type="button" data-zr="year">Year</button>
+      <button type="button" data-zr="taxyear">Tax year</button>
       <button type="button" data-zr="custom">Dates</button>
+    </div>
+    <!-- v1.67.1: 6 April to 5 April, the UK tax year. -->
+    <div id="zTaxYearWrap" style="display:none;">
+      <label for="zTaxYear">Tax year</label>
+      <select id="zTaxYear"></select>
     </div>
     <div id="zDayWrap">
       <label>Day</label>
@@ -4570,7 +4576,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.67.0';
+  const APP_VERSION = '1.67.1';
   const BUILD_DATE  = '13 Oct 2026';
   const BUILD_TIME  = '23:01';
   const versionEl = document.getElementById('appVersion');
@@ -11587,6 +11593,19 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
              // The year ends 5 April (start + 1); registering is due that October.
              registerBy: '5 October ' + (start + 1) };
   }
+  // The tax years to offer on the report (v1.67.1): from the one holding the
+  // first sale or expense to the one holding today, newest first. Always at
+  // least the current one.
+  function taxYearChoices(firstDateStr, todayStr){
+    const now = taxYearOf(todayStr);
+    const first = firstDateStr && firstDateStr < now.from ? taxYearOf(firstDateStr) : now;
+    const out = [];
+    for(let y = Number(now.from.slice(0, 4)); y >= Number(first.from.slice(0, 4)); y--){
+      const ty = taxYearOf(y + '-06-01');
+      out.push({ start: y, label: ty.label, from: ty.from, to: ty.to });
+    }
+    return out;
+  }
   // Where a tax year's gross income stands against the allowance.
   function allowanceStatus(gross){
     const g = round2(Number(gross) || 0);
@@ -11810,6 +11829,11 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       const y = String(document.getElementById('zYear').value || today.slice(0,4));
       return { from: y+'-01-01', to: y+'-12-31', label: y };
     }
+    if(zMode === 'taxyear'){
+      const start = String(document.getElementById('zTaxYear').value || taxYearOf(today).from.slice(0, 4));
+      const ty = taxYearOf(start + '-06-01');
+      return { from: ty.from, to: ty.to, label: 'Tax year ' + ty.label };
+    }
     // custom: swap if entered backwards rather than showing an empty report
     let a = document.getElementById('zFrom').value || today;
     let b = document.getElementById('zTo').value || today;
@@ -11835,6 +11859,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     document.getElementById('zDayWrap').style.display    = zMode==='day'    ? 'block' : 'none';
     document.getElementById('zMonthWrap').style.display  = zMode==='month'  ? 'block' : 'none';
     document.getElementById('zYearWrap').style.display   = zMode==='year'   ? 'block' : 'none';
+    document.getElementById('zTaxYearWrap').style.display = zMode==='taxyear' ? 'block' : 'none';
     document.getElementById('zCustomWrap').style.display = zMode==='custom' ? 'block' : 'none';
     document.querySelectorAll('#zRangeType button').forEach(b =>
       b.classList.toggle('sel', b.dataset.zr === zMode));
@@ -11849,10 +11874,18 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   });
   document.querySelectorAll('#zRangeType button').forEach(b =>
     b.addEventListener('click', () => { zMode = b.dataset.zr; refreshZ(); }));
-  ['zDate','zMonth','zYear','zFrom','zTo'].forEach(id =>
+  ['zDate','zMonth','zYear','zTaxYear','zFrom','zTo'].forEach(id =>
     document.getElementById(id).addEventListener('change', refreshZ));
   document.getElementById('zReportBtn').addEventListener('click', () => {
     const today = localDateStr();
+    // The tax years there is anything in, the current one chosen.
+    let first = '';
+    sales.forEach(s => { const d = s.at ? localDateStr(new Date(s.at)) : ''; if(d && (!first || d < first)) first = d; });
+    try{ Expenses.all().forEach(e => { if(!e.deleted && e.date && (!first || e.date < first)) first = e.date; }); }catch(e){}
+    const tys = taxYearChoices(first, today);
+    document.getElementById('zTaxYear').innerHTML = tys.map(t =>
+      `<option value="${t.start}">${t.label} (6 Apr ${t.start} to 5 Apr ${t.start + 1})</option>`).join('');
+    document.getElementById('zTaxYear').value = String(tys[0].start);
     document.getElementById('zDate').value  = today;
     document.getElementById('zMonth').value = today.slice(0,7);
     document.getElementById('zYear').value  = today.slice(0,4);

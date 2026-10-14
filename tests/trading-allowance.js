@@ -18,7 +18,7 @@ if (a < 0 || b < 0) { console.error('could not locate the trading allowance bloc
 
 const ctx = { console, round2: (n) => Math.round((Number(n) || 0) * 100) / 100 };
 vm.createContext(ctx);
-vm.runInContext(HTML.slice(a, b) + '\nthis.T = { TRADING_ALLOWANCE, taxYearOf, allowanceStatus };', ctx);
+vm.runInContext(HTML.slice(a, b) + '\nthis.T = { TRADING_ALLOWANCE, taxYearOf, allowanceStatus, taxYearChoices };', ctx);
 const T = ctx.T;
 
 let pass = 0, fail = 0;
@@ -50,6 +50,21 @@ console.log('\nAgainst the £1,000 allowance');
   check('a penny over is over, by a penny', o.state === 'over' && o.over === 0.01 && o.left === 0, JSON.stringify(o));
   check('refunds can make it negative: nothing used, nothing over', T.allowanceStatus(-20).left === 1000 && T.allowanceStatus(-20).state === 'under');
   check('pennies are not lost to floating point', T.allowanceStatus(0.1 + 0.2).gross === 0.3);
+}
+
+console.log('\nThe tax years offered on the report (v1.67.1)');
+{
+  const c = T.taxYearChoices('2025-11-02', '2026-10-14');
+  check('from the first sale\'s tax year to today\'s, newest first',
+    c.map(t => t.label).join() === '2026–27,2025–26', JSON.stringify(c.map(t => t.label)));
+  check('each runs 6 April to 5 April', c[0].from === '2026-04-06' && c[0].to === '2027-04-05' && c[1].from === '2025-04-06');
+  check('nothing yet: just the current year', T.taxYearChoices('', '2026-10-14').map(t => t.label).join() === '2026–27');
+  check('a first sale on 5 April belongs to the year before',
+    T.taxYearChoices('2026-04-05', '2026-10-14').map(t => t.label).join() === '2026–27,2025–26');
+  check('a first sale on 6 April does not add an extra year',
+    T.taxYearChoices('2026-04-06', '2026-10-14').length === 1);
+  check('on 5 April itself, the year ending today is the newest', T.taxYearChoices('', '2027-04-05')[0].label === '2026–27');
+  check('a date in the future is ignored', T.taxYearChoices('2030-01-01', '2026-10-14').length === 1);
 }
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

@@ -10,6 +10,19 @@ fixes.
 
 ---
 
+## v1.67.1 - 14 October 2026
+
+**Tax year on the sales report.** Beside Day, Month, Year and Dates there is
+now **Tax year**: 6 April to 5 April, chosen from a list such as "2026–27 (6
+Apr 2026 to 5 Apr 2027)", from the tax year of the first sale or expense up
+to the current one, newest first. Print and Export use it too (labelled "Tax
+year 2026–27").
+
+`tests/trading-allowance.js`: 7 new checks (20), verified against two broken
+copies.
+
+---
+
 ## v1.67.0 - 14 October 2026
 
 **Expenses, and net profit on the sales report.**
