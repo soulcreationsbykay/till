@@ -10,6 +10,15 @@ fixes.
 
 ---
 
+## v1.67.4 - 14 October 2026
+
+**A switched-off button now looks switched off.** Buttons the till disables
+(Send to Etsy as a draft when something blocks it, and others) looked exactly
+like live ones, so pressing one seemed to do nothing. They are now greyed
+out; the reason is in the line under the button.
+
+---
+
 ## v1.67.3 - 14 October 2026
 
 **The Sales and Expenses tabs are always in the report export.** They were
