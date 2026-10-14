@@ -10,6 +10,16 @@ fixes.
 
 ---
 
+## v1.63.1 - 14 October 2026
+
+**The Etsy title hint is right for colours.** On a colour item with no Etsy
+title it said Etsy would show the whole name ("TEST — Blue"); it now says
+Etsy shows the group's name with the colour as a choice, and an Etsy title
+typed on a colour is marked as the whole listing's title. Wording only:
+what is sent is unchanged.
+
+---
+
 ## v1.63.0 - 14 October 2026
 
 **Colours go to Etsy as one listing.**
