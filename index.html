@@ -497,6 +497,10 @@
   .ai-row select{flex:3 1 190px;min-width:0;margin:0;}
   .ai-row .ai-go{flex:1 0 auto;margin:0;padding-inline:14px;}
   .ai-box .folder-hint{margin:0;}
+  .ai-offers{display:grid;gap:6px;}
+  .ai-offer{display:flex;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.4;background:#fff;}
+  .ai-offer>div{flex:1;min-width:0;overflow-wrap:anywhere;}
+  .ai-offer .ai-use{flex:none;margin:0;padding:6px 12px;width:auto;}
 
   .value-summary{
     display:flex;justify-content:space-between;align-items:center;
@@ -1075,6 +1079,7 @@
               <button type="button" class="btn-generate ai-go" id="manualAiGo">✨ Write it for me</button>
             </div>
             <div class="folder-hint" id="manualAiHint">Writes a draft from the photo. Nothing is saved until you save the item.</div>
+            <div class="ai-offers" id="manualAiOffers" hidden></div>
           </div>
           <label for="manualPost">Postage size<span class="etsy-need"> · recommended for Etsy</span></label>
           <select id="manualPost">
@@ -1908,6 +1913,7 @@
             <button type="button" class="btn-generate ai-go" id="editAiGo">✨ Write it for me</button>
           </div>
           <div class="folder-hint" id="editAiHint">Writes a draft from the photo. Nothing is saved until you press Save.</div>
+          <div class="ai-offers" id="editAiOffers" hidden></div>
         </div>
         <label for="editPost">Postage size<span class="etsy-need"> · recommended for Etsy</span></label>
         <select id="editPost">
@@ -4610,9 +4616,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.69.0';
-  const BUILD_DATE  = '14 Oct 2026';
-  const BUILD_TIME  = '19:25';
+  const APP_VERSION = '1.70.0';
+  const BUILD_DATE  = '15 Oct 2026';
+  const BUILD_TIME  = '12:16';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -7938,9 +7944,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // saved until Add item or Save, as always.
   const AI_FORM = {
     add:  { desc:'manualWebDesc', warn:'manualAdWarn', facts:'manualAiFacts', model:'manualAiModel', go:'manualAiGo', hint:'manualAiHint',
-            name:'manualName', folder:'manualFolder', price:'manualPrice', etsy:'manualEtsyOn', title:'manualEtsyTitle', tags:'manualEtsyTags' },
+            name:'manualName', folder:'manualFolder', price:'manualPrice', etsy:'manualEtsyOn', title:'manualEtsyTitle', tags:'manualEtsyTags', offers:'manualAiOffers' },
     edit: { desc:'editWebDesc',   warn:'editAdWarn',   facts:'editAiFacts',   model:'editAiModel',   go:'editAiGo',   hint:'editAiHint',
-            name:'editItemName', folder:'editItemFolder', price:'editItemPrice', etsy:'editEtsyOn', title:'editEtsyTitle', tags:'editEtsyTags' },
+            name:'editItemName', folder:'editItemFolder', price:'editItemPrice', etsy:'editEtsyOn', title:'editEtsyTitle', tags:'editEtsyTags', offers:'editAiOffers' },
   };
   const AI_HINT = {
     add: 'Writes a draft from the photo. Nothing is saved until you save the item.',
@@ -8024,6 +8030,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if(facts) facts.value = '';
     const hint = document.getElementById(F.hint);
     if(hint) hint.textContent = AI_HINT[which];
+    renderAiOffers(which, []);
     fillModels(which);
     renderAdWarn(which);
   }
@@ -8065,6 +8072,38 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     });
   }
 
+  // The AI's suggestions that would replace something already in the form,
+  // each with its own Use this button (v1.70.0). Nothing changes until it is
+  // pressed, and even then nothing is saved until Save.
+  function renderAiOffers(which, offers){
+    const F = AI_FORM[which];
+    const box = document.getElementById(F.offers);
+    if(!box) return;
+    box.innerHTML = '';
+    box.hidden = !(offers && offers.length);
+    (offers || []).forEach(function(o){
+      const row = document.createElement('div');
+      row.className = 'ai-offer';
+      const text = document.createElement('div');
+      text.innerHTML = '<b>Suggested ' + escapeHtml(o.label) + ':</b> ' + escapeHtml(o.value);
+      const use = document.createElement('button');
+      use.type = 'button';
+      use.className = 'btn-generate ai-use';
+      use.textContent = 'Use this';
+      use.addEventListener('click', function(){
+        const el = document.getElementById(F[o.field]);
+        if(!el) return;
+        el.value = o.value;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        row.remove();
+        if(!box.children.length) box.hidden = true;
+      });
+      row.appendChild(text);
+      row.appendChild(use);
+      box.appendChild(row);
+    });
+  }
+
   async function aiWrite(which){
     const F = AI_FORM[which];
     const $ = id => document.getElementById(id);
@@ -8078,6 +8117,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     WordsLink.choose(model);
     const etsy = $(F.etsy).checked;
     go.disabled = true;
+    renderAiOffers(which, []);
     hint.textContent = 'Writing… (this can take up to a minute)';
     try{
       const r = await WordsLink.call('/staff/describe', { method:'POST', body: JSON.stringify(Object.assign({
@@ -8090,18 +8130,18 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         current: ta.value,
       }, photo)) });
       const plan = aiFillPlan(r && r.draft, { desc: ta.value, etsy: etsy, title: $(F.title).value, tags: $(F.tags).value });
+      const notes = [];
       if(plan.ask && !confirm('Replace the description that is there with the AI\'s draft? You can still change it before saving.')){
-        hint.textContent = 'Kept your description. Here is the draft if you want any of it: ' + plan.desc;
-        return;
+        notes.push('Kept your description. Here is the draft if you want any of it: ' + plan.desc);
+      } else {
+        ta.value = plan.desc;
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+        notes.push('Draft written' + (r.model ? ' by ' + ((WordsLink.list().find(m => m.id === r.model) || {}).label || r.model) : '') + '. Read it through before saving.');
       }
-      ta.value = plan.desc;
-      ta.dispatchEvent(new Event('input', { bubbles: true }));
       if(plan.title != null){ $(F.title).value = plan.title; $(F.title).dispatchEvent(new Event('input', { bubbles: true })); }
       if(plan.tags != null){ $(F.tags).value = plan.tags; $(F.tags).dispatchEvent(new Event('input', { bubbles: true })); }
-      const notes = [];
-      notes.push('Draft written' + (r.model ? ' by ' + ((WordsLink.list().find(m => m.id === r.model) || {}).label || r.model) : '') + '. Read it through before saving.');
       if(r.draft && r.draft.unsure) notes.push('Check: ' + r.draft.unsure);
-      if(plan.offer.length) notes.push('Kept your Etsy ' + (plan.offer.length > 1 ? 'title and tags' : plan.offer[0].split(':')[0].toLowerCase()) + '. Suggested: ' + plan.offer.join(' · '));
+      renderAiOffers(which, plan.offers);
       if(r.used && r.limit) notes.push(r.used + ' of ' + r.limit + ' today.');
       hint.textContent = notes.join(' ');
     }catch(e){
@@ -12912,20 +12952,43 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
 
   // The AI's draft, put into the form. The description is only replaced with
   // Kay's say-so when she had written something; the Etsy title and tags are
-  // filled only when empty, and offered in the hint otherwise, so nothing she
-  // typed is lost without her knowing.
+  // filled only when empty. Anything that would replace what she typed is
+  // OFFERED instead (v1.70.0), each with a Use this button: an Etsy title
+  // and tags she already had, and a clearer item name. The name is never
+  // changed by itself, because it is also on labels and receipts.
   function aiFillPlan(draft, form){
     const d = draft || {};
-    const plan = { desc: String(d.webDesc || '').trim(), ask: false, title: null, tags: null, offer: [] };
+    const plan = { desc: String(d.webDesc || '').trim(), ask: false, title: null, tags: null, offers: [] };
     const had = String(form.desc || '').trim();
     plan.ask = !!had && had !== plan.desc;
     if(form.etsy){
       const title = String(d.etsyTitle || '').trim();
       const tags = (Array.isArray(d.etsyTags) ? d.etsyTags : []).map(function(t){ return String(t).trim(); }).filter(Boolean).join(', ');
-      if(title){ if(!String(form.title || '').trim()) plan.title = title; else if(title !== String(form.title).trim()) plan.offer.push('Title: ' + title); }
-      if(tags){ if(!String(form.tags || '').trim()) plan.tags = tags; else if(tags !== String(form.tags).trim()) plan.offer.push('Tags: ' + tags); }
+      if(title){ if(!String(form.title || '').trim()) plan.title = title; else if(title !== String(form.title).trim()) plan.offers.push({ field: 'title', label: 'Etsy title', value: title }); }
+      if(tags){ if(!String(form.tags || '').trim()) plan.tags = tags; else if(tags !== String(form.tags).trim()) plan.offers.push({ field: 'tags', label: 'Etsy tags', value: tags }); }
     }
+    const name = aiNameFor(d.betterName, form.name);
+    if(name) plan.offers.unshift({ field: 'name', label: 'item name', value: name });
     return plan;
+  }
+
+  // The AI's clearer name, or '' when there is nothing better to offer. A
+  // colour after " — " is what holds a colour group together (on the website
+  // and on Etsy), so the item's own colour is always put back on the end,
+  // whatever the AI did with it.
+  function aiNameFor(suggested, current){
+    const SEP = ' — ';
+    const cur = String(current || '').trim();
+    let s = String(suggested || '').replace(/\s+/g, ' ').trim();
+    if(!s) return '';
+    const at = cur.indexOf(SEP);
+    if(at !== -1){
+      const colour = cur.slice(at + SEP.length).trim();
+      const sAt = s.indexOf(SEP);
+      if(sAt !== -1) s = s.slice(0, sAt).trim();
+      s = s.replace(/[\s,–-]+$/, '') + SEP + colour;
+    }
+    return s.toLowerCase() === cur.toLowerCase() ? '' : s;
   }
 
   // Which photo to write from: for an Etsy item its first real Etsy photo,

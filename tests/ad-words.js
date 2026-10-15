@@ -17,7 +17,7 @@ if (a < 0 || b < 0 || b < a) { console.error('could not locate the ad words bloc
 
 const ctx = { console };
 vm.createContext(ctx);
-vm.runInContext(HTML.slice(a, b) + '\nthis.T = { adWordCheck, aiFillPlan, aiPickPhoto };', ctx);
+vm.runInContext(HTML.slice(a, b) + '\nthis.T = { adWordCheck, aiFillPlan, aiNameFor, aiPickPhoto };', ctx);
 const T = ctx.T;
 
 let pass = 0, fail = 0;
@@ -60,10 +60,30 @@ console.log('\nPutting the draft in the form');
   check('an empty Etsy title and tags are filled', p.title === 'Crochet spider' && p.tags === 'spider, halloween');
   p = T.aiFillPlan(draft, { desc: 'Kay wrote this', etsy: true, title: 'Her title', tags: 'her, tags' });
   check('words Kay wrote are only replaced if she says yes', p.ask === true);
-  check('her Etsy title and tags are kept and the AI\'s offered', p.title === null && p.tags === null && p.offer.length === 2);
+  check('her Etsy title and tags are kept and the AI\'s offered',
+    p.title === null && p.tags === null && p.offers.map((o) => o.field).join() === 'title,tags', JSON.stringify(p.offers));
   p = T.aiFillPlan(draft, { desc: 'New words.', etsy: false, title: '', tags: '' });
   check('the same words again need no question', p.ask === false);
-  check('a website item gets no Etsy title or tags', p.title === null && p.tags === null && p.offer.length === 0);
+  check('a website item gets no Etsy title or tags', p.title === null && p.tags === null && p.offers.length === 0);
+  p = T.aiFillPlan(Object.assign({ betterName: 'Handmade Spitfire model aircraft' }, draft), { name: 'Spitfire', desc: '', etsy: false });
+  check('a clearer name is offered, never put in by itself', p.offers.length === 1 && p.offers[0].field === 'name'
+    && p.offers[0].value === 'Handmade Spitfire model aircraft');
+  p = T.aiFillPlan(Object.assign({ betterName: 'Handmade crochet spider' }, draft), { name: 'Spider', desc: '', etsy: true, title: 'Mine', tags: 'mine' });
+  check('the name comes first, then the Etsy title and tags', p.offers.map((o) => o.field).join() === 'name,title,tags');
+}
+
+console.log('\nThe suggested name');
+{
+  check('the same name, in any case, is not offered', T.aiNameFor('spitfire', 'Spitfire') === '');
+  check('no suggestion is nothing', T.aiNameFor('', 'Spitfire') === '' && T.aiNameFor(undefined, 'X') === '');
+  check('spaces are tidied', T.aiNameFor('  Crochet   spider ', 'Spider') === 'Crochet spider');
+  check('a colour group keeps its own colour on the end',
+    T.aiNameFor('Crochet bunny in soft yarn', 'Bunny — Pink') === 'Crochet bunny in soft yarn — Pink');
+  check('a colour the AI changed is put back',
+    T.aiNameFor('Crochet bunny — Rose', 'Bunny — Pink') === 'Crochet bunny — Pink');
+  check('a trailing comma before the colour goes',
+    T.aiNameFor('Crochet bunny, ', 'Bunny — Pink') === 'Crochet bunny — Pink');
+  check('the group name unchanged is nothing to offer', T.aiNameFor('Bunny', 'Bunny — Pink') === '');
 }
 
 console.log('\nWhich photo the AI sees');

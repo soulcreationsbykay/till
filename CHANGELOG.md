@@ -10,6 +10,23 @@ fixes.
 
 ---
 
+## v1.70.0 - 15 October 2026
+
+**✨ also suggests a clearer item name, and Use this buttons.**
+
+- After ✨ Write it for me, a **suggested item name** appears under the
+  button, with a **Use this** button. The name is never changed by itself,
+  because it is also on labels and receipts. A colour group keeps its own
+  colour on the end (" — Pink"), so the group stays together.
+- For an Etsy item that already has a title or tags, the AI's title and tags
+  now come with their own **Use this** buttons instead of being written out
+  in the line under the button.
+- If you keep your own description, the suggestions still show.
+
+Needs `kay-words` redeployed (it now returns the name).
+
+---
+
 ## v1.69.0 - 14 October 2026
 
 **✨ Write it for me: AI-written descriptions, and an advertising word check.**
