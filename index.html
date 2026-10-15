@@ -872,6 +872,7 @@
 
   /* Supplier features, hidden while SUPPLIERS is false (v1.53.0). */
   .no-suppliers .suppliers-only { display:none !important; }
+  .no-website .website-only { display:none !important; }
 </style>
 </head>
 <body>
@@ -940,7 +941,7 @@
       <button type="button" id="bulkDeleteBtn" class="bulk-danger">🗑 Delete</button>
       <button type="button" id="bulkDoneBtn">Done</button>
     </div>
-    <button type="button" class="web-banner" id="webBanner" style="display:none;">
+    <button type="button" class="web-banner website-only" id="webBanner" style="display:none;">
       <span class="icon">🌐</span>
       <span class="grow">
         <span id="webBannerText">Website needs updating</span>
@@ -1054,6 +1055,7 @@
       <button class="btn-remove-photo" id="manualPhotoRemove" type="button" style="display:none;">Remove photo</button>
       </div>
 
+      <div class="website-only">
       <label>Website</label>
       <div class="web-box">
         <label class="web-check" for="manualWebOn" style="margin:0;">
@@ -1091,6 +1093,7 @@
           </select>
           <div class="folder-hint">Large letter: fits through a letterbox, up to 2.5cm thick and 750g. Anything bigger is a small parcel. Not chosen yet is charged as a small parcel.</div>
         </div>
+      </div>
       </div>
 
       <!-- Etsy (v1.55.1). Same rule as Edit item: kept for Etsy is never on the
@@ -1272,7 +1275,7 @@
          "Where to find us"; shop-worker reads them from the team workspace, so
          they reach the site within about a quarter of an hour of being saved
          here, as long as Team sync is on. Past dates drop off by themselves. -->
-    <div class="card" id="stallsCard">
+    <div class="card website-only" id="stallsCard">
       <div class="quick-sell-head">🎪 Stall dates for the website</div>
       <div class="folder-hint" style="margin-bottom:10px;">
         Markets, fairs and events where you will have a stall. They show on the
@@ -1357,7 +1360,7 @@
       </div>
       <div class="storage-note" id="cardReaderPairNote"></div>
     </div>
-    <div class="card">
+    <div class="card website-only">
       <div class="quick-sell-head">Website orders</div>
       <label for="webOrdersUrlInput">Website checkout address</label>
       <input type="url" id="webOrdersUrlInput" placeholder="https://…workers.dev" autocomplete="off" autocapitalize="none" spellcheck="false">
@@ -1903,7 +1906,7 @@
     <!-- Which photograph fronts this item's CATEGORY on the website's front page
          (28 Sept 2026). One item per category; ticking here unticks the rest.
          Only offered when the folder has a category, i.e. a second level. -->
-    <label class="web-check" id="editFrontWrap" for="editFront" style="display:none;margin-bottom:10px;">
+    <label class="web-check website-only" id="editFrontWrap" for="editFront" style="display:none;margin-bottom:10px;">
       <input type="checkbox" id="editFront">
       <span>Use this photo for <b id="editFrontCat">its category</b> on the website's front page</span>
     </label>
@@ -1912,16 +1915,19 @@
          Save, because they are not part of the record - and because losing a
          photograph to a mis-tapped Cancel would be a poor trade for tidiness.
          The hint says so, so it is not a surprise. -->
+    <div class="website-only">
     <label>More photos for the website (optional)</label>
     <div class="extras-strip" id="editExtras"></div>
     <button class="btn-generate photo-btn" type="button" id="editExtraAdd">📷 Add another photo</button>
     <input type="file" id="editExtraInput" accept="image/*" style="display:none;">
     <div class="folder-hint" id="editExtrasHint"></div>
     </div>
+    </div>
 
     <label>Counted so far (this stock take)<span class="etsy-need"> · needed for Etsy</span></label>
     <input type="number" id="editItemCounted" inputmode="numeric">
 
+    <div class="website-only">
     <label>Website</label>
     <div class="web-box">
       <label class="web-check" for="editWebOn" style="margin:0;">
@@ -1955,6 +1961,7 @@
         <div class="folder-hint">Large letter: fits through a letterbox, up to 2.5cm thick and 750g. Anything bigger is a small parcel. Not chosen yet is charged as a small parcel.</div>
       </div>
       <div class="state etsy-hide" id="editWebState"></div>
+    </div>
     </div>
 
     <!-- Etsy (v1.55.0). Kept for Etsy means not on the website, so ticking one
@@ -4647,9 +4654,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.72.0';
+  const APP_VERSION = '1.73.0';
   const BUILD_DATE  = '15 Oct 2026';
-  const BUILD_TIME  = '15:40';
+  const BUILD_TIME  = '17:51';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -4661,6 +4668,17 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // Makers & codes stays either way: it is what issues the KA- barcodes.
   const SUPPLIERS = false;
   document.documentElement.classList.toggle('no-suppliers', !SUPPLIERS);
+
+  // The website (v1.73.0). It is not public yet, and may not be until next
+  // year, so everything only it needs is hidden: the "sells on the website"
+  // box on Add and Edit item, the extra website photos and front-page tick,
+  // Stall dates for the website, Website orders, the "Website needs updating"
+  // banner, the 🌐 badge and the Website filters on the stock list. Nothing is
+  // deleted and nothing about an item changes: an item still carries its
+  // website tick, and shop-worker still publishes to the (hidden) site. Set
+  // this to true when the website goes live (plan step d7).
+  const WEBSITE = false;
+  document.documentElement.classList.toggle('no-website', !WEBSITE);
 
   let items = loadItems();
   let sales = loadSales();
@@ -5890,7 +5908,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const it = items[bc];
     if(!it || (!it.web && !webListed(it))) return '';
     const due = !!webDue[bc];
-    return `<span class="web-badge${due ? ' due' : ''}" title="${due ? 'Needs changing on the website' : 'Sells on the website'}">🌐</span>`;
+    return `<span class="web-badge website-only${due ? ' due' : ''}" title="${due ? 'Needs changing on the website' : 'Sells on the website'}">🌐</span>`;
   }
 
   // The DEAL badge, beside SET. Three states, because a badge that only ever
@@ -6410,7 +6428,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if(!row) return;
     const n = channelCounts(inFocus.map(bc => items[bc]));
     row.innerHTML = '';
-    CHANNELS.forEach(ch => {
+    // Without the website, the only choice that means anything is Etsy.
+    CHANNELS.filter(ch => WEBSITE || ch.key === 'all' || ch.key === 'etsy').forEach(ch => {
       const b = document.createElement('button');
       b.type = 'button';
       const on = channelFilter === ch.key;

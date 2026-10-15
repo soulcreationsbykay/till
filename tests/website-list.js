@@ -116,8 +116,8 @@ console.log('\nThe badge map');
     C: { name: 'Shop only', counted: 1, price: 5 }
   });
   ctx.refreshWebDue();
-  check('badge on a web item that is up to date', /web-badge"/.test(ctx.webBadgeHtml('B')), ctx.webBadgeHtml('B'));
-  check('solid badge on one that needs doing', /web-badge due"/.test(ctx.webBadgeHtml('A')), ctx.webBadgeHtml('A'));
+  check('badge on a web item that is up to date', /web-badge website-only"/.test(ctx.webBadgeHtml('B')), ctx.webBadgeHtml('B'));
+  check('solid badge on one that needs doing', /web-badge website-only due"/.test(ctx.webBadgeHtml('A')), ctx.webBadgeHtml('A'));
   check('no badge on a shop-only item', ctx.webBadgeHtml('C') === '');
 }
 

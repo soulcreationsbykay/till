@@ -10,6 +10,18 @@ fixes.
 
 ---
 
+## v1.73.0 - 15 October 2026
+
+**Tidy-up 1: the website is hidden until it goes live.** It may not be until
+next year, so everything only the website needs is out of the way: the "sells
+on the website" box on Add and Edit item, extra website photos and the
+front-page tick, Stall dates for the website, Website orders, the "Website
+needs updating" banner and the 🌐 badge. The stock list filters are now just
+All and Etsy. Nothing is deleted and no item changes; it all comes back when
+the website goes live.
+
+---
+
 ## v1.72.0 - 15 October 2026
 
 **✨ Ask the AI for a folder's Etsy category.** In Settings → 🧡 Etsy →
