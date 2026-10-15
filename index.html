@@ -498,6 +498,7 @@
   .ai-row .ai-go{flex:1 0 auto;margin:0;padding-inline:14px;}
   .ai-box .folder-hint{margin:0;}
   .ai-offers{display:grid;gap:6px;}
+  .ai-renew{padding:8px 10px;border-radius:8px;background:#fff6e0;border:1px solid #e8c56a;color:#6b4a00;font-size:12px;line-height:1.45;}
   .ai-offer{display:flex;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.4;background:#fff;}
   .ai-offer>div{flex:1;min-width:0;overflow-wrap:anywhere;}
   .ai-offer .ai-use{flex:none;margin:0;padding:6px 12px;width:auto;}
@@ -1080,6 +1081,7 @@
             </div>
             <div class="folder-hint" id="manualAiHint">Writes a draft from the photo. Nothing is saved until you save the item.</div>
             <div class="ai-offers" id="manualAiOffers" hidden></div>
+            <div class="ai-renew" id="manualAiRenew" hidden></div>
           </div>
           <label for="manualPost">Postage size<span class="etsy-need"> · recommended for Etsy</span></label>
           <select id="manualPost">
@@ -1243,6 +1245,28 @@
       <label for="etsyUrlInput" style="margin-top:12px;">Etsy service address</label>
       <input type="url" id="etsyUrlInput" autocomplete="off" autocapitalize="none" spellcheck="false">
       <button class="btn btn-secondary" id="etsyUrlSaveBtn" style="width:100%;margin-top:6px;">Save address</button>
+    </div>
+    <!-- AI writing keys (v1.71.0). Kay's API keys are revoked after 30 days, so a
+         new one is pasted here. It goes once to the kay-words service, which
+         tries it before keeping it, and it can never be read back out: this
+         card only ever shows which keys are set and when they are due. -->
+    <div class="card" id="aiKeysCard">
+      <div class="quick-sell-head">✨ AI writing</div>
+      <div class="folder-hint" style="margin-bottom:10px;">
+        The keys for <b>✨ Write it for me</b>. Each lasts 30 days. Make a new key in the
+        AI's console, paste it here and press <b>Check and save key</b>. The key is
+        checked, then kept safely by the AI writing service; it can't be read back out.
+      </div>
+      <ul class="folder-hint" id="aiKeyStatus" style="margin:0 0 10px;padding-left:18px;"><li>Not checked yet.</li></ul>
+      <label for="aiKeyProvider">Key for</label>
+      <select id="aiKeyProvider">
+        <option value="anthropic">Claude (console.anthropic.com)</option>
+        <option value="openai">ChatGPT (platform.openai.com)</option>
+      </select>
+      <label for="aiKeyInput">New key</label>
+      <input type="password" id="aiKeyInput" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Paste the key here">
+      <button class="btn btn-primary" id="aiKeySaveBtn" style="width:100%;margin-top:8px;">Check and save key</button>
+      <div class="storage-note" id="aiKeyNote" style="text-align:left;"></div>
     </div>
     <!-- Stall dates for the website (29 Sept 2026). Shown on the front page under
          "Where to find us"; shop-worker reads them from the team workspace, so
@@ -1914,6 +1938,7 @@
           </div>
           <div class="folder-hint" id="editAiHint">Writes a draft from the photo. Nothing is saved until you press Save.</div>
           <div class="ai-offers" id="editAiOffers" hidden></div>
+          <div class="ai-renew" id="editAiRenew" hidden></div>
         </div>
         <label for="editPost">Postage size<span class="etsy-need"> · recommended for Etsy</span></label>
         <select id="editPost">
@@ -4616,9 +4641,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.70.0';
+  const APP_VERSION = '1.71.0';
   const BUILD_DATE  = '15 Oct 2026';
-  const BUILD_TIME  = '12:16';
+  const BUILD_TIME  = '12:28';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -7944,9 +7969,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // saved until Add item or Save, as always.
   const AI_FORM = {
     add:  { desc:'manualWebDesc', warn:'manualAdWarn', facts:'manualAiFacts', model:'manualAiModel', go:'manualAiGo', hint:'manualAiHint',
-            name:'manualName', folder:'manualFolder', price:'manualPrice', etsy:'manualEtsyOn', title:'manualEtsyTitle', tags:'manualEtsyTags', offers:'manualAiOffers' },
+            name:'manualName', folder:'manualFolder', price:'manualPrice', etsy:'manualEtsyOn', title:'manualEtsyTitle', tags:'manualEtsyTags', offers:'manualAiOffers', renew:'manualAiRenew' },
     edit: { desc:'editWebDesc',   warn:'editAdWarn',   facts:'editAiFacts',   model:'editAiModel',   go:'editAiGo',   hint:'editAiHint',
-            name:'editItemName', folder:'editItemFolder', price:'editItemPrice', etsy:'editEtsyOn', title:'editEtsyTitle', tags:'editEtsyTags', offers:'editAiOffers' },
+            name:'editItemName', folder:'editItemFolder', price:'editItemPrice', etsy:'editEtsyOn', title:'editEtsyTitle', tags:'editEtsyTags', offers:'editAiOffers', renew:'editAiRenew' },
   };
   const AI_HINT = {
     add: 'Writes a draft from the photo. Nothing is saved until you save the item.',
@@ -8000,9 +8025,15 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       if(!res.ok) throw new Error((body && body.error) || ('AI writing service error (' + res.status + ')'));
       return body;
     }
-    let fetched = false;
-    async function refresh(){
-      if(fetched || typeof Sync === 'undefined' || !Sync.isConnected()) return;
+    // Asked once per page load (and again after a key is saved): which AIs
+    // have a key, and when each key is due.
+    let fetched = false, keys = [];
+    function setKeys(k){
+      keys = Array.isArray(k) ? k : [];
+      Object.keys(AI_FORM).forEach(renderAiRenew);
+    }
+    async function refresh(force){
+      if((fetched && !force) || typeof Sync === 'undefined' || !Sync.isConnected()) return;
       fetched = true;
       try{
         const r = await call('/staff/models', { method:'GET' });
@@ -8010,9 +8041,64 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
           try{ localStorage.setItem(LIST_KEY, JSON.stringify(r.models)); }catch(e){}
           Object.keys(AI_FORM).forEach(fillModels);
         }
+        if(r) setKeys(r.keys);
       }catch(e){ fetched = false; }
     }
-    return { list:list, chosen:chosen, choose:choose, call:call, refresh:refresh };
+    return { list:list, chosen:chosen, choose:choose, call:call, refresh:refresh, keys:function(){ return keys; }, setKeys:setKeys };
+  })();
+
+  function renderAiRenew(which){
+    const el = document.getElementById(AI_FORM[which].renew);
+    if(!el) return;
+    const text = aiKeyReminder(WordsLink.keys(), Date.now());
+    el.textContent = text;
+    el.hidden = !text;
+  }
+
+  // Settings → ✨ AI writing. The key box is a password box, so what is
+  // pasted shows as dots; it is cleared as soon as the key is sent.
+  const AiKeys = (function(){
+    const $ = id => document.getElementById(id);
+    function show(keys){
+      const ul = $('aiKeyStatus');
+      if(!ul) return;
+      ul.innerHTML = aiKeyLines(keys, Date.now()).map(l => '<li>' + escapeHtml(l) + '</li>').join('') || '<li>No keys yet.</li>';
+    }
+    async function load(){
+      if(typeof Sync === 'undefined' || !Sync.isConnected()){
+        $('aiKeyStatus').innerHTML = '<li>Turn on Team sync to see and change the keys.</li>';
+        return;
+      }
+      try{
+        const r = await WordsLink.call('/staff/keys', { method:'GET' });
+        show(r.keys);
+        WordsLink.setKeys(r.keys);
+      }catch(e){ $('aiKeyStatus').innerHTML = '<li>' + escapeHtml(e.message || 'Could not check the keys.') + '</li>'; }
+    }
+    async function save(){
+      const input = $('aiKeyInput'), note = $('aiKeyNote'), btn = $('aiKeySaveBtn');
+      const key = input.value.trim();
+      if(!key){ note.textContent = 'Paste the new key first.'; return; }
+      if(typeof Sync === 'undefined' || !Sync.isConnected()){ note.textContent = 'Turn on Team sync first, then press Check and save key again.'; return; }
+      const provider = $('aiKeyProvider').value;
+      btn.disabled = true;
+      note.textContent = 'Checking the key…';
+      input.value = '';
+      try{
+        const r = await WordsLink.call('/staff/keys', { method:'POST', body: JSON.stringify({ provider: provider, key: key }) });
+        show(r.keys);
+        WordsLink.setKeys(r.keys);
+        WordsLink.refresh(true);
+        note.textContent = 'Saved. The new key works and is in use now.';
+      }catch(e){
+        note.textContent = (e.message || 'That key was not saved.') + ' The key you had before is still in use.';
+      }finally{
+        btn.disabled = false;
+      }
+    }
+    const btn = $('aiKeySaveBtn');
+    if(btn) btn.addEventListener('click', save);
+    return { load: load };
   })();
 
   function fillModels(which){
@@ -8032,6 +8118,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if(hint) hint.textContent = AI_HINT[which];
     renderAiOffers(which, []);
     fillModels(which);
+    renderAiRenew(which);
+    WordsLink.refresh();
     renderAdWarn(which);
   }
 
@@ -13002,6 +13090,47 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     }
     return null;
   }
+  // The AI keys (v1.71.0), as kay-words reports them: never the key itself,
+  // only where it came from, when it was added, when it is due and its last
+  // four characters. Kay's keys are revoked after 30 days.
+  const AI_KEY_WARN_DAYS = 5;
+  function aiKeyDate(ms){
+    const d = new Date(Number(ms));
+    return isNaN(d) ? '' : d.toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+  }
+  function aiDaysLeft(renewBy, now){ return Math.ceil((Number(renewBy) - Number(now)) / 86400000); }
+
+  // One line per AI for the Settings card.
+  function aiKeyLines(keys, now){
+    return (keys || []).map(function(k){
+      if(k.source === 'till'){
+        const left = aiDaysLeft(k.renewBy, now);
+        const when = left <= 0 ? 'expired ' + aiKeyDate(k.renewBy) + ': paste a new one'
+          : left === 1 ? 'renew by tomorrow (' + aiKeyDate(k.renewBy) + ')'
+          : 'renew by ' + aiKeyDate(k.renewBy) + ' (' + left + ' days)';
+        return k.label + ': key ending ' + (k.ends || '????') + ', added ' + aiKeyDate(k.addedAt) + ', ' + when + '.';
+      }
+      if(k.source === 'secret') return k.label + ': key set on the service directly. Paste one here so the till can remind you before it runs out.';
+      return k.label + ': no key yet.';
+    });
+  }
+
+  // The reminder under the ✨ button: only for keys running out within
+  // AI_KEY_WARN_DAYS, or already past their date. '' when all is well.
+  function aiKeyReminder(keys, now){
+    const due = [], gone = [];
+    (keys || []).forEach(function(k){
+      if(k.source !== 'till') return;
+      const left = aiDaysLeft(k.renewBy, now);
+      if(left <= 0) gone.push(k.label);
+      else if(left <= AI_KEY_WARN_DAYS) due.push(k.label + ' in ' + left + ' day' + (left === 1 ? '' : 's'));
+    });
+    const out = [];
+    if(gone.length) out.push('The ' + gone.join(' and ') + ' key has run out.');
+    if(due.length) out.push('Key due for renewal: ' + due.join(', ') + '.');
+    if(out.length) out.push('Paste a new one in Settings → ✨ AI writing.');
+    return out.join(' ');
+  }
   // AD WORDS: END OF THE PURE PART
 
   // ETSY LINK: WHAT THE TILL SAYS (v1.58.0)
@@ -14181,6 +14310,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       document.getElementById('tab-add').style.display  = target==='add'  ? 'block':'none';
       if(target === 'add'){ resetFolderPicks('add'); resetLabelPicks('add'); }
       document.getElementById('tab-settings').style.display = target==='settings' ? 'block':'none';
+      if(target === 'settings'){ try{ AiKeys.load(); }catch(e){} }
 
       // The scan button does different things depending on where you are,
       // so it says which one it's about to do.

@@ -10,6 +10,23 @@ fixes.
 
 ---
 
+## v1.71.0 - 15 October 2026
+
+**New AI keys are pasted in the till.** Kay's Claude and ChatGPT keys are
+revoked after 30 days, so there is now a **✨ AI writing** card in Settings:
+
+- choose Claude or ChatGPT, paste the new key and press **Check and save
+  key**. The box shows dots, not the key. The AI writing service tries the
+  key first and only keeps it if it works; the old one stays in use if not.
+- the key can never be read back out. The card only shows which keys are
+  set, the last four characters, when each was added and when it is due.
+- from 5 days before a key is due, a reminder shows under the ✨ button on
+  Add item and Edit item, and again once it has run out.
+
+Needs `kay-words` redeployed.
+
+---
+
 ## v1.70.0 - 15 October 2026
 
 **✨ also suggests a clearer item name, and Use this buttons.**

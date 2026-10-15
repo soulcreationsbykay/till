@@ -17,7 +17,7 @@ if (a < 0 || b < 0 || b < a) { console.error('could not locate the ad words bloc
 
 const ctx = { console };
 vm.createContext(ctx);
-vm.runInContext(HTML.slice(a, b) + '\nthis.T = { adWordCheck, aiFillPlan, aiNameFor, aiPickPhoto };', ctx);
+vm.runInContext(HTML.slice(a, b) + '\nthis.T = { adWordCheck, aiFillPlan, aiNameFor, aiPickPhoto, aiKeyLines, aiKeyReminder };', ctx);
 const T = ctx.T;
 
 let pass = 0, fail = 0;
@@ -94,6 +94,28 @@ console.log('\nWhich photo the AI sees');
   check('each falls back to the other', T.aiPickPhoto({ etsy: true, etsyPhoto: '', webPhoto: web }).imageUrl === web);
   check('no photo is no photo', T.aiPickPhoto({ etsy: false, etsyPhoto: '', webPhoto: '' }) === null);
   check('anything that is not a picture or https is ignored', T.aiPickPhoto({ etsy: false, webPhoto: 'javascript:alert(1)' }) === null);
+}
+
+console.log('\nThe 30-day keys');
+{
+  const DAY = 86400000, NOW = Date.parse('2026-10-15T12:00:00Z');
+  const k = (label, daysLeft) => ({ provider: label === 'Claude' ? 'anthropic' : 'openai', label, source: 'till',
+    addedAt: NOW - (30 - daysLeft) * DAY, renewBy: NOW + daysLeft * DAY, ends: 'WXYZ' });
+  check('no reminder while there is time', T.aiKeyReminder([k('Claude', 20)], NOW) === '');
+  check('a reminder 5 days before', /Claude in 5 days/.test(T.aiKeyReminder([k('Claude', 5)], NOW)));
+  check('one day is "1 day"', /Claude in 1 day\./.test(T.aiKeyReminder([k('Claude', 1)], NOW)));
+  check('a key past its date has run out', /The Claude key has run out/.test(T.aiKeyReminder([k('Claude', 0)], NOW)));
+  check('both together, and where to go', /ChatGPT key has run out.*Claude in 3 days.*Settings/.test(
+    T.aiKeyReminder([k('Claude', 3), k('ChatGPT', -2)], NOW)), T.aiKeyReminder([k('Claude', 3), k('ChatGPT', -2)], NOW));
+  check('a key set on the service directly has no date, so no reminder',
+    T.aiKeyReminder([{ label: 'Claude', source: 'secret' }, { label: 'ChatGPT', source: 'none' }], NOW) === '');
+  const lines = T.aiKeyLines([k('Claude', 12), { label: 'ChatGPT', source: 'none' }], NOW);
+  check('Settings shows the last four, the date added and the renew-by date',
+    /^Claude: key ending WXYZ, added \d+ \w+, renew by \d+ \w+ \(12 days\)\.$/.test(lines[0]), lines[0]);
+  check('Settings says when there is no key', lines[1] === 'ChatGPT: no key yet.');
+  check('an expired key says so in Settings', /expired .*paste a new one/.test(T.aiKeyLines([k('Claude', -1)], NOW)[0]));
+  check('nothing about a key is ever more than its last four',
+    !JSON.stringify(T.aiKeyLines([Object.assign(k('Claude', 9), { key: 'sk-ant-SECRET' })], NOW)).includes('SECRET'));
 }
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
