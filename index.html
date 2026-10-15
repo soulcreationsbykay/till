@@ -461,6 +461,12 @@
     font-size:15px;font-weight:700;
   }
   .web-list{max-height:52vh;overflow-y:auto;margin:4px 0 12px;}
+  .kind-pick{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;}
+  .kind-pick button{
+    font:inherit;font-size:15px;font-weight:700;padding:12px 8px;border-radius:12px;cursor:pointer;
+    border:1.5px solid var(--line);background:#fff;color:var(--ink);
+  }
+  .kind-pick button.sel{border-color:var(--moss-dark);background:var(--moss-dark);color:#fff;}
   .web-box{
     border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:4px;
   }
@@ -1028,6 +1034,14 @@
 
   <div id="tab-add" style="display:none;">
     <div class="card">
+      <!-- What is it for (v1.75.0): asked first, so the form only shows what
+           that needs. It works the Etsy tick further down, which is hidden. -->
+      <label>What is this item for?</label>
+      <div class="kind-pick" id="addKind" role="group" aria-label="What is this item for?">
+        <button type="button" data-kind="stall" aria-pressed="true" class="sel">🎪 Stall only</button>
+        <button type="button" data-kind="etsy" aria-pressed="false">🧡 For Etsy</button>
+      </div>
+      <div class="folder-hint" id="addKindHint">Sold at stalls. Name, price and how many is all it needs.</div>
       <label>Item code</label>
       <div class="barcode-generate-row">
         <input type="text" id="manualBarcode" placeholder="Type, paste, or generate one">
@@ -1113,13 +1127,12 @@
       <!-- Etsy (v1.55.1). Same rule as Edit item: kept for Etsy is never on the
            website too. Its real photographs need the item to exist first, so
            Add item opens it straight afterwards to take them. -->
-      <label>Etsy</label>
-      <div class="web-box">
-        <label class="web-check" for="manualEtsyOn" style="margin:0;">
+      <label id="manualEtsyHead">Etsy details</label>
+      <div class="web-box" id="manualEtsyBox">
+        <label class="web-check" for="manualEtsyOn" style="margin:0;display:none;">
           <input type="checkbox" id="manualEtsyOn">
           <span>Keep this one for Etsy</span>
         </label>
-        <div class="folder-hint" style="margin-top:6px;">Takes it off the website.</div>
         <!-- v1.55.3: the Etsy photos can be taken here. They are held until
              Add item, because they are stored under the item's code and the
              item does not exist before then. -->
@@ -4668,9 +4681,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.74.0';
+  const APP_VERSION = '1.75.0';
   const BUILD_DATE  = '15 Oct 2026';
-  const BUILD_TIME  = '17:52';
+  const BUILD_TIME  = '17:54';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -15468,6 +15481,31 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   document.getElementById('manualWebOn').addEventListener('change', renderAddEtsy);
   document.getElementById('manualEtsyOn').addEventListener('change', renderAddEtsy);
 
+  // Stall only / For Etsy at the top of Add item (v1.75.0). The choice is the
+  // Etsy tick, so everything that tick did (moving the description, the Etsy
+  // photos, what is marked as needed) still happens the same way.
+  function renderAddKind(){
+    const etsy = document.getElementById('manualEtsyOn').checked;
+    document.querySelectorAll('#addKind button').forEach(b => {
+      const on = (b.dataset.kind === 'etsy') === etsy;
+      b.classList.toggle('sel', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    document.getElementById('manualEtsyHead').style.display = etsy ? '' : 'none';
+    document.getElementById('manualEtsyBox').style.display = etsy ? '' : 'none';
+    document.getElementById('addKindHint').textContent = etsy
+      ? 'Kept for Etsy. Add real photos, then ✨ can write the description, title and tags.'
+      : 'Sold at stalls. Name, price and how many is all it needs.';
+  }
+  document.querySelectorAll('#addKind button').forEach(b => b.addEventListener('click', () => {
+    const box = document.getElementById('manualEtsyOn');
+    const want = b.dataset.kind === 'etsy';
+    if(box.checked !== want){ box.checked = want; box.dispatchEvent(new Event('change')); }
+    renderAddKind();
+  }));
+  document.getElementById('manualEtsyOn').addEventListener('change', renderAddKind);
+  renderAddKind();
+
   document.getElementById('manualAddBtn').addEventListener('click', () => {
     const bc = document.getElementById('manualBarcode').value.trim();
     const name = document.getElementById('manualName').value.trim();
@@ -15511,6 +15549,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     document.getElementById('manualEtsyOn').checked = false;
     document.getElementById('manualWebMore').style.display = '';
     placeEtsyLayout('manual');
+    renderAddKind();
     renderAddEtsy();
     // Explicitly, and before the name box is read again: the description this
     // one shared is not the next one's, and the box must not be handed back

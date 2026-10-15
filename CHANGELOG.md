@@ -10,6 +10,19 @@ fixes.
 
 ---
 
+## v1.75.0 - 15 October 2026
+
+**Tidy-up 3: Add item asks what the item is for first.** Two buttons at the
+top: **🎪 Stall only** (name, price, how many and a photo, about one
+screen) or **🧡 For Etsy** (adds the Etsy details: real photos, ✨
+description, postage, title and tags). It is the same Etsy tick as before,
+moved to the top.
+
+Tidy-up 4 (hide "Made by") was already done in v1.53.0: it is hidden because
+everything is Kay's own work.
+
+---
+
 ## v1.74.0 - 15 October 2026
 
 **Tidy-up 2: Settings is a short list.** Each section shows only its heading;
