@@ -10,6 +10,15 @@ fixes.
 
 ---
 
+## v1.78.0 - 15 October 2026
+
+**Tidy-up 7: the Till screen is the basket, Empty basket and Charge.** Misc
+amount, % Discount, Promo code and Receipt settings are behind one **More**
+button beside Empty basket; pressing any of them closes it again. They work
+exactly as before.
+
+---
+
 ## v1.77.0 - 15 October 2026
 
 **Tidy-up 6: Edit item keeps the now-and-then things under More.** Label

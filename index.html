@@ -475,6 +475,9 @@
   .more-box > summary::after{content:' ▸';color:var(--muted);}
   .more-box[open] > summary::after{content:' ▾';}
   .more-box[open]{padding-bottom:12px;}
+  .till-more{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
+  .till-more .btn{margin:0;}
+  .till-more[hidden]{display:none;}
   .kind-pick{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;}
   .kind-pick button{
     font:inherit;font-size:15px;font-weight:700;padding:12px 8px;border-radius:12px;cursor:pointer;
@@ -1028,13 +1031,18 @@
         <div class="t-row grand"><span>Total</span><span id="cartTotal">£0.00</span></div>
       </div>
     </div>
+    <!-- v1.78.0: the now-and-then buttons behind one More button, so the
+         till is the basket, Empty basket and Charge. The buttons are the same
+         ones as before, so what each does is unchanged. -->
     <div class="btn-row">
+      <button class="btn btn-secondary" id="tillMoreBtn" aria-expanded="false" aria-controls="tillMore">More ▾</button>
+      <button class="btn btn-secondary" id="clearCartBtn">Empty basket</button>
+    </div>
+    <div class="till-more" id="tillMore" hidden>
       <button class="btn btn-secondary" id="miscAmountBtn">📝 Misc amount</button>
       <button class="btn btn-secondary" id="basketDiscountBtn">% Discount</button>
-    </div>
-    <div class="btn-row" style="margin-top:8px;">
       <button class="btn btn-secondary" id="promoBtn">🎟 Promo code</button>
-      <button class="btn btn-secondary" id="clearCartBtn">Empty basket</button>
+      <button class="btn btn-secondary" id="receiptSettingsBtn">🧾 Receipt settings</button>
     </div>
     <div id="dealNudges"></div>
     <button class="btn charge-btn" id="chargeBtn" style="margin-top:8px;">Charge £0.00</button>
@@ -1043,7 +1051,6 @@
       <input type="text" id="quickSellSearch" placeholder="Search stock…" style="margin-bottom:4px;">
       <div id="quickSellList"></div>
     </div>
-    <button class="btn btn-secondary" id="receiptSettingsBtn" style="margin-top:8px;">🧾 Receipt settings</button>
   </div>
 
   <div id="tab-add" style="display:none;">
@@ -4703,9 +4710,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.77.0';
+  const APP_VERSION = '1.78.0';
   const BUILD_DATE  = '15 Oct 2026';
-  const BUILD_TIME  = '17:57';
+  const BUILD_TIME  = '17:58';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -13278,6 +13285,18 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     };
   }
   // ETSY LINK: END OF THE PURE PART
+
+  // ---- Till screen: More (v1.78.0) ----
+  // Misc amount, Discount, Promo code and Receipt settings sit behind one
+  // button. Pressing any of them closes it again.
+  (function(){
+    const btn = document.getElementById('tillMoreBtn');
+    const box = document.getElementById('tillMore');
+    if(!btn || !box) return;
+    const set = on => { box.hidden = !on; btn.setAttribute('aria-expanded', String(on)); btn.textContent = on ? 'More ▴' : 'More ▾'; };
+    btn.addEventListener('click', () => set(box.hidden));
+    box.querySelectorAll('button').forEach(b => b.addEventListener('click', () => set(false)));
+  })();
 
   // ---- Settings folded (v1.74.0) ----
   //
