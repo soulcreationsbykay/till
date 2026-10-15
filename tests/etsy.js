@@ -25,7 +25,7 @@ const SRC = HTML.slice(VA, VB) + HTML.slice(a, b);
 
 const ctx = { console };
 vm.createContext(ctx);
-vm.runInContext(SRC + '\nthis.T = { ETSY_PHOTO_MAX, etsyPicsOf, etsyPhotoDocId, etsyStatus, applyEtsyChoice, etsyAddPic, etsyRemovePic, etsyMovePic, etsyTodo, cleanEtsyTitle, parseEtsyTags, etsyTagsOf, ETSY_TITLE_MAX, ETSY_TAG_MAX, ETSY_TAG_LEN, isEarring, etsyReturnsFor, etsyDeliveryFor, etsyDraftPayload, searchEtsyCategories, etsyFolderLevels, etsyCategoryFor, etsyWords, suggestEtsyCategories, etsyColourGroup, etsyGroupPayload, etsyStockList };', ctx);
+vm.runInContext(SRC + '\nthis.T = { ETSY_PHOTO_MAX, etsyPicsOf, etsyPhotoDocId, etsyStatus, applyEtsyChoice, etsyAddPic, etsyRemovePic, etsyMovePic, etsyTodo, cleanEtsyTitle, parseEtsyTags, etsyTagsOf, ETSY_TITLE_MAX, ETSY_TAG_MAX, ETSY_TAG_LEN, isEarring, etsyReturnsFor, etsyDeliveryFor, etsyDraftPayload, searchEtsyCategories, etsyFolderLevels, etsyCategoryFor, etsyWords, suggestEtsyCategories, etsyColourGroup, etsyGroupPayload, etsyStockList, etsyChecklist };', ctx);
 const T = ctx.T;
 
 let pass = 0, fail = 0;
@@ -330,6 +330,23 @@ console.log('\nWhat the Etsy service is told after a stock change (v1.64.0)');
   check('never a fraction', list[0].counted === 2);
   check('never a negative, and a missing count is 0', list[2].counted === 0 && list[3].counted === 0);
   check('nothing on Etsy, nothing to send', T.etsyStockList({ a: { counted: 1 } }).length === 0 && T.etsyStockList(null).length === 0);
+}
+
+console.log('\nThe checklist on Edit item');
+{
+  const full = { pics: 4, price: 12, counted: 2, desc: 'Words', post: 'letter', title: 'T', tags: ['a', 'b'], catPath: 'Toys › Plush' };
+  const states = (f) => T.etsyChecklist(f).map((r) => r.state).join(',');
+  check('everything there is all ticks', states(full) === 'ok,ok,ok,ok,ok,ok,ok', states(full));
+  const none = T.etsyChecklist({ catNeeded: 'Category: choose one for Crochet in Settings → Etsy' });
+  check('photos, price, stock and category are needed', none.slice(0, 4).every((r) => r.state === 'need'), JSON.stringify(none));
+  check('description, postage, title and tags are only tips', none.slice(4).every((r) => r.state === 'tip'));
+  check('the category line says where to choose it', /Crochet in Settings/.test(none[3].text));
+  check('a category not checked with Etsy yet is neutral, not a cross',
+    T.etsyChecklist({ catUnknown: true })[3].state === 'tip');
+  check('one or two photos are fine but nudged towards more', /3 to 5/.test(T.etsyChecklist({ pics: 1 })[0].text)
+    && !/3 to 5/.test(T.etsyChecklist({ pics: 3 })[0].text));
+  check('a title with no tags is still only a tip', T.etsyChecklist(Object.assign({}, full, { tags: [] }))[6].state === 'tip');
+  check('no postage says it goes as a parcel', /Small parcel/.test(T.etsyChecklist({})[5].text));
 }
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

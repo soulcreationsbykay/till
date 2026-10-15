@@ -10,6 +10,16 @@ fixes.
 
 ---
 
+## v1.76.0 - 15 October 2026
+
+**Tidy-up 5: a "Ready for Etsy?" checklist on Edit item.** Above the Send
+button, each thing the listing needs or is better for, at a glance:
+✗ in red blocks Send (real photos, price, stock, category), ✓ is done, and ○
+is a suggestion (description, postage size, Etsy title and tags). It updates
+as you type.
+
+---
+
 ## v1.75.0 - 15 October 2026
 
 **Tidy-up 3: Add item asks what the item is for first.** Two buttons at the

@@ -461,6 +461,14 @@
     font-size:15px;font-weight:700;
   }
   .web-list{max-height:52vh;overflow-y:auto;margin:4px 0 12px;}
+  .etsy-check{list-style:none;margin:4px 0 8px;padding:0;display:grid;gap:4px;}
+  .etsy-check li{display:flex;gap:8px;align-items:flex-start;font-size:14px;line-height:1.35;padding:6px 10px;border-radius:8px;background:#fff;border:1px solid var(--line);}
+  .etsy-check li::before{flex:none;font-weight:700;width:1.1em;text-align:center;}
+  .etsy-check li.ok::before{content:'✓';color:#2f7a52;}
+  .etsy-check li.need{border-color:#e8a0a0;background:#fff4f4;}
+  .etsy-check li.need::before{content:'✗';color:#b42318;}
+  .etsy-check li.tip::before{content:'○';color:var(--muted);}
+  .etsy-check li.tip{color:var(--muted);}
   .kind-pick{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;}
   .kind-pick button{
     font:inherit;font-size:15px;font-weight:700;padding:12px 8px;border-radius:12px;cursor:pointer;
@@ -2024,6 +2032,9 @@
           <option value="returns">Returns within 14 days</option>
           <option value="none">No returns or exchanges</option>
         </select>
+        <!-- v1.76.0: what this listing has and what it still needs. -->
+        <label id="editEtsyCheckHead">Ready for Etsy?</label>
+        <ul class="etsy-check" id="editEtsyCheck"></ul>
         <ul class="folder-hint" id="editEtsyPlan" style="margin:6px 0 0;padding-left:18px;"></ul>
         <button class="btn btn-primary" type="button" id="editEtsySend" style="width:100%;margin-top:10px;">Send to Etsy as a draft</button>
         <a class="btn btn-secondary" id="editEtsyOpen" href="#" target="_blank" rel="noopener noreferrer"
@@ -4681,9 +4692,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.75.0';
+  const APP_VERSION = '1.76.0';
   const BUILD_DATE  = '15 Oct 2026';
-  const BUILD_TIME  = '17:54';
+  const BUILD_TIME  = '17:56';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -5426,6 +5437,31 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     });
     delete p.price; delete p.quantity;
     return p;
+  }
+  // The Etsy checklist on Edit item (v1.76.0): each thing a listing needs or
+  // is better for, ticked or not, so what is missing shows at a glance.
+  // state: 'ok' done, 'need' blocks Send, 'tip' recommended but not needed.
+  // f: { pics, price, counted, desc, post, title, tags, catPath, catNeeded, catUnknown }
+  function etsyChecklist(f){
+    const rows = [];
+    const n = Number(f.pics) || 0;
+    rows.push(n ? { state:'ok', text: n + ' real photo' + (n === 1 ? '' : 's') + (n < 3 ? ' (3 to 5 sell better)' : '') }
+                : { state:'need', text: 'Real photos: add at least one' });
+    rows.push(Number(f.price) > 0 ? { state:'ok', text: 'Price £' + Number(f.price).toFixed(2) }
+                                  : { state:'need', text: 'Price: needs one' });
+    rows.push(Number(f.counted) > 0 ? { state:'ok', text: Number(f.counted) + ' in stock' }
+                                    : { state:'need', text: 'Stock: none counted' });
+    // Not checked with Etsy yet is not the same as missing: neutral, not a cross.
+    rows.push(f.catPath ? { state:'ok', text: 'Category: ' + f.catPath }
+            : { state: f.catUnknown ? 'tip' : 'need', text: f.catNeeded || 'Category: not chosen yet' });
+    rows.push(String(f.desc || '').trim() ? { state:'ok', text: 'Description' }
+            : { state:'tip', text: 'Description: press ✨ Write it for me' });
+    rows.push(f.post ? { state:'ok', text: 'Postage: ' + (f.post === 'letter' ? 'Large letter' : 'Small parcel') }
+            : { state:'tip', text: 'Postage size: not chosen, so it goes as a Small parcel' });
+    const tags = (Array.isArray(f.tags) ? f.tags : []).length;
+    rows.push(String(f.title || '').trim() && tags ? { state:'ok', text: 'Etsy title and ' + tags + ' tag' + (tags === 1 ? '' : 's') }
+            : { state:'tip', text: 'Etsy title and tags: ✨ fills them in' });
+    return rows;
   }
   // ETSY: END OF THE PURE PART
 
@@ -14042,8 +14078,37 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         }
       }
     }
+    // The checklist replaces the Category line; delivery and returns stay as detail.
+    const catAt = lines.findIndex(t => t.indexOf('Category: ') === 0);
+    if(catAt !== -1) lines.splice(catAt, 1);
     ul.innerHTML = '';
     lines.forEach(t => { const li = document.createElement('li'); li.textContent = t; ul.appendChild(li); });
+
+    const chk = document.getElementById('editEtsyCheck');
+    const chkHead = document.getElementById('editEtsyCheckHead');
+    chk.style.display = chkHead.style.display = it.etsyListingId ? 'none' : '';
+    chk.innerHTML = '';
+    if(!it.etsyListingId){
+      etsyChecklist({
+        pics: etsyPicsOf(it).length,
+        price: view.price,
+        counted: view.counted,
+        desc: document.getElementById('editWebDesc').value,
+        post: view.post,
+        title: document.getElementById('editEtsyTitle').value,
+        tags: parseEtsyTags(document.getElementById('editEtsyTags').value).tags || [],
+        catPath: got ? got.path : '',
+        catNeeded: !c.key ? 'Category: put it in a folder like Kay/Crochet first'
+          : etsyCats == null ? 'Category: the one chosen for ' + c.label + ' in Settings → Etsy'
+          : 'Category: choose one for ' + c.label + ' in Settings → Etsy',
+        catUnknown: !!c.key && etsyCats == null,
+      }).forEach(r => {
+        const li = document.createElement('li');
+        li.className = r.state;
+        li.textContent = r.text;
+        chk.appendChild(li);
+      });
+    }
 
     const send = document.getElementById('editEtsySend');
     const open = document.getElementById('editEtsyOpen');
@@ -14087,7 +14152,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   const etsyWarn = {};
 
   ['editEtsyReturns', 'editPost'].forEach(id => document.getElementById(id).addEventListener('change', renderEditEtsyPlan));
-  ['editItemFolder', 'editItemName'].forEach(id => document.getElementById(id).addEventListener('input', renderEditEtsyPlan));
+  ['editItemFolder', 'editItemName', 'editItemPrice', 'editItemCounted', 'editWebDesc', 'editEtsyTitle', 'editEtsyTags']
+    .forEach(id => document.getElementById(id).addEventListener('input', renderEditEtsyPlan));
 
   document.getElementById('editEtsySend').addEventListener('click', () => {
     const bc = currentEditBarcode;
