@@ -10,6 +10,21 @@ fixes.
 
 ---
 
+## v1.72.0 - 15 October 2026
+
+**✨ Ask the AI for a folder's Etsy category.** In Settings → 🧡 Etsy →
+Etsy categories for your folders, the Choose box has a **✨ Ask the AI**
+button. The AI is given the folder, the names, titles, tags and
+descriptions of its Etsy items, and Etsy's whole category list, and must
+pick from that list. It answers with its pick and a one-line reason, plus up
+to two others; tap one to use it. Nothing is saved until you tap. It uses the
+AI chosen under the ✨ button, and costs a few pence a time (Etsy's list is
+long), once per folder.
+
+Needs `kay-words` redeployed.
+
+---
+
 ## v1.71.0 - 15 October 2026
 
 **New AI keys are pasted in the till.** Kay's Claude and ChatGPT keys are

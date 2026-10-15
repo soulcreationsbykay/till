@@ -1487,6 +1487,12 @@
     <p class="folder-hint" style="margin:4px 0 10px;">Type a word or two, e.g. <b>earrings</b> or <b>crochet</b>, then tap the best match. Etsy's categories use US words, like <b>Jewelry</b>.</p>
     <!-- v1.61.0: the till's best guesses, from the folder and its items' words. -->
     <div id="etsyCatSuggest" style="display:none;margin-bottom:10px;"></div>
+    <!-- v1.72.0: the AI's pick, from Etsy's whole list, with a reason. -->
+    <div id="etsyCatAi" style="margin-bottom:10px;">
+      <button type="button" class="btn btn-secondary" id="etsyCatAiBtn" style="width:100%;">✨ Ask the AI</button>
+      <div class="folder-hint" id="etsyCatAiNote" style="margin:6px 0 0;"></div>
+      <div id="etsyCatAiResult"></div>
+    </div>
     <input type="text" id="etsyCatSearch" autocomplete="off" placeholder="Search Etsy's categories">
     <div id="etsyCatResults" style="max-height:46vh;overflow-y:auto;margin:8px 0 12px;"></div>
     <div class="btn-row">
@@ -4641,9 +4647,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.71.0';
+  const APP_VERSION = '1.72.0';
   const BUILD_DATE  = '15 Oct 2026';
-  const BUILD_TIME  = '12:28';
+  const BUILD_TIME  = '15:40';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -13789,8 +13795,65 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     box.style.display = '';
   }
 
+  // ✨ Ask the AI (v1.72.0). The AI writing service is given the folder, what
+  // is known about its Etsy items, and Etsy's whole category list as the till
+  // already holds it; it must pick from that list. Its pick is only saved
+  // when Kay taps it, the same as any other suggestion here.
+  function resetEtsyCatAi(){
+    document.getElementById('etsyCatAiNote').textContent = '';
+    document.getElementById('etsyCatAiResult').innerHTML = '';
+    document.getElementById('etsyCatAiBtn').disabled = false;
+  }
+
+  async function askEtsyCatAi(){
+    const c = etsyCatPicking;
+    const note = document.getElementById('etsyCatAiNote');
+    const out = document.getElementById('etsyCatAiResult');
+    const btn = document.getElementById('etsyCatAiBtn');
+    if(!c) return;
+    if(!etsyTaxo || !etsyTaxo.length){ note.textContent = 'Etsy\'s categories are still loading. Try again in a moment.'; return; }
+    const its = [];
+    Object.keys(items).forEach(bc => {
+      const it = items[bc];
+      if(!it.etsy || !etsyFolderLevels(it.folder).some(l => l.key === c.key)) return;
+      its.push({ name: it.name, title: it.etsyTitle || '', tags: etsyTagsOf(it), desc: String(it.webDesc || '').slice(0, 400) });
+    });
+    const models = WordsLink.list();
+    const want = WordsLink.chosen();
+    const model = models.some(m => m.id === want) ? want : (models[0] && models[0].id);
+    btn.disabled = true;
+    out.innerHTML = '';
+    note.textContent = 'Asking… (this can take up to a minute)';
+    try{
+      const r = await WordsLink.call('/staff/category', { method:'POST', body: JSON.stringify({
+        model: model, folder: c.label, items: its.slice(0, 40),
+        categories: etsyTaxo.map(t => ({ id: t.id, path: t.path })),
+      }) });
+      if(etsyCatPicking !== c) return;
+      note.textContent = (r.pick.reason ? r.pick.reason + ' ' : '') + 'Tap it to use it.';
+      const add = (h, main) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn ' + (main ? 'btn-primary' : 'btn-secondary');
+        b.style.cssText = 'width:100%;margin-top:6px;text-align:left;font-weight:' + (main ? 600 : 500) + ';';
+        b.textContent = (main ? '✨ ' : 'Or: ') + h.path;
+        b.addEventListener('click', () => saveEtsyCat({ taxonomyId: h.id }));
+        out.appendChild(b);
+      };
+      add(r.pick, true);
+      (r.also || []).forEach(h => add(h, false));
+    }catch(e){
+      note.textContent = e.message || 'That did not work. Try again, or search below.';
+    }finally{
+      btn.disabled = false;
+    }
+  }
+  document.getElementById('etsyCatAiBtn').addEventListener('click', askEtsyCatAi);
+
   async function openEtsyCatPicker(c){
     etsyCatPicking = c;
+    resetEtsyCatAi();
+    WordsLink.refresh();
     document.getElementById('etsyCatTitle').textContent = 'Etsy category for ' + c.label;
     const s = document.getElementById('etsyCatSearch');
     // The most specific word is the best search: "Bookmarks", not "Crafted Gifts › Bookmarks".
