@@ -624,6 +624,20 @@
     font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;
     color:var(--muted);margin-bottom:8px;
   }
+  /* Settings folded (v1.74.0): each card shows only its heading until tapped,
+     so the page is a short list instead of five screens. */
+  #tab-settings .card.fold > .fold-head{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;
+    font-size:15px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--ink);
+    margin:0;padding:2px 0;user-select:none;
+  }
+  #tab-settings .card.fold > .fold-head::after{content:'▸';font-size:14px;color:var(--muted);flex:none;}
+  #tab-settings .card.fold.open > .fold-head::after{content:'▾';}
+  #tab-settings .card.fold.open > .fold-head{margin-bottom:10px;}
+  #tab-settings .card.fold:not(.open) > :not(.fold-head){display:none !important;}
+  #tab-settings .card.fold{padding-top:14px;padding-bottom:14px;}
+  #tab-settings .card.fold > .fold-head:focus-visible{outline:2px solid var(--clay);outline-offset:3px;border-radius:4px;}
+  .fold-tip{font-size:12px;color:var(--muted);margin:2px 4px 10px;}
   .sell-row{
     display:flex;justify-content:space-between;align-items:center;
     padding:12px 4px;border-bottom:1px solid var(--line);cursor:pointer;
@@ -4654,9 +4668,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.73.0';
+  const APP_VERSION = '1.74.0';
   const BUILD_DATE  = '15 Oct 2026';
-  const BUILD_TIME  = '17:51';
+  const BUILD_TIME  = '17:52';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -13205,6 +13219,59 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   }
   // ETSY LINK: END OF THE PURE PART
 
+  // ---- Settings folded (v1.74.0) ----
+  //
+  // Every card in Settings shows just its heading; tap it to open or close.
+  // Which ones are open is remembered on this device, so the card Kay uses
+  // most is open next time. Cards hidden altogether (suppliers, website)
+  // stay hidden. Something that needs a card open can call openSettingsCard.
+  const SettingsFold = (function(){
+    const KEY = 'posSettingsOpen';
+    let open = {};
+    try{ open = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; }catch(e){ open = {}; }
+    const save = () => { try{ localStorage.setItem(KEY, JSON.stringify(open)); }catch(e){} };
+    const cards = [];
+    document.querySelectorAll('#tab-settings .card').forEach(function(card){
+      const head = card.querySelector(':scope > .quick-sell-head');
+      if(!head) return;
+      const name = head.textContent.trim();
+      card.classList.add('fold');
+      head.classList.add('fold-head');
+      head.setAttribute('role', 'button');
+      head.setAttribute('tabindex', '0');
+      const set = function(on, remember){
+        card.classList.toggle('open', on);
+        head.setAttribute('aria-expanded', String(on));
+        if(remember){ if(on) open[name] = 1; else delete open[name]; save(); }
+      };
+      set(!!open[name], false);
+      head.addEventListener('click', () => set(!card.classList.contains('open'), true));
+      head.addEventListener('keydown', e => {
+        if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); set(!card.classList.contains('open'), true); }
+      });
+      cards.push({ card: card, set: set });
+    });
+    // The ones used most first; Danger zone stays last.
+    const ORDER = ['🧡 Etsy', '✨ AI writing', 'Card reader', 'Team sync', 'Your data', 'Staff', 'Item codes', 'Danger zone'];
+    const byName = {};
+    cards.forEach(c => { byName[c.card.querySelector(':scope > .fold-head').textContent.trim()] = c.card; });
+    const host = cards.length ? cards[0].card.parentNode : null;
+    if(host) ORDER.forEach(n => { if(byName[n] && byName[n].parentNode === host) host.appendChild(byName[n]); });
+    const first = document.querySelector('#tab-settings .card');
+    if(first){
+      const tip = document.createElement('div');
+      tip.className = 'fold-tip';
+      tip.textContent = 'Tap a heading to open it.';
+      first.parentNode.insertBefore(tip, first);
+    }
+    // Open the card holding this element (and keep it open).
+    function openCardOf(el){
+      const c = cards.find(x => x.card.contains(el));
+      if(c) c.set(true, true);
+    }
+    return { openCardOf: openCardOf };
+  })();
+
   // ---- the link to Kay's Etsy shop (v1.58.0) ----
   const EtsyLink = (function(){
     const URL_KEY = 'posEtsyServiceUrl';
@@ -18106,7 +18173,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     document.getElementById('stallLink').value = e ? (e.link || '') : '';
     document.getElementById('stallSave').textContent = e ? 'Save changes' : 'Add stall';
     document.getElementById('stallCancel').style.display = e ? '' : 'none';
-    if(e) document.getElementById('stallsCard').scrollIntoView({ behavior:'smooth', block:'start' });
+    if(e){ SettingsFold.openCardOf(document.getElementById('stallsCard')); document.getElementById('stallsCard').scrollIntoView({ behavior:'smooth', block:'start' }); }
   }
 
   (function(){

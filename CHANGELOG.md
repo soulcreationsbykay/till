@@ -10,6 +10,15 @@ fixes.
 
 ---
 
+## v1.74.0 - 15 October 2026
+
+**Tidy-up 2: Settings is a short list.** Each section shows only its heading;
+tap it to open or close. The ones used most come first (Etsy, AI writing,
+Card reader, Team sync, Your data), then Staff, Item codes and Danger zone.
+Whichever you leave open is open next time on that device.
+
+---
+
 ## v1.73.0 - 15 October 2026
 
 **Tidy-up 1: the website is hidden until it goes live.** It may not be until
