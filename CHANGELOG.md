@@ -10,6 +10,15 @@ fixes.
 
 ---
 
+## v1.77.0 - 15 October 2026
+
+**Tidy-up 6: Edit item keeps the now-and-then things under More.** Label
+needed, Sold as a set, the QR code and Download QR label, and Delete are in a
+**More** section above Save. It opens by itself for an item that has a label
+or is part of a set. Save is now full width at the bottom.
+
+---
+
 ## v1.76.0 - 15 October 2026
 
 **Tidy-up 5: a "Ready for Etsy?" checklist on Edit item.** Above the Send

@@ -469,6 +469,12 @@
   .etsy-check li.need::before{content:'✗';color:#b42318;}
   .etsy-check li.tip::before{content:'○';color:var(--muted);}
   .etsy-check li.tip{color:var(--muted);}
+  .more-box{margin:12px 0 4px;border:1px solid var(--line);border-radius:12px;padding:0 12px;background:#fff;}
+  .more-box > summary{cursor:pointer;padding:12px 0;font-weight:700;font-size:14px;color:var(--ink);list-style:none;}
+  .more-box > summary::-webkit-details-marker{display:none;}
+  .more-box > summary::after{content:' ▸';color:var(--muted);}
+  .more-box[open] > summary::after{content:' ▾';}
+  .more-box[open]{padding-bottom:12px;}
   .kind-pick{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;}
   .kind-pick button{
     font:inherit;font-size:15px;font-weight:700;padding:12px 8px;border-radius:12px;cursor:pointer;
@@ -1916,11 +1922,6 @@
     </div>
     <label>Price each (£)<span class="etsy-need"> · needed for Etsy</span></label>
     <input type="number" id="editItemPrice" inputmode="decimal" step="0.01" min="0">
-    <label>Label needed (optional)</label>
-    <input type="text" id="editItemLabel" list="labelOptions" placeholder="e.g. Small swing tag" autocomplete="off">
-    <button type="button" class="folder-toggle" id="editLabelToggle" style="display:none;"></button>
-    <div class="folder-picks" id="editLabelPicks" style="display:none;"></div>
-    <div class="folder-hint">Never sent to the website — it comes out in the stock export.</div>
     <!-- Everything from here to the end of the extras is the website's pictures
          (v1.57.1): hidden while the item is kept for Etsy, which has its own. -->
     <div class="etsy-hide">
@@ -2046,6 +2047,17 @@
       <div class="state" id="editEtsyState"></div>
     </div>
 
+    <!-- More (v1.77.0): what is used now and then, folded away so the form
+         is the everyday boxes, the Etsy part and Save. It opens by itself for
+         an item that has a label or is part of a set. -->
+    <details class="more-box" id="editMore">
+      <summary>More: label, sets, QR code, delete</summary>
+    <label>Label needed (optional)</label>
+    <input type="text" id="editItemLabel" list="labelOptions" placeholder="e.g. Small swing tag" autocomplete="off">
+    <button type="button" class="folder-toggle" id="editLabelToggle" style="display:none;"></button>
+    <div class="folder-picks" id="editLabelPicks" style="display:none;"></div>
+    <div class="folder-hint">Never sent to the website — it comes out in the stock export.</div>
+
     <label>Sold as a set</label>
     <div class="set-box">
       <div id="editSetPartnerNote" class="set-note" style="display:none;"></div>
@@ -2086,10 +2098,9 @@
       <div class="label-caption" id="editBarcodeCaption"></div>
     </div>
     <button class="btn-generate" id="printLabelBtn" style="width:100%;">⤓ Download QR label (PNG)</button>
-    <div class="btn-row" style="margin-top:8px;">
-      <button class="btn btn-danger" id="deleteItemBtn">Delete</button>
-      <button class="btn btn-primary" id="saveEditItem">Save</button>
-    </div>
+    <button class="btn btn-danger" id="deleteItemBtn" style="width:100%;margin-top:8px;">Delete this item</button>
+    </details>
+    <button class="btn btn-primary" id="saveEditItem" style="width:100%;margin-top:10px;">Save</button>
   </div>
 </div>
 
@@ -4692,9 +4703,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.76.0';
+  const APP_VERSION = '1.77.0';
   const BUILD_DATE  = '15 Oct 2026';
-  const BUILD_TIME  = '17:56';
+  const BUILD_TIME  = '17:57';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -16377,6 +16388,12 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     // stored anywhere that could claim otherwise.
     resetDescSame('edit');
     resetAiBox('edit');
+    // More opens by itself when there is something in it for this item.
+    setTimeout(() => {
+      const more = document.getElementById('editMore');
+      const cur = items[currentEditBarcode];
+      if(more) more.open = !!(cur && (String(cur.label || '').trim() || document.getElementById('editSetWith').value));
+    }, 0);
     // Before the website state is drawn: it decides whether the description
     // and postage boxes show.
     document.getElementById('editEtsyOn').checked = !!it.etsy;
