@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-DcHbJ6gikrTaravrPg6llsbbIrqKKjQ8mLoMXS/4V4U=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-l0NDXM/mXP2yCeYW7JWv7OqHJnjr6jKx9R45goGbauo=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -4741,7 +4741,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.78.1';
+  const APP_VERSION = '1.78.2';
   const BUILD_DATE  = '18 Oct 2026';
   const BUILD_TIME  = '02:19';
   const versionEl = document.getElementById('appVersion');
@@ -6691,7 +6691,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
             ${thumbHtml(it, bc)}
             <div style="min-width:0;">
               <div class="item-name">${escapeHtml(it.name)}${setOf[bc] ? `<span class="set-badge" title="${escapeAttr(setRuleName(setOf[bc]) + ' — ' + money(setOf[bc].price))}">🎁 SET</span>` : ''}${dealBadgeHtml(dealOf[bc])}${webBadgeHtml(bc)}${etsyBadgeHtml(bc)}</div>
-              <div class="item-meta">${SUPPLIERS ? 'Made by ' + escapeHtml(it.maker||'—') + ' · ' : ''}Expected ${it.qty}${folderTag}</div>
+              <div class="item-meta">${SUPPLIERS ? 'Made by ' + escapeHtml(it.maker||'—') + ' · ' : ''}Expected ${Number(it.qty) || 0}${folderTag}</div>
               ${offerLine}
               <div class="item-price">${priceLine}</div>
               <div class="expected">${diffLabel}</div>
@@ -6845,13 +6845,16 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     el.src = fb;
   }, true);
 
+  // Quotes are escaped here too, not only in escapeAttr, so a value that ends
+  // up inside an attribute by mistake still cannot close it (audit L2,
+  // 18 Oct 2026). In text the browser shows &quot; and &#39; as the quotes.
   function escapeHtml(str){
     const d = document.createElement('div');
     d.textContent = str;
-    return d.innerHTML;
+    return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
   function escapeAttr(str){
-    return escapeHtml(str).replace(/"/g, '&quot;');
+    return escapeHtml(str);
   }
 
   // ---- Folders ----

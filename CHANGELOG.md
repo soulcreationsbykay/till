@@ -10,6 +10,20 @@ fixes.
 
 ---
 
+## v1.78.2 - 18 October 2026
+
+**Security tidy-up from the 18 Oct audit (L1, L2).** Nothing looks different.
+
+- `escapeHtml` now escapes `"` and `'` as well, so a value placed inside an
+  attribute by mistake still cannot break out of it. Names with quotes in
+  them display exactly as before.
+- The stock list's "Expected" count is printed as a number, not as whatever
+  text a synced or restored record holds.
+
+Before publishing: set BUILD_TIME, then `node tests/csp.js index.html --write`.
+
+---
+
 ## v1.78.1 - 18 October 2026
 
 **Security: the till refuses scripts it did not ship with, and will not run
