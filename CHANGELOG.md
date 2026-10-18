@@ -10,6 +10,31 @@ fixes.
 
 ---
 
+## v1.78.1 - 18 October 2026
+
+**Security: the till refuses scripts it did not ship with, and will not run
+inside another site's frame.** Nothing looks or works differently.
+
+- A Content-Security-Policy `<meta>` at the top of `index.html` (GitHub Pages
+  cannot send headers). Each of the four inline scripts is allowed by a
+  SHA-256 fingerprint; anything else - an injected script tag, an `onerror=""`
+  attribute, `eval()` - is refused. The Firebase SDK still loads from
+  gstatic; network calls are limited to Firestore, Firebase sign-in and the
+  shop's Workers on `*.soulcreations-sales.workers.dev`. Styles still allow
+  inline (`style=""` is used ~350 times), so injected CSS is not stopped.
+- If the till is shown inside another site's frame it hides itself and tries
+  to take over the whole window. (A `<meta>` cannot do `frame-ancestors`.)
+- The four "Add photo" buttons lost their `onclick=""` attributes; a listener
+  does the same job.
+- Pasting the Firebase console's whole `const firebaseConfig = {...}` snippet
+  into Team sync set-up is read as data instead of `eval()`'d, and now works
+  even with the console's `import` lines included.
+
+**After ANY edit inside a script tag - BUILD_TIME included - run
+`node tests/csp.js index.html --write`**, or the till opens as a dead page.
+
+---
+
 ## v1.78.0 - 15 October 2026
 
 **Tidy-up 7: the Till screen is the basket, Empty basket and Charge.** Misc

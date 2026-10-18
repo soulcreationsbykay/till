@@ -2,6 +2,37 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- CONTENT-SECURITY-POLICY. GitHub Pages cannot send headers, so it lives
+     here, and it must stay ABOVE every script tag, or they run before it applies.
+     EDIT ANY INLINE SCRIPT IN THIS FILE, THEN RUN
+         node tests/csp.js index.html --write
+     or the till stops working: each inline script is allowed by a SHA-256
+     fingerprint of its exact text, and a changed script no longer matches.
+
+       script-src   the inline scripts by fingerprint, and the Firebase SDK
+                    from gstatic. No 'unsafe-inline', no 'unsafe-eval': an
+                    injected script tag, onerror="" or eval() is refused.
+       style-src    'unsafe-inline' - the page uses ~350 style="" attributes.
+                    Injected CSS could still restyle the page; it cannot run code.
+       img-src      any https: photo (items may link photos from any host -
+                    see safePhotoSrc), plus data: and blob: for camera shots
+       connect-src  Firestore, Firebase sign-in, and the shop's Workers
+                    (kay-pay, kay-etsy, kay-words, kay-checkout). A card-reader
+                    or website-orders address on any other host is refused.
+       media-src    blob: for the barcode camera's fallback path
+       object-src, base-uri, form-action: shut; nothing uses them.
+
+     Not possible in a <meta>: frame-ancestors (other sites framing the till).
+     The first script below covers that instead. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-GRagI28LCVFBu0LmIX3E/l/YdBes+1/QEw9wq7MNLtE=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<script>
+/* Never shown inside another site's frame: a framed till could be overlaid to
+   trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
+if (window.top !== window.self) {
+  document.documentElement.style.display = 'none';
+  try { window.top.location.replace(window.location.href); } catch (e) {}
+}
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Soul Creations By Kay — Till &amp; Stock</title>
 <!-- Installed, not a tab. This is about STORAGE, not about looking like an app:
@@ -1098,7 +1129,7 @@
       <!-- The website photo: hidden while Etsy is ticked (v1.57.1). -->
       <div class="etsy-hide">
       <label>Photo (optional)</label>
-      <button class="btn-generate photo-btn" type="button" onclick="document.getElementById('manualPhotoInput').click()">📷 Add photo</button>
+      <button class="btn-generate photo-btn" type="button" data-pick="manualPhotoInput">📷 Add photo</button>
       <input type="file" id="manualPhotoInput" accept="image/*" style="display:none;">
       <div class="photo-preview" id="manualPhotoPreview" style="display:none;"></div>
       <button class="btn-remove-photo" id="manualPhotoRemove" type="button" style="display:none;">Remove photo</button>
@@ -1649,7 +1680,7 @@
     <button type="button" class="folder-toggle" id="newLabelToggle" style="display:none;"></button>
     <div class="folder-picks" id="newLabelPicks" style="display:none;"></div>
     <label>Photo (optional)</label>
-    <button class="btn-generate photo-btn" type="button" onclick="document.getElementById('newPhotoInput').click()">📷 Add photo</button>
+    <button class="btn-generate photo-btn" type="button" data-pick="newPhotoInput">📷 Add photo</button>
     <input type="file" id="newPhotoInput" accept="image/*" style="display:none;">
     <div class="photo-preview" id="newPhotoPreview" style="display:none;"></div>
     <button class="btn-remove-photo" id="newPhotoRemove" type="button" style="display:none;">Remove photo</button>
@@ -1933,7 +1964,7 @@
          (v1.57.1): hidden while the item is kept for Etsy, which has its own. -->
     <div class="etsy-hide">
     <label>Photo (optional)</label>
-    <button class="btn-generate photo-btn" type="button" onclick="document.getElementById('editPhotoInput').click()">📷 Add photo</button>
+    <button class="btn-generate photo-btn" type="button" data-pick="editPhotoInput">📷 Add photo</button>
     <input type="file" id="editPhotoInput" accept="image/*" style="display:none;">
     <div class="photo-preview" id="editPhotoPreview" style="display:none;"></div>
     <button class="btn-remove-photo" id="editPhotoRemove" type="button" style="display:none;">Remove photo</button>
@@ -2087,7 +2118,7 @@
         <div id="editSetPhotoBox" style="display:none;">
           <div class="photo-preview" id="editSetPhotoPreview" style="display:none;"></div>
           <button class="btn-remove-photo" id="editSetPhotoRemove" type="button" style="display:none;">Remove photo</button>
-          <button class="btn-generate photo-btn" type="button" onclick="document.getElementById('editSetPhotoInput').click()">📷 Add a photo of the set</button>
+          <button class="btn-generate photo-btn" type="button" data-pick="editSetPhotoInput">📷 Add a photo of the set</button>
           <input type="file" id="editSetPhotoInput" accept="image/*" style="display:none;">
           <label class="web-check" id="editLeadSetWrap" for="editLeadSet" style="margin:8px 0 0;">
             <input type="checkbox" id="editLeadSet">
@@ -4710,9 +4741,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.78.0';
-  const BUILD_DATE  = '15 Oct 2026';
-  const BUILD_TIME  = '17:58';
+  const APP_VERSION = '1.78.1';
+  const BUILD_DATE  = '18 Oct 2026';
+  const BUILD_TIME  = '02:10';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -7674,6 +7705,11 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const input   = document.getElementById(inputId);
     const preview = document.getElementById(previewId);
     const remove  = document.getElementById(removeId);
+
+    // The "Add photo" button opens the hidden file picker. This used to be an
+    // onclick="" attribute, which the Content-Security-Policy refuses to run.
+    document.querySelectorAll('[data-pick="' + inputId + '"]').forEach(b =>
+      b.addEventListener('click', () => input.click()));
 
     function render(){
       if(state.value){
@@ -17995,8 +18031,16 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       try{ cfg = JSON.parse(cfgText); }
       catch(e){
         // tolerate a pasted "const firebaseConfig = { ... };" snippet
-        var m = cfgText && cfgText.match(/\{[\s\S]*\}/);
-        if(m){ try{ cfg = eval('('+m[0]+')'); }catch(e2){ cfg=null; } }
+        var m = cfgText && (cfgText.match(/\{[^{}]*\bapiKey\b[^{}]*\}/) || cfgText.match(/\{[\s\S]*\}/));
+        // Turned into JSON rather than eval()'d: the Content-Security-Policy
+        // refuses eval, and pasted text should never run as code anyway.
+        // Handles the console's snippet: bare keys, either quote, comments,
+        // a trailing comma.
+        if(m){ try{ cfg = JSON.parse(m[0]
+          .replace(/^\s*\/\/.*$/gm, '')
+          .replace(/'([^'\\]*)'/g, '"$1"')
+          .replace(/([{,]\s*)([A-Za-z_$][\w$]*)\s*:/g, '$1"$2":')
+          .replace(/,\s*\}/g, '}')); }catch(e2){ cfg=null; } }
       }
       if(!cfg || !cfg.projectId || !cfg.apiKey) throw new Error('That Firebase config looks incomplete (need apiKey and projectId).');
       if(!team || !team.trim()) throw new Error('Please enter a team code.');
