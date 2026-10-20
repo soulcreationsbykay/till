@@ -20,7 +20,7 @@ const SRC = HTML.slice(a, b);
 
 const ctx = { console };
 vm.createContext(ctx);
-vm.runInContext(SRC + '\nthis.T = { CHANNELS, channelOf, inChannel, channelCounts };', ctx);
+vm.runInContext(SRC + '\nthis.T = { CHANNELS, channelOf, inChannel, channelCounts, ETSY_STAGES, etsyStageOf, etsyStageCounts, etsyListingIds };', ctx);
 const T = ctx.T;
 
 let pass = 0, fail = 0;
@@ -67,6 +67,31 @@ console.log('\nThe counts on the buttons');
   const z = T.channelCounts([]);
   check('no items is all zeros, not blanks', T.CHANNELS.every(ch => z[ch.key] === 0));
   check('there is a count for every button', T.CHANNELS.every(ch => typeof n[ch.key] === 'number'));
+}
+
+console.log('\nHow far an Etsy item has got (v1.80.0)');
+{
+  const states = { '901': 'draft', '902': 'active', '903': 'sold_out', '904': 'gone', '905': 'inactive', '906': 'expired' };
+  const S = (it) => T.etsyStageOf(it, states);
+  check('not for Etsy has no stage', S(web) === null && S(stall) === null);
+  check('kept for Etsy, never sent, is To load', S({ etsy: 1 }) === 'toload');
+  check('sent and still a draft is Draft', S({ etsy: 1, etsyListingId: 901 }) === 'draft');
+  check('published is Live', S({ etsy: 1, etsyListingId: 902 }) === 'live');
+  check('sold out, switched off, expired or deleted is Not selling',
+    ['903', '904', '905', '906'].every(id => S({ etsy: 1, etsyListingId: Number(id) }) === 'stopped'));
+  check('sent but not yet asked about is Not checked, never Live', S({ etsy: 1, etsyListingId: 999 }) === 'unknown');
+  check('Etsy not answering is Not checked', T.etsyStageOf({ etsy: 1, etsyListingId: 901 }, { '901': 'unknown' }) === 'unknown');
+  check('no answers at all still works', T.etsyStageOf({ etsy: 1, etsyListingId: 901 }) === 'unknown');
+  check('a record with web and etsy is still staged as Etsy', S({ web: 1, etsy: 1 }) === 'toload');
+  const list = [{ etsy: 1 }, { etsy: 1 }, { etsy: 1, etsyListingId: 901 }, { etsy: 1, etsyListingId: 902 },
+                { etsy: 1, etsyListingId: 902 }, { etsy: 1, etsyListingId: 903 }, web, stall];
+  const n = T.etsyStageCounts(list, states);
+  check('the counts', n.toload === 2 && n.draft === 1 && n.live === 2 && n.stopped === 1 && n.unknown === 0, JSON.stringify(n));
+  const all = T.ETSY_STAGES.reduce((t, st) => t + n[st.key], 0);
+  check('the stages add up to everything under Etsy', all === T.channelCounts(list).etsy, all + ' vs ' + T.channelCounts(list).etsy);
+  const ids = T.etsyListingIds(list);
+  check('each listing is asked about once, To load ones not at all', ids.slice().sort().join(',') === '901,902,903', ids.join(','));
+  check("a website item's stray listing number is not asked about", T.etsyListingIds([{ web: 1, etsyListingId: 5 }]).length === 0);
 }
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

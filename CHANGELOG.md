@@ -10,6 +10,36 @@ fixes.
 
 ---
 
+## v1.80.0 - 20 October 2026
+
+**The Stock tab shows what is live on Etsy and what still needs loading.**
+Tap **Etsy** above the stock list and a second row of buttons appears:
+
+- **To load**: kept for Etsy but not sent yet.
+- **Draft**: sent to Etsy, not published yet. Publish it in the Etsy app.
+- **Live**: published and for sale on Etsy.
+- **Not selling** (only when there is one): was on Etsy but is sold out,
+  switched off, expired or deleted there.
+- **Not checked** (only when there is one): sent, but Etsy has not been asked
+  about it yet.
+
+Each button has a count; tap one to narrow the list, tap it again for all of
+Etsy. Every Etsy item's label on the stock list now says where it is
+("To load", "Draft on Etsy", "Live on Etsy"...), green when live, solid when
+it still needs a photo, price or stock. The Settings Etsy card says
+"Live on Etsy" too.
+
+- Only Etsy knows whether a draft has been published, so the till asks it:
+  when **Etsy** is tapped (if the last answer is over 5 minutes old) and on
+  **↻ Check Etsy**. The line under the buttons says when it last asked.
+- The answer is kept on the device, so the labels still show with no signal.
+  If Etsy does not answer, the last answer is kept.
+- Needs Team sync connected, and `kay-etsy` with the new read-only
+  `/staff/listings/states` route deployed. Nothing is changed on Etsy.
+- `tests/channel-filter.js` has 13 new checks (32 in all).
+
+---
+
 ## v1.79.0 - 20 October 2026
 
 **A Bluetooth barcode scanner works from any screen.** Pair the scanner with

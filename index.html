@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-wWxxqZPbHHbP5gW8EnWQQWK14ZuJihFr6oOWDxWn7tE=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-mHI6IpDjQkdlYzqZz3CG79+GiiGAIdknudf2ZxZrNLQ=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -419,6 +419,11 @@ if (window.top !== window.self) {
   .chan-row button .n{color:var(--muted);margin-left:4px;font-variant-numeric:tabular-nums;}
   .chan-row button.sel{background:var(--clay);border-color:var(--clay);color:#fff;}
   .chan-row button.sel .n{color:#fff;opacity:.85;}
+  /* Under Etsy: To load / Draft / Live (v1.80.0) */
+  .etsy-stage-row{margin-top:-6px;padding-left:10px;border-left:3px solid var(--clay);}
+  .etsy-stage-row button.chk{border-style:dashed;color:var(--clay-dark);}
+  .etsy-stage-row button.chk:disabled{opacity:.6;cursor:default;}
+  .etsy-stage-row .stage-note{flex-basis:100%;font-size:12px;color:var(--muted);}
 
   /* Bulk select */
   .bulk-bar{
@@ -474,6 +479,7 @@ if (window.top !== window.self) {
     vertical-align:1px;
   }
   .web-badge.due{background:var(--clay);color:#fff;border-color:var(--clay);}
+  .web-badge.live{background:var(--moss);color:#fff;border-color:var(--moss);}
   .web-row{
     display:flex;align-items:center;gap:10px;
     padding:11px 4px;border-bottom:1px solid var(--line);
@@ -1002,6 +1008,8 @@ if (window.top !== window.self) {
     <!-- Where each item sells (v1.56.0). One choice at a time; filled in by
          renderChannelChips with a count on each. -->
     <div class="chan-row" id="chanRow" role="group" aria-label="Show items that sell"></div>
+    <!-- How far each Etsy item has got (v1.80.0): shown while Etsy is chosen. -->
+    <div class="chan-row etsy-stage-row" id="etsyStageRow" role="group" aria-label="Show Etsy items by stage" style="display:none;"></div>
     <div class="bulk-bar" id="bulkBar" style="display:none;">
       <span id="bulkCount">0 selected</span>
       <button type="button" id="bulkAllBtn">All</button>
@@ -4741,7 +4749,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.79.0';
+  const APP_VERSION = '1.80.0';
   const BUILD_DATE  = '20 Oct 2026';
   const BUILD_TIME  = '21:04';
   const versionEl = document.getElementById('appVersion');
@@ -6529,11 +6537,135 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     (list || []).forEach(it => { CHANNELS.forEach(ch => { if(inChannel(it, ch.key)) n[ch.key]++; }); });
     return n;
   }
+
+  // HOW FAR AN ETSY ITEM HAS GOT (v1.80.0)
+  //
+  // The second row under Etsy. The till knows an item was sent (it holds the
+  // listing number); only Etsy knows whether Kay has published the draft
+  // since, so `states` is what Etsy last said, listing number -> its state.
+  // "Not selling" gathers what was live and has stopped (sold out, switched
+  // off, expired) or was deleted on Etsy; "Not checked" is sent but not yet
+  // asked about. Those two only appear when something is in them.
+  const ETSY_STAGES = [
+    { key:'toload',  label:'To load',     word:'To load' },
+    { key:'draft',   label:'Draft',       word:'Draft on Etsy' },
+    { key:'live',    label:'Live',        word:'Live on Etsy' },
+    { key:'stopped', label:'Not selling', word:'Not selling on Etsy', onlyIfAny:true },
+    { key:'unknown', label:'Not checked', word:'Sent to Etsy',        onlyIfAny:true },
+  ];
+  function etsyStageOf(it, states){
+    if(channelOf(it) !== 'etsy') return null;
+    if(!it.etsyListingId) return 'toload';
+    const s = (states || {})[String(it.etsyListingId)];
+    if(s === 'draft' || s === 'live') return s;
+    if(s === 'active') return 'live';
+    if(s === 'sold_out' || s === 'inactive' || s === 'expired' || s === 'gone') return 'stopped';
+    return 'unknown';
+  }
+  function etsyStageCounts(list, states){
+    const n = {};
+    ETSY_STAGES.forEach(st => { n[st.key] = 0; });
+    (list || []).forEach(it => { const s = etsyStageOf(it, states); if(s) n[s]++; });
+    return n;
+  }
+  // The listing numbers worth asking Etsy about, each once.
+  function etsyListingIds(list){
+    const seen = {};
+    (list || []).forEach(it => { if(channelOf(it) === 'etsy' && it.etsyListingId) seen[String(it.etsyListingId)] = 1; });
+    return Object.keys(seen);
+  }
   // WHERE AN ITEM SELLS: END
 
   // Not remembered between visits on purpose: a list that opens already
   // narrowed looks like stock has gone missing.
   let channelFilter = 'all';
+  let etsyStageFilter = null;  // one of ETSY_STAGES while Etsy is chosen, or null for all of it
+
+  // What Etsy last said about each listing. Kept on this device so the labels
+  // are there at a stall with no signal; asked again when Etsy is chosen and
+  // the answer is more than a few minutes old, or on Check Etsy.
+  const EtsyStates = (function(){
+    const KEY = 'posEtsyStates', STALE_MS = 5 * 60e3;
+    let saved = { at:0, states:{} }, busy = false, error = '';
+    try{ const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if(s && s.states) saved = s; }catch(e){}
+    async function check(force){
+      if(busy) return;
+      if(!force && Date.now() - saved.at < STALE_MS) return;
+      const ids = etsyListingIds(Object.values(items));
+      if(!ids.length) return;
+      if(typeof Sync === 'undefined' || !Sync.isConnected()){
+        error = 'Turn on Team sync to ask Etsy.';
+        renderList(document.getElementById('searchBox').value);
+        return;
+      }
+      busy = true; error = '';
+      renderList(document.getElementById('searchBox').value);
+      try{
+        const states = {};
+        for(let i = 0; i < ids.length; i += 100){   // the service takes 100 at a time
+          const r = await EtsyLink.call('/staff/listings/states', { method:'POST', body: JSON.stringify({ ids: ids.slice(i, i + 100) }) });
+          Object.assign(states, (r && r.states) || {});
+        }
+        // "unknown" is Etsy not answering: keep what it said last time instead.
+        Object.keys(states).forEach(id => { if(states[id] === 'unknown') states[id] = saved.states[id] || 'unknown'; });
+        saved = { at: Date.now(), states };
+        try{ localStorage.setItem(KEY, JSON.stringify(saved)); }catch(e){}
+      }catch(e){
+        error = (e && e.message) || 'Could not ask Etsy.';
+      }
+      busy = false;
+      renderList(document.getElementById('searchBox').value);
+    }
+    function note(){
+      if(busy) return 'Asking Etsy…';
+      if(error) return error;
+      if(!saved.at) return 'Not checked with Etsy yet.';
+      const mins = Math.round((Date.now() - saved.at) / 60e3);
+      return 'Checked with Etsy ' + (mins < 1 ? 'just now' : mins < 60 ? mins + ' min ago'
+        : new Date(saved.at).toLocaleString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })) + '.';
+    }
+    return { states: () => saved.states, check, note, busy: () => busy };
+  })();
+
+  function renderEtsyStageChips(inFocus){
+    const row = document.getElementById('etsyStageRow');
+    if(!row) return;
+    row.innerHTML = '';
+    if(channelFilter !== 'etsy'){ row.style.display = 'none'; return; }
+    row.style.display = '';
+    const states = EtsyStates.states();
+    const n = etsyStageCounts(inFocus.map(bc => items[bc]), states);
+    ETSY_STAGES.forEach(st => {
+      if(st.onlyIfAny && !n[st.key] && etsyStageFilter !== st.key) return;
+      const b = document.createElement('button');
+      b.type = 'button';
+      const on = etsyStageFilter === st.key;
+      if(on) b.className = 'sel';
+      b.setAttribute('aria-pressed', String(on));
+      b.append(st.label);
+      const c = document.createElement('span');
+      c.className = 'n';
+      c.textContent = n[st.key];
+      b.append(c);
+      // Tapping the chosen one again goes back to all of Etsy.
+      b.addEventListener('click', () => {
+        etsyStageFilter = on ? null : st.key;
+        renderList(document.getElementById('searchBox').value);
+      });
+      row.append(b);
+    });
+    const chk = document.createElement('button');
+    chk.type = 'button';
+    chk.className = 'chk';
+    chk.textContent = EtsyStates.busy() ? '↻ Checking…' : '↻ Check Etsy';
+    chk.disabled = EtsyStates.busy();
+    chk.addEventListener('click', () => EtsyStates.check(true));
+    row.append(chk);
+    const note = document.createElement('div');
+    note.className = 'stage-note';
+    note.textContent = EtsyStates.note();
+    row.append(note);
+  }
 
   function renderChannelChips(inFocus){
     const row = document.getElementById('chanRow');
@@ -6554,10 +6686,13 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       b.append(c);
       b.addEventListener('click', () => {
         channelFilter = ch.key;
+        etsyStageFilter = null;
         renderList(document.getElementById('searchBox').value);
+        if(ch.key === 'etsy') EtsyStates.check(false);
       });
       row.append(b);
     });
+    renderEtsyStageChips(inFocus);
   }
 
   function renderList(filter){
@@ -6598,6 +6733,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
 
     const filtered = inFocus.filter(bc => {
       if(!inChannel(items[bc], channelFilter)) return false;
+      if(channelFilter === 'etsy' && etsyStageFilter && etsyStageOf(items[bc], EtsyStates.states()) !== etsyStageFilter) return false;
       if(offersOnly && !inAnOffer(bc)) return false;
       if(!q) return true;
       const it = items[bc];
@@ -6635,7 +6771,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       listEl.innerHTML = (offersOnly && !q)
         ? '<div class="empty-state">Nothing is in a set or a deal just now.</div>'
         : (channelFilter !== 'all' && !q)
-          ? `<div class="empty-state">${chanEmpty[channelFilter]} Tap <strong>All</strong> to see everything.</div>`
+          ? (channelFilter === 'etsy' && etsyStageFilter
+            ? `<div class="empty-state">Nothing here is ${escapeHtml(ETSY_STAGES.find(s => s.key === etsyStageFilter).word.toLowerCase())}. Tap <strong>${escapeHtml(ETSY_STAGES.find(s => s.key === etsyStageFilter).label)}</strong> again to see all of Etsy.</div>`
+            : `<div class="empty-state">${chanEmpty[channelFilter]} Tap <strong>All</strong> to see everything.</div>`)
         : countFocus === null
           ? '<div class="empty-state">No matches found.</div>'
           : `<div class="empty-state">No matches in ${escapeHtml(focusLabel(countFocus))}. Tap <strong>Show all stock</strong> to search the whole shop.</div>`;
@@ -8697,7 +8835,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       act.className = 'act ' + (row.status === 'ready' ? 'add' : 'update');
       const onEtsy = items[row.bc] && items[row.bc].etsyListingId;
       act.textContent = row.status === 'ready'
-        ? (onEtsy ? 'On Etsy as a draft' : 'Ready: ' + row.pics + ' photo' + (row.pics === 1 ? '' : 's') + '. Open it to send it to Etsy.')
+        ? (onEtsy ? ({ live:'Live on Etsy', stopped:'Not selling on Etsy', unknown:'Sent to Etsy' })[etsyStageOf(items[row.bc], EtsyStates.states())] || 'On Etsy as a draft' : 'Ready: ' + row.pics + ' photo' + (row.pics === 1 ? '' : 's') + '. Open it to send it to Etsy.')
         : 'Still ' + ETSY_WHY[row.status];
       what.appendChild(nm); what.appendChild(act);
       r.appendChild(what);
@@ -8712,7 +8850,11 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const st = etsyStatus(items[bc]);
     if(st === 'off') return '';
     const due = st !== 'ready';
-    return `<span class="web-badge${due ? ' due' : ''}" title="${due ? 'Kept for Etsy: ' + ETSY_WHY[st] : 'Kept for Etsy, ready'}">Etsy</span>`;
+    // Where it has got to on Etsy, in words, so it shows while scrolling (v1.80.0).
+    const stage = etsyStageOf(items[bc], EtsyStates.states());
+    const word = (ETSY_STAGES.find(s => s.key === stage) || {}).word || 'Etsy';
+    const title = stage === 'toload' ? (due ? 'Kept for Etsy: ' + ETSY_WHY[st] : 'Kept for Etsy, ready to send') : word;
+    return `<span class="web-badge${due && stage === 'toload' ? ' due' : ''}${stage === 'live' ? ' live' : ''}" title="${escapeAttr(title)}">${escapeHtml(word)}</span>`;
   }
 
   // Everything this device holds, not only what is new. tools/photo-import.py
