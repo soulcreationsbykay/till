@@ -10,6 +10,29 @@ fixes.
 
 ---
 
+## v1.79.0 - 20 October 2026
+
+**A Bluetooth barcode scanner works from any screen.** Pair the scanner with
+the iPad in **HID** mode (it then acts as a keyboard) and scan: on the Till the
+item goes into the basket, on the Stock list it is counted, and an unknown code
+opens New item, exactly as a camera scan does. No need to open Type the code
+first. It beeps and buzzes like the camera scanner.
+
+- A scan is told apart from typing by speed: a run of at least 3 keys, each
+  within 80 ms of the last, ending in Enter (or Tab). Typing by hand is left
+  alone.
+- It is ignored while a box has the cursor (the scanner types into the box
+  instead, as before) and while any pop-up is open, so a scan cannot land in
+  the basket behind Take payment.
+- The Enter that ends a scan is used up, so it cannot also press whichever
+  button was last tapped.
+- New test: `tests/hid-scanner.js`.
+
+Set the scanner to a UK keyboard layout if its manual offers one, or `-` and
+other symbols in a code may come out wrong.
+
+---
+
 ## v1.78.2 - 18 October 2026
 
 **Security tidy-up from the 18 Oct audit (L1, L2).** Nothing looks different.

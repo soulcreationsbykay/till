@@ -37,6 +37,7 @@ node tests/channel-filter.js index.html
 node tests/etsy-link.js index.html
 node tests/ad-words.js index.html
 node tests/csp.js index.html
+node tests/hid-scanner.js index.html
 ```
 
 Each prints a pass/fail line per check and exits non-zero on failure.
@@ -106,6 +107,7 @@ six copies fail.
 | `card-recovery.js` | A card payment the page did not live to see the end of: that one still open is KEPT rather than forgotten, that a payment taken while the basket has since changed is never recorded automatically, that an empty basket does not count as a match, and that a payment which can no longer be asked about is reported without deciding either way | v1.42.0 |
 | `roles.js` | The three access levels: that an old bare-name staff list all comes back as **administrator**, that the gate stays off until a staff PIN is set, that nobody-picked is the most restricted rather than the least, and which tabs each role may stand on | v1.41.0 |
 | `csp.js` | The Content-Security-Policy `<meta>`: every inline script listed by its SHA-256 fingerprint and no stale ones, no `'unsafe-inline'` or `'unsafe-eval'` for scripts, no `onclick=""`-style attributes, and the policy sitting above the first script. **Fails after any edit inside a script tag** (BUILD_TIME included): `node tests/csp.js index.html --write` puts it right | v1.78.1 |
+| `hid-scanner.js` | A Bluetooth scanner in HID mode: a fast run of keys ending in Enter or Tab is a scan, Shift between capitals does not break it, typing by hand is left alone and keeps its Enter, and a stray key earlier does not end up in front of the code | v1.79.0 |
 
 `card-recovery.js` slices two blocks, not one: the pure decision, and `recover()`
 around it with a scripted payment service standing in. The second is there because
