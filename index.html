@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-iTKtQtYea4iuMbCKvSuXZgIZdnwWKdN8ZSuTUn1oaFY=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-FI7DuyaCClCzDnQFyV0B52z8bJFeewbjVnaff6o8Nbk=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -4837,7 +4837,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // in, so publishing means editing them.
   const APP_VERSION = '1.82.1';
   const BUILD_DATE  = '21 Oct 2026';
-  const BUILD_TIME  = '16:36';
+  const BUILD_TIME  = '16:38';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -18994,7 +18994,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     bookmarks: { title: 'Crystal Gift for Book Lovers', line: 'A handmade bookmark to keep your place in style.', board: 'Crystal Bookmarks for Book Lovers' },
     keyrings:  { title: 'Handmade Bag Charm', line: 'A handmade keyring for keys, bags or a planner.', board: 'Crystal Keyrings & Bag Charms' },
     kids:      { title: 'Fun Handmade Gift for Kids', line: 'Fun, colourful and made for little ones.', board: "Kids' Earrings, Bracelets & Hair Clips" },
-    crochet:   { title: 'Hand-Crocheted Gift', line: 'Hand-crocheted with care in soft yarn.', board: 'Crochet Tarot Card Holders & Crystal Pouches' },
+    crochet:   { title: 'Hand-Crocheted Gift', line: 'Hand-crocheted with care in soft yarn.', board: 'Handmade Crochet Gifts & Bags' },
     hangings:  { title: 'Boho Spiritual Decor', line: 'Made to hang in a window, on a wall or in the garden.', board: 'Suncatchers & Dreamcatchers' },
     witchy:    { title: 'Handmade Witchy Gift', line: 'Handmade for your altar or practice.', board: 'Witchy Gifts & Resin Runes' },
     brooches:  { title: 'Handmade Brooch Gift', line: 'A handmade brooch to add a little sparkle.', board: 'Spiritual Gift Ideas for Her' },

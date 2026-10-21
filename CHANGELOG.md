@@ -18,6 +18,10 @@ their own lines. Shown together on one line, both names were pasted into
 Pinterest's board name at once, which is over its 50-character limit. Every
 board name the Post maker suggests is checked to be 50 characters or fewer.
 
+The crochet board is now **Handmade Crochet Gifts & Bags**, for everything
+crocheted (tote bags, tarot card holders, pouches); it was named after the
+tarot holders and pouches only.
+
 ---
 
 ## v1.82.0 - 21 October 2026
