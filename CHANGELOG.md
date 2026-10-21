@@ -10,6 +10,14 @@ fixes.
 
 ---
 
+## v1.81.2 - 21 October 2026
+
+**Post maker: the right Instagram name on the slides.** The shop's Instagram
+is **@soul.creationsbykay** (with a dot); the slides said
+@soulcreationsbykay.
+
+---
+
 ## v1.81.1 - 21 October 2026
 
 **Post maker: 💾 Save slides.** On the laptop, Share opened Windows' share box,
