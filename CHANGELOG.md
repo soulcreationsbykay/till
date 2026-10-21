@@ -10,6 +10,16 @@ fixes.
 
 ---
 
+## v1.81.1 - 21 October 2026
+
+**Post maker: 💾 Save slides.** On the laptop, Share opened Windows' share box,
+which has no Instagram. There is now a **💾 Save slides** button beside
+**📤 Share** that downloads the pictures (soulcreations-1.jpg, -2...) on any
+device, ready for Meta Business Suite or instagram.com. Share is still there on
+the iPad and phone, and is hidden where the device cannot share pictures.
+
+---
+
 ## v1.81.0 - 21 October 2026
 
 **Post maker: Instagram and Facebook carousels from what is live on Etsy.**

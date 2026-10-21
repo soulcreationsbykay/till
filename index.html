@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-+y+zXyorpVRCMvuPNjpSDvzOohpIkqFO7w9LZgGL+s8=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-Qc0qUaI+YuW/H5XxbLkBCP30fN7a3bRIHoXoem0E7ks=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -1643,7 +1643,8 @@ if (window.top !== window.self) {
       <div class="pm-slides" id="pmSlides"></div>
       <div class="storage-note" id="pmOutNote" style="text-align:left;"></div>
       <div class="btn-row" style="margin:6px 0 12px;">
-        <button class="btn btn-primary" id="pmShareBtn">📤 Share / save slides</button>
+        <button class="btn btn-primary" id="pmShareBtn">📤 Share</button>
+        <button class="btn btn-secondary" id="pmSaveBtn">💾 Save slides</button>
       </div>
       <div class="quick-sell-head">Instagram caption</div>
       <textarea class="pm-cap" id="pmCapIg"></textarea>
@@ -4814,9 +4815,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.81.0';
+  const APP_VERSION = '1.81.1';
   const BUILD_DATE  = '21 Oct 2026';
-  const BUILD_TIME  = '12:40';
+  const BUILD_TIME  = '13:20';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -19235,6 +19236,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         $('pmOutNote').textContent = notes.join(' ');
         $('pmCapIg').value = caps.instagram;
         $('pmCapFb').value = caps.facebook;
+        $('pmShareBtn').style.display = (navigator.canShare && navigator.canShare({ files: files })) ? '' : 'none';
         $('pmOut').style.display = 'block';
         $('pmOut').scrollIntoView({ behavior: 'smooth', block: 'start' });
       }catch(e){
@@ -19244,9 +19246,11 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         busy = false; $('pmMakeBtn').disabled = false; $('pmMakeBtn').textContent = 'Make the slides';
       }
     }
-    // Straight to Instagram or Facebook on the iPad and phone; downloads on a
-    // laptop. The files are made in advance because Safari only lets Share
-    // open straight from a tap.
+    // Share: straight to Instagram or Facebook on the iPad and phone. The files
+    // are made in advance because Safari only lets Share open straight from a
+    // tap. Save (v1.81.1): downloads them, for a laptop, whose share box has
+    // no Instagram (Windows offers Teams, WhatsApp...), and for posting through
+    // Meta Business Suite.
     async function share(){
       if(!files.length) return;
       if(navigator.canShare && navigator.canShare({ files: files })){
@@ -19254,6 +19258,11 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         catch(e){ if(e && e.name !== 'AbortError') showToast('Sharing did not work', 'error'); }
         return;
       }
+      save();
+    }
+    function save(){
+      if(!files.length) return;
+      showToast('Saving ' + files.length + ' pictures');
       files.forEach((f, i) => setTimeout(() => {
         const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name;
         document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
@@ -19293,6 +19302,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       $('pmGrid').addEventListener('click', e => { const b = e.target.closest('.pm-tile'); if(b) toggle(b.dataset.id); });
       $('pmMakeBtn').addEventListener('click', make);
       $('pmShareBtn').addEventListener('click', share);
+      $('pmSaveBtn').addEventListener('click', save);
       $('pmCopyIg').addEventListener('click', () => copy('pmCapIg'));
       $('pmCopyFb').addEventListener('click', () => copy('pmCapFb'));
       $('pmBackdrop').addEventListener('change', () => { syncBackdropUi(); if($('pmBackdrop').value === 'photo' && !myBackdrop) $('pmBackdropInput').click(); });
