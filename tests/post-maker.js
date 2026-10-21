@@ -20,7 +20,7 @@ const a = HTML.indexOf(START), b = HTML.indexOf(END);
 if (a < 0 || b < 0 || b < a) { console.error('could not locate the Post maker block'); process.exit(2); }
 const ctx = { console, Uint8Array, Uint8ClampedArray, Math };
 vm.createContext(ctx);
-vm.runInContext(HTML.slice(a, b) + '\nthis.T = { pmSafe, pmShortName, pmPrice, pmTypeOf, pmPick, pmHashtags, pmCaptions, pmMask };', ctx);
+vm.runInContext(HTML.slice(a, b) + '\nthis.T = { pmSafe, pmShortName, pmPrice, pmTypeOf, pmPick, pmHashtags, pmCaptions, pmMask, pmPinText };', ctx);
 const T = ctx.T;
 
 let pass = 0, fail = 0;
@@ -115,6 +115,22 @@ const textured = picture(60, 60, WHITE, (x, y) => (Math.hypot(x - 30, y - 30) < 
 check('a textured background is refused', T.pmMask(textured, 60, 60).ok === false, T.pmMask(textured, 60, 60).why);
 // Nothing there at all.
 check('an empty photo is refused', T.pmMask(picture(60, 60, WHITE, () => null), 60, 60).ok === false);
+
+// ---- Pinterest pins (v1.82.0) ----
+const pinItem = (over) => Object.assign({ listingId: '5', title: 'Amethyst Feather Bookmark - Crystal Gift', name: 'Amethyst Feather Bookmark', price: 7, type: 'bookmarks', url: 'https://www.etsy.com/listing/5', photos: [{}] }, over || {});
+const p1 = T.pmPinText(pinItem(), 10);
+check('a pin links to its own Etsy listing', p1.link === 'https://www.etsy.com/listing/5');
+check('pin title is at most 100 characters', T.pmPinText(pinItem({ name: 'A very long name '.repeat(10) }), 10).title.length <= 100);
+check('pin description is at most 500 characters', T.pmPinText(pinItem({ name: 'Long '.repeat(150) }), 10).description.length <= 500);
+check('a bookmark goes on the bookmarks board, then Gifts Under £10', p1.boards[0] === 'Crystal Bookmarks for Book Lovers' && p1.boards[1] === 'Gifts Under £10', p1.boards.join(' / '));
+check('£10 or more goes to the Christmas board in Oct-Dec', T.pmPinText(pinItem({ price: 12, type: 'earrings' }), 10).boards[1] === 'Christmas Gifts & Stocking Fillers');
+check('outside Oct-Dec it goes to the gift ideas board', T.pmPinText(pinItem({ price: 12, type: 'earrings' }), 4).boards[1] === 'Spiritual Gift Ideas for Her');
+check('a Tree of Life hanging goes on the Tree of Life board', T.pmPinText(pinItem({ type: 'hangings', name: 'Tree of Life Wall Hanging', price: 15 }), 10).boards[0] === 'Crochet Tree of Life Wall Hangings');
+check('never the same board twice', (() => { const b = T.pmPinText(pinItem({ type: 'brooches', price: 12 }), 4).boards; return b[0] !== b[1]; })());
+const claimy = T.pmPinText(pinItem({ name: 'Chakra Healing Energy Protection Keyring', type: 'keyrings' }), 10);
+check('no claim words in a pin title or description', !/heal|energy|protect/i.test(claimy.title + claimy.description), claimy.title);
+check('the price is in the description', p1.description.includes('£7'));
+check('kids\' things go on the kids board', T.pmPinText(pinItem({ type: 'kids', price: 3 }), 10).boards[0] === "Kids' Earrings, Bracelets & Hair Clips");
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

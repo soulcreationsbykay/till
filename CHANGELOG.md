@@ -10,6 +10,22 @@ fixes.
 
 ---
 
+## v1.82.0 - 21 October 2026
+
+**Post maker: 📌 Pinterest pins.** At the top of the Post maker, choose
+**📱 Instagram & Facebook** (the carousel, as before) or **📌 Pinterest pins**.
+Pins makes one tall picture (1000 × 1500, Pinterest's shape) for each chosen
+item, with the photo large, its name, gold price and "Handmade by Kay · Shop on
+Etsy", on the chosen background (and the plain-background cut-out if ticked).
+Beside each picture: the **boards** to put it on (its own kind's board, then
+Gifts Under £10, or the Christmas board from October to December), a **title**
+(up to 100 characters), a **description** (up to 500), and that item's own
+**Etsy listing link**, each with a Copy button, and **💾 Picture** to save it.
+**💾 Save all pin pictures** saves them all. The same no-health-claims rule
+applies. Pins are still published by hand (Create → Pin on Pinterest).
+
+---
+
 ## v1.81.2 - 21 October 2026
 
 **Post maker: the right Instagram name on the slides.** The shop's Instagram
