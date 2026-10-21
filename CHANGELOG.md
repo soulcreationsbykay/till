@@ -10,6 +10,15 @@ fixes.
 
 ---
 
+## v1.83.1 - 21 October 2026
+
+**Post maker: no repeated label in names.** A name like "Brooch - Citrine Kilt
+Pin Brooch" now shows as **"Citrine Kilt Pin Brooch"** on pins, slides and
+captions: a word or two before a dash that the rest of the name says again is
+dropped. "Bat - purple resin runes" stays as it is.
+
+---
+
 ## v1.83.0 - 21 October 2026
 
 **Pinterest pins redesigned, and no price on the picture by default.**

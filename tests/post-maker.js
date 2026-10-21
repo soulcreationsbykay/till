@@ -48,6 +48,9 @@ check('earrings', T.pmTypeOf('Kay/Jewellery/Earrings Amethyst Bead Drop Earrings
 check('a wind spinner is a hanging, not crochet', T.pmTypeOf('Kay/Crochet Wind Spinner') === 'hangings');
 check('a tarot holder is crochet', T.pmTypeOf('Kay/Crochet Crochet tarot card holder') === 'crochet');
 check('runes are witchy', T.pmTypeOf('Kay/Witchcraft Purple Bat Runes') === 'witchy');
+check('"Brooch - Citrine Kilt Pin Brooch" loses the repeated label', T.pmShortName('Brooch - Citrine Kilt Pin Brooch') === 'Citrine Kilt Pin Brooch', T.pmShortName('Brooch - Citrine Kilt Pin Brooch'));
+check('"Earrings – Amethyst Drop Earring" too (plural or not)', T.pmShortName('Earrings – Amethyst Drop Earring') === 'Amethyst Drop Earring');
+check('a label the rest does not repeat stays', T.pmShortName('Bat - purple resin runes') === 'Bat - purple resin runes');
 check('keyrings and key chains', T.pmTypeOf('Chakra Key Chain') === 'keyrings' && T.pmTypeOf('Crystal Heart Charm Keyring') === 'keyrings');
 
 // ---- picking ----
