@@ -139,6 +139,16 @@ const allBoards = new Set();
 });
 const tooLong = Array.from(allBoards).filter((b) => b.length > 50);
 check('every suggested board name fits Pinterest\'s 50 characters', tooLong.length === 0, tooLong.join(' | '));
+check('a crochet tote goes on the crochet gifts & bags board', T.pmPinText(pinItem({ type: 'crochet', name: 'Handmade Crochet Granny Square Tote Bag', price: 15 }), 10).boards[0] === 'Handmade Crochet Gifts & Bags');
+
+// ---- tagged topics (v1.82.1) ----
+const tote = T.pmPinText(pinItem({ type: 'crochet', name: 'Handmade Crochet Granny Square Tote Bag', price: 15 }), 10).topics;
+check('a crochet tote is tagged as a bag and a granny square', tote.includes('Crochet bag') && tote.includes('Tote bag') && tote.includes('Granny square'), tote.join(', '));
+check('at most five topics, no repeats', tote.length <= 5 && new Set(tote).size === tote.length);
+const cheap = T.pmPinText(pinItem({ price: 7 }), 10).topics;
+check('under £10 is tagged as a stocking stuffer', cheap.includes('Stocking stuffers'), cheap.join(', '));
+check('kids\' things are not tagged "Gifts for her"', !T.pmPinText(pinItem({ type: 'kids', price: 3 }), 4).topics.includes('Gifts for her'));
+check('no claim words in topics', !/heal|energy|protect/i.test(Object.keys({ a: 1 }).map(() => ['earrings', 'witchy', 'hangings', 'other'].map((type) => T.pmPinText(pinItem({ type }), 10).topics.join(' ')).join(' ')).join('')));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

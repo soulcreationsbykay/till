@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-FI7DuyaCClCzDnQFyV0B52z8bJFeewbjVnaff6o8Nbk=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-vXoVy6D9AgaWiECSuQ+pr6yUjw4VWiDqQnnMu3HJabA=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -1672,7 +1672,7 @@ if (window.top !== window.self) {
       <div class="storage-note" id="pmPinsNote" style="text-align:left;"></div>
       <button class="btn btn-secondary" id="pmSavePinsBtn" style="width:100%;margin:6px 0;">💾 Save all pin pictures</button>
       <div id="pmPins"></div>
-      <p class="folder-hint" style="margin:6px 0 10px;">On Pinterest: <b>Create → Pin</b>, upload the picture, paste the title, description and link, pick the <b>1st board</b>, publish. Then open the pin, press <b>Save</b> and pick the <b>2nd board</b>. A board that is not there yet: <b>Create board</b>, with the name exactly as shown. A few pins a day to begin with, not all at once.</p>
+      <p class="folder-hint" style="margin:6px 0 10px;">On Pinterest: <b>Create → Pin</b>, upload the picture, paste the title, description and link, pick the <b>1st board</b>, type the <b>tagged topics</b> one at a time (pick the closest match Pinterest offers), publish. Then open the pin, press <b>Save</b> and pick the <b>2nd board</b>. A board that is not there yet: <b>Create board</b>, with the name exactly as shown. A few pins a day to begin with, not all at once.</p>
     </div>
     <button class="btn btn-secondary" id="pmCloseBtn" style="width:100%;margin-top:6px;">Close</button>
   </div>
@@ -4837,7 +4837,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // in, so publishing means editing them.
   const APP_VERSION = '1.82.1';
   const BUILD_DATE  = '21 Oct 2026';
-  const BUILD_TIME  = '16:38';
+  const BUILD_TIME  = '16:46';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -19000,6 +19000,35 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     brooches:  { title: 'Handmade Brooch Gift', line: 'A handmade brooch to add a little sparkle.', board: 'Spiritual Gift Ideas for Her' },
     other:     { title: 'Handmade Spiritual Gift', line: 'Made by hand, one of a kind.', board: 'Spiritual Gift Ideas for Her' },
   };
+  // Tagged topics to type into Create Pin (v1.82.1). Pinterest's own topic
+  // words are American ("jewelry", "stocking stuffers"), so these are too.
+  const PM_PIN_TOPICS = {
+    earrings: ['Crystal jewelry', 'Handmade jewelry', 'Earrings', 'Boho jewelry'],
+    bracelets: ['Crystal bracelet', 'Beaded bracelets', 'Handmade jewelry', 'Boho jewelry'],
+    necklaces: ['Necklaces', 'Handmade jewelry', 'Crystal jewelry'],
+    bookmarks: ['Bookmarks', 'Book lover gifts', 'Crystals'],
+    keyrings: ['Keychains', 'Bag charms', 'Crystals'],
+    kids: ['Kids jewelry', 'Gifts for kids', 'Beaded earrings'],
+    crochet: ['Crochet', 'Crochet gifts', 'Handmade gifts'],
+    hangings: ['Suncatchers', 'Boho decor', 'Spiritual decor'],
+    witchy: ['Witchy aesthetic', 'Runes', 'Spiritual gifts'],
+    brooches: ['Brooches', 'Handmade jewelry'],
+    other: ['Handmade gifts', 'Spiritual gifts'],
+  };
+  function pmPinTopics(l, month){
+    const text = (l.name || '') + ' ' + (l.title || '');
+    const out = [];
+    const add = s => { if(out.length < 5 && out.indexOf(s) < 0) out.push(s); };
+    if(l.type === 'crochet' && /\b(bag|tote)\b/i.test(text)){ add('Crochet bag'); add('Tote bag'); }
+    if(/granny square/i.test(text)) add('Granny square');
+    if(l.type === 'hangings' && /tree of life/i.test(text)) add('Tree of life');
+    if(l.type === 'hangings' && /crochet/i.test(text)) add('Crochet wall hanging');
+    (PM_PIN_TOPICS[l.type] || PM_PIN_TOPICS.other).forEach(add);
+    if(l.price !== null && l.price !== undefined && l.price < 10) add('Stocking stuffers');
+    if(month >= 9) add('Christmas gifts');
+    if(l.type !== 'kids') add('Gifts for her');
+    return out;
+  }
   function pmCap(s, max){
     s = String(s || '');
     if(s.length <= max) return s;
@@ -19023,7 +19052,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       (price ? price + (under10 ? ', a lovely little gift or stocking filler. ' : ', a thoughtful handmade gift. ') : '') +
       'Tap to see it on Etsy.'
     ), 500);
-    return { title: title, description: description, link: l.url || '', boards: [first, second] };
+    return { title: title, description: description, link: l.url || '', boards: [first, second], topics: pmPinTopics(l, month) };
   }
   // POST MAKER: END OF THE PURE PART
 
@@ -19392,6 +19421,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         // Pinterest's board name together, which is longer than its 50.
         '<div class="pm-pl">1st board (when publishing)</div><div class="pm-pv">' + escapeHtml(p.text.boards[0]) + '</div>' +
         '<div class="pm-pl">2nd board (Save it here too after)</div><div class="pm-pv">' + escapeHtml(p.text.boards[1]) + '</div>' +
+        '<div class="pm-pl">Tagged topics (type each one in)</div><div class="pm-pv">' + escapeHtml(p.text.topics.join(', ')) + '</div>' +
         '<div class="pm-pl">Title</div><div class="pm-pv">' + escapeHtml(p.text.title) + '</div>' +
         '<div class="pm-pl">Description</div><div class="pm-pv">' + escapeHtml(p.text.description) + '</div>' +
         '<div class="pm-pl">Link</div><div class="pm-pv">' + escapeHtml(p.text.link) + '</div>' +

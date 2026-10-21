@@ -22,6 +22,11 @@ The crochet board is now **Handmade Crochet Gifts & Bags**, for everything
 crocheted (tote bags, tarot card holders, pouches); it was named after the
 tarot holders and pouches only.
 
+Each pin also suggests up to five **tagged topics** to type into Pinterest's
+Tagged topics box (e.g. a crochet tote: Crochet bag, Tote bag, Granny square,
+Crochet, Crochet gifts). Pinterest's topics are in American English, so these
+are too ("jewelry", "Stocking stuffers").
+
 ---
 
 ## v1.82.0 - 21 October 2026
