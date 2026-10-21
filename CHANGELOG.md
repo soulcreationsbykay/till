@@ -10,6 +10,16 @@ fixes.
 
 ---
 
+## v1.82.1 - 21 October 2026
+
+**Pinterest pins: the two boards on separate lines.** Each pin now shows
+**1st board (when publishing)** and **2nd board (Save it here too after)** on
+their own lines. Shown together on one line, both names were pasted into
+Pinterest's board name at once, which is over its 50-character limit. Every
+board name the Post maker suggests is checked to be 50 characters or fewer.
+
+---
+
 ## v1.82.0 - 21 October 2026
 
 **Post maker: 📌 Pinterest pins.** At the top of the Post maker, choose

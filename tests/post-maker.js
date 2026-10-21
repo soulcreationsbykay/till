@@ -131,6 +131,14 @@ const claimy = T.pmPinText(pinItem({ name: 'Chakra Healing Energy Protection Key
 check('no claim words in a pin title or description', !/heal|energy|protect/i.test(claimy.title + claimy.description), claimy.title);
 check('the price is in the description', p1.description.includes('£7'));
 check('kids\' things go on the kids board', T.pmPinText(pinItem({ type: 'kids', price: 3 }), 10).boards[0] === "Kids' Earrings, Bracelets & Hair Clips");
+// Pinterest refuses a board name over 50 characters (seen 21 Oct 2026).
+const allBoards = new Set();
+['earrings', 'bracelets', 'necklaces', 'bookmarks', 'keyrings', 'kids', 'crochet', 'hangings', 'witchy', 'brooches', 'other'].forEach((type) => {
+  [3, 12].forEach((price) => [2, 10].forEach((month) => T.pmPinText(pinItem({ type, price, name: type === 'hangings' ? 'Tree of Life Hanging' : 'Thing' }), month).boards.forEach((b) => allBoards.add(b))));
+  T.pmPinText(pinItem({ type, price: 15, name: 'Suncatcher' }), 10).boards.forEach((b) => allBoards.add(b));
+});
+const tooLong = Array.from(allBoards).filter((b) => b.length > 50);
+check('every suggested board name fits Pinterest\'s 50 characters', tooLong.length === 0, tooLong.join(' | '));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
