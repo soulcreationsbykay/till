@@ -38,6 +38,7 @@ node tests/etsy-link.js index.html
 node tests/ad-words.js index.html
 node tests/csp.js index.html
 node tests/hid-scanner.js index.html
+node tests/post-maker.js index.html
 ```
 
 Each prints a pass/fail line per check and exits non-zero on failure.
@@ -108,6 +109,7 @@ six copies fail.
 | `roles.js` | The three access levels: that an old bare-name staff list all comes back as **administrator**, that the gate stays off until a staff PIN is set, that nobody-picked is the most restricted rather than the least, and which tabs each role may stand on | v1.41.0 |
 | `csp.js` | The Content-Security-Policy `<meta>`: every inline script listed by its SHA-256 fingerprint and no stale ones, no `'unsafe-inline'` or `'unsafe-eval'` for scripts, no `onclick=""`-style attributes, and the policy sitting above the first script. **Fails after any edit inside a script tag** (BUILD_TIME included): `node tests/csp.js index.html --write` puts it right | v1.78.1 |
 | `hid-scanner.js` | A Bluetooth scanner in HID mode: a fast run of keys ending in Enter or Tab is a scan, Shift between capitals does not break it, typing by hand is left alone and keeps its Enter, and a stray key earlier does not end up in front of the code | v1.79.0 |
+| `post-maker.js` | The Post maker: no crystal health claims in names or captions, prices as Kay writes them, Under £10 means under, a mix mixes, at most 10 hashtags, and the cut-out only takes away a plain background from the edges (a pale part inside the item stays; busy, textured or crumb-strewn photos are refused) | v1.81.0 |
 
 `card-recovery.js` slices two blocks, not one: the pure decision, and `recover()`
 around it with a scripted payment service standing in. The second is there because

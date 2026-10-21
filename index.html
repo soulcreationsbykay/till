@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-dS4TMgiGfaBVEp5wwmxPtHi7U+lFf1Up9+aAATpmBpo=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-+y+zXyorpVRCMvuPNjpSDvzOohpIkqFO7w9LZgGL+s8=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -947,6 +947,23 @@ if (window.top !== window.self) {
   /* Supplier features, hidden while SUPPLIERS is false (v1.53.0). */
   .no-suppliers .suppliers-only { display:none !important; }
   .no-website .website-only { display:none !important; }
+  /* Post maker (v1.81.0): carousels for Instagram and Facebook from what is
+     live on Etsy. */
+  #pmModal .modal{max-width:760px;max-height:92vh;}
+  .pm-modes{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;}
+  .pm-modes .btn{flex:1 1 30%;padding:10px 8px;font-size:14px;}
+  .pm-modes .btn.on{background:var(--moss);color:#fff;border-color:var(--moss);}
+  .pm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;margin:8px 0 12px;max-height:38vh;overflow-y:auto;}
+  .pm-tile{position:relative;border:2px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;cursor:pointer;text-align:left;padding:0;font:inherit;color:inherit;}
+  .pm-tile img{display:block;width:100%;aspect-ratio:1/1;object-fit:cover;background:var(--line);}
+  .pm-tile .pm-t{font-size:11px;line-height:1.25;padding:4px 6px 6px;}
+  .pm-tile .pm-t b{display:block;}
+  .pm-tile.on{border-color:var(--moss);box-shadow:0 0 0 2px var(--moss);}
+  .pm-tile .pm-n{position:absolute;top:6px;left:6px;background:var(--moss);color:#fff;border-radius:999px;font-size:12px;font-weight:700;min-width:22px;height:22px;line-height:22px;text-align:center;display:none;}
+  .pm-tile.on .pm-n{display:block;}
+  .pm-slides{display:flex;gap:8px;overflow-x:auto;padding:4px 0 10px;}
+  .pm-slides img{height:200px;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,.18);flex:none;}
+  .pm-cap{width:100%;min-height:120px;font:14px/1.4 inherit;box-sizing:border-box;}
 </style>
 </head>
 <body>
@@ -1298,6 +1315,8 @@ if (window.top !== window.self) {
     <!-- Etsy (v1.55.0): what is kept for Etsy and what each one still needs. -->
     <div class="card" id="etsyCard">
       <div class="quick-sell-head">🧡 Etsy</div>
+      <!-- Post maker (v1.81.0). -->
+      <button class="btn btn-primary" id="pmOpenBtn" style="width:100%;margin-bottom:12px;">📣 Make a post from Etsy items</button>
       <div class="folder-hint" style="margin-bottom:10px;">
         Items ticked <b>Keep this one for Etsy</b> on the Edit item screen. Each
         needs at least one real, un-AI-edited photo before it can go on Etsy.
@@ -1589,6 +1608,52 @@ if (window.top !== window.self) {
       <button class="btn btn-secondary" id="etsyCatCancel">Cancel</button>
       <button class="btn btn-secondary" id="etsyCatClear">No category</button>
     </div>
+  </div>
+</div>
+
+<!-- Post maker (v1.81.0): picks live Etsy listings and makes Instagram /
+     Facebook carousel slides and a caption from them. Read only on Etsy. -->
+<div class="modal-overlay" id="pmModal" style="display:none;">
+  <div class="modal">
+    <h2>📣 Make a post</h2>
+    <p class="folder-hint" style="margin:4px 0 8px;">Made from what is <b>live on Etsy</b> right now, with the real listing photos. Pick how to choose, or tap items yourself (up to 8).</p>
+    <div class="pm-modes" id="pmModes">
+      <button type="button" class="btn btn-secondary" data-mode="newest">✨ Newest</button>
+      <button type="button" class="btn btn-secondary" data-mode="under10">🎁 Under £10</button>
+      <button type="button" class="btn btn-secondary" data-mode="mix">💜 A mix</button>
+    </div>
+    <div class="storage-note" id="pmNote" style="text-align:left;">Loading what is live on Etsy…</div>
+    <div class="pm-grid" id="pmGrid"></div>
+    <label for="pmBackdrop">Background</label>
+    <select id="pmBackdrop">
+      <option value="plum">Purple glow</option>
+      <option value="night">Purple sparkle</option>
+      <option value="blush">Soft pink</option>
+      <option value="photo">My backdrop photo</option>
+    </select>
+    <button type="button" class="btn btn-secondary" id="pmBackdropPhotoBtn" style="width:100%;margin-top:6px;display:none;">📷 Choose my backdrop photo</button>
+    <input type="file" id="pmBackdropInput" accept="image/*" style="display:none;">
+    <label style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-weight:600;">
+      <input type="checkbox" id="pmCutout" style="width:auto;margin-top:3px;">
+      <span>✂️ Cut out the background<br><span class="folder-hint" style="display:block;margin:2px 0 0;font-weight:400;">Takes away a plain background so the item sits on the one above. Only the background goes; the item itself is never changed. Photos with a busy background stay in a frame.</span></span>
+    </label>
+    <button class="btn btn-primary" id="pmMakeBtn" style="width:100%;margin-top:10px;">Make the slides</button>
+    <div id="pmOut" style="display:none;margin-top:12px;">
+      <div class="quick-sell-head">Slides</div>
+      <div class="pm-slides" id="pmSlides"></div>
+      <div class="storage-note" id="pmOutNote" style="text-align:left;"></div>
+      <div class="btn-row" style="margin:6px 0 12px;">
+        <button class="btn btn-primary" id="pmShareBtn">📤 Share / save slides</button>
+      </div>
+      <div class="quick-sell-head">Instagram caption</div>
+      <textarea class="pm-cap" id="pmCapIg"></textarea>
+      <button class="btn btn-secondary" id="pmCopyIg" style="width:100%;margin:6px 0 12px;">Copy Instagram caption</button>
+      <div class="quick-sell-head">Facebook caption</div>
+      <textarea class="pm-cap" id="pmCapFb"></textarea>
+      <button class="btn btn-secondary" id="pmCopyFb" style="width:100%;margin:6px 0 12px;">Copy Facebook caption</button>
+      <p class="folder-hint" style="margin:0 0 10px;">Check the words before posting. Prices and stock come from Etsy at the moment you pressed Make.</p>
+    </div>
+    <button class="btn btn-secondary" id="pmCloseBtn" style="width:100%;margin-top:6px;">Close</button>
   </div>
 </div>
 
@@ -4749,9 +4814,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.80.0';
-  const BUILD_DATE  = '20 Oct 2026';
-  const BUILD_TIME  = '23:18';
+  const APP_VERSION = '1.81.0';
+  const BUILD_DATE  = '21 Oct 2026';
+  const BUILD_TIME  = '12:40';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -18726,6 +18791,517 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       }
     }catch(e){}
   }
+
+  // ---- Post maker (v1.81.0) ----
+  // Instagram and Facebook carousels made from what is LIVE on Etsy, with the
+  // real listing photos. The Etsy service sends only active listings, so
+  // nothing that is not on Etsy (the loose crystals sold elsewhere, drafts,
+  // sold-out items) can end up in a post. Level 1 puts each photo in a
+  // branded frame; level 2 (Cut out the background) removes a plain
+  // background only. The item's own pixels are never changed, redrawn or
+  // "improved": a post is an advert, and the item must look as it arrives.
+
+  // POST MAKER: THE PURE PART (v1.81.0)
+  // Words that would make a health or effect claim about a crystal (CAP Code
+  // section 12). Taken out of names before they go on a slide or caption.
+  const PM_CLAIM_WORDS = /\b(healing|heals?|protection|protective|cleansing|balancing|energy|energi[sz]ing|therapy|therapeutic)\b/gi;
+  function pmSafe(s){
+    return String(s || '').replace(PM_CLAIM_WORDS, '').replace(/\s{2,}/g, ' ').replace(/\s+([,.!?])/g, '$1').trim();
+  }
+  // A listing title is written for Etsy search ("Amethyst Feather Bookmark -
+  // Crystal Gift for Book Lovers"); a slide wants the first part.
+  function pmShortName(title, max){
+    max = max || 42;
+    let s = pmSafe(String(title || '').replace(/\s+/g, ' ').trim());
+    const cut = s.search(/\s[–—|-]\s|[,:|]/);
+    if(cut >= 8) s = s.slice(0, cut).trim();
+    if(s.length > max){
+      s = s.slice(0, max + 1);
+      const sp = s.lastIndexOf(' ');
+      s = (sp > max * 0.5 ? s.slice(0, sp) : s.slice(0, max)).replace(/[\s,;:–—-]+$/, '') + '…';
+    }
+    return s;
+  }
+  function pmPrice(p){
+    if(p === null || p === undefined || !isFinite(p)) return '';
+    const n = Math.round(Number(p) * 100) / 100;
+    return '£' + (Number.isInteger(n) ? String(n) : n.toFixed(2));
+  }
+  // Which kind of thing a listing is, from the till's folder and name (or the
+  // Etsy title when the till has no record of it). Kids first: the kids'
+  // earrings are kids' things before they are earrings.
+  const PM_TYPES = [
+    ['kids', /\bkids?\b|children/i],
+    ['earrings', /ear ?rings?/i],
+    ['bookmarks', /bookmark/i],
+    ['keyrings', /key ?rings?|key ?chains?|bag charm/i],
+    ['brooches', /brooch|brouch|pin badge/i],
+    ['hangings', /hanging|hanger|sun ?catcher|dream ?catcher|wind ?spinner/i],
+    ['witchy', /witch|rune/i],
+    ['bracelets', /bracelet/i],
+    ['necklaces', /necklace|pendant/i],
+    ['crochet', /crochet/i],
+  ];
+  function pmTypeOf(text){
+    const s = String(text || '');
+    for(const [k, re] of PM_TYPES) if(re.test(s)) return k;
+    return 'other';
+  }
+  // Up to n listings that have a photo. Modes: newest, under10 (strictly
+  // under £10), mix (one of each kind in turn, newest of each first).
+  function pmPick(list, mode, n){
+    n = n || 5;
+    const withPhoto = (list || []).filter(l => l && l.photos && l.photos.length);
+    const newest = withPhoto.slice().sort((a, b) => (b.created || 0) - (a.created || 0));
+    if(mode === 'under10') return newest.filter(l => l.price !== null && l.price !== undefined && l.price < 10).slice(0, n);
+    if(mode === 'mix'){
+      const groups = {}, order = [];
+      newest.forEach(l => { const k = l.type || 'other'; if(!groups[k]){ groups[k] = []; order.push(k); } groups[k].push(l); });
+      const out = [];
+      while(out.length < n && order.some(k => groups[k].length)){
+        for(const k of order){ if(out.length >= n) break; if(groups[k].length) out.push(groups[k].shift()); }
+      }
+      return out;
+    }
+    return newest.slice(0, n);
+  }
+  const PM_CORE_TAGS = ['#soulcreationsbykay', '#handmadeuk', '#shopsmalluk', '#etsyuk', '#handmadegifts'];
+  const PM_TYPE_TAGS = {
+    earrings: ['#crystalearrings', '#handmadejewellery'], bracelets: ['#crystalbracelet', '#handmadejewellery'],
+    necklaces: ['#handmadejewellery'], kids: ['#kidsjewellery'], brooches: ['#brooch'], keyrings: ['#keyring'],
+    bookmarks: ['#bookmark', '#booklover'], hangings: ['#suncatcher', '#bohodecor'], crochet: ['#crochetuk'],
+    witchy: ['#witchyvibes'], other: [],
+  };
+  const PM_HEAD = {
+    newest:  { slide: 'New on Etsy', ig: 'New in the Etsy shop ✨', lead: 'Swipe to see some of my latest handmade pieces:' },
+    under10: { slide: 'Gifts under £10', ig: 'Gifts under £10, all handmade 🎁', lead: 'Perfect for stocking fillers, Secret Santa and little thank-yous. Swipe to see:' },
+    mix:     { slide: 'Handmade favourites', ig: 'A little bit of everything from my Etsy shop 💜', lead: 'Swipe through some of my handmade favourites:' },
+    choose:  { slide: 'Handmade favourites', ig: 'Some of my handmade favourites 💜', lead: 'Swipe to see:' },
+  };
+  function pmHashtags(mode, picked, month){
+    const tags = PM_CORE_TAGS.slice();
+    const add = t => { if(tags.length < 10 && tags.indexOf(t) < 0) tags.push(t); };
+    if(mode === 'under10'){ add('#stockingfillers'); add('#secretsanta'); }
+    if(month === 10 || month === 11) add('#christmasgiftideas');
+    (picked || []).forEach(l => (PM_TYPE_TAGS[l.type] || []).forEach(add));
+    return tags;
+  }
+  // month is 0-11, for the Christmas hashtag in November and December.
+  function pmCaptions(mode, picked, month, shopUrl){
+    const h = PM_HEAD[mode] || PM_HEAD.choose;
+    const lines = (picked || []).map(l => '✨ ' + (l.name || pmShortName(l.title)) + (pmPrice(l.price) ? ' – ' + pmPrice(l.price) : ''));
+    const body = h.ig + '\n\n' + h.lead + '\n' + lines.join('\n') + '\n\nAll handmade by Kay at Soul Creations 💜';
+    return {
+      instagram: body + '\n🛍️ Shop on Etsy, link in bio\n\n' + pmHashtags(mode, picked, month).join(' '),
+      facebook: body + '\n🛍️ Shop on Etsy: ' + (shopUrl || 'https://www.etsy.com/shop/SoulCreationsByKay'),
+      slideTitle: h.slide,
+    };
+  }
+  // Level 2: which pixels are a plain background. Floods in from the edges
+  // through pixels close to the edge colour, so a pale stone in the middle of
+  // the item is never taken out. Refuses (ok:false) when the edges are not
+  // one plain colour, or when the result is not believable, so a busy photo
+  // stays whole in a frame instead of coming out chewed.
+  // data: RGBA bytes, w x h. Returns { ok, why, alpha (0-255 per pixel), box }.
+  function pmMask(data, w, h, tol){
+    tol = tol || 38;
+    const N = w * h;
+    const border = [];
+    for(let x = 0; x < w; x++){ border.push(x, (h - 1) * w + x); }
+    for(let y = 1; y < h - 1; y++){ border.push(y * w, y * w + w - 1); }
+    const med = c => { const v = border.map(i => data[i * 4 + c]).sort((a, b) => a - b); return v[v.length >> 1]; };
+    const br = med(0), bg = med(1), bb = med(2);
+    const dist = i => { const r = data[i*4] - br, g = data[i*4+1] - bg, b = data[i*4+2] - bb; return Math.sqrt(0.3*r*r + 0.59*g*g + 0.11*b*b); };
+    let spread = 0, near = 0; border.forEach(i => { const d = dist(i); spread += d; if(d <= tol) near++; }); spread /= border.length;
+    // Studio-plain only (tuned 21 Oct 2026 on real photos: a white table with
+    // paper texture and props measured 19 and 0.87, and cut badly).
+    if(spread > 12 || near / border.length < 0.95) return { ok: false, why: 'busy' };
+    const isBg = new Uint8Array(N);
+    const stack = [];
+    border.forEach(i => { if(!isBg[i] && dist(i) <= tol){ isBg[i] = 1; stack.push(i); } });
+    while(stack.length){
+      const i = stack.pop(), x = i % w, y = (i - x) / w;
+      const nb = [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < h - 1 ? i + w : -1];
+      for(const j of nb){ if(j >= 0 && !isBg[j] && dist(j) <= tol){ isBg[j] = 1; stack.push(j); } }
+    }
+    let bgCount = 0, x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for(let i = 0; i < N; i++){
+      if(isBg[i]){ bgCount++; continue; }
+      const x = i % w, y = (i - x) / w;
+      if(x < x0) x0 = x; if(x > x1) x1 = x; if(y < y0) y0 = y; if(y > y1) y1 = y;
+    }
+    const frac = bgCount / N;
+    if(frac < 0.18) return { ok: false, why: 'fills' };
+    if(frac > 0.985 || x1 < 0) return { ok: false, why: 'empty' };
+    // What is left must be the item in a few real pieces (a pair of
+    // earrings, beads on a broken-up wire), not a scatter of crumbs, which
+    // means the background was not as plain as its edges.
+    const seen = new Uint8Array(N), sizes = [];
+    for(let i = 0; i < N; i++){
+      if(isBg[i] || seen[i]) continue;
+      let n = 0; const st = [i]; seen[i] = 1;
+      while(st.length){
+        const k = st.pop(), kx = k % w, ky = (k - kx) / w; n++;
+        const nb = [kx > 0 ? k - 1 : -1, kx < w - 1 ? k + 1 : -1, ky > 0 ? k - w : -1, ky < h - 1 ? k + w : -1];
+        for(const j of nb){ if(j >= 0 && !isBg[j] && !seen[j]){ seen[j] = 1; st.push(j); } }
+      }
+      sizes.push(n);
+    }
+    const fg = N - bgCount;
+    let crumbs = 0, pieces = 0;
+    sizes.forEach(n => { if(n < fg * 0.01) crumbs += n; else pieces++; });
+    if(crumbs / fg > 0.1 || pieces > 30) return { ok: false, why: 'scattered' };
+    // Soften the edge by one pixel so it does not look cut with scissors.
+    const alpha = new Uint8ClampedArray(N);
+    for(let y = 0; y < h; y++) for(let x = 0; x < w; x++){
+      let s = 0, c = 0;
+      for(let dy = -1; dy <= 1; dy++) for(let dx = -1; dx <= 1; dx++){
+        const xx = x + dx, yy = y + dy;
+        if(xx >= 0 && yy >= 0 && xx < w && yy < h){ s += isBg[yy * w + xx] ? 0 : 255; c++; }
+      }
+      alpha[y * w + x] = Math.round(s / c);
+    }
+    return { ok: true, alpha: alpha, box: { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 }, background: frac };
+  }
+  // POST MAKER: END OF THE PURE PART
+
+  const PostMaker = (function(){
+    const W = 1080, H = 1350, MAX_PICK = 8;
+    const BACKDROP_KEY = 'posPmBackdrop';
+    const SHOP_URL = 'https://www.etsy.com/shop/SoulCreationsByKay';
+    const SERIF = 'Georgia, "Times New Roman", serif';
+    const SANS = '-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+    let live = [], picked = [], mode = 'newest', files = [], logo = null, myBackdrop = null, busy = false;
+    const $ = id => document.getElementById(id);
+
+    function note(msg){ $('pmNote').textContent = msg; }
+
+    // The till's own record of an Etsy listing gives a shorter name and the
+    // folder; colour groups share one listing, so the first is enough.
+    function tillIndex(){
+      const out = {};
+      Object.keys(items || {}).forEach(bc => {
+        const it = items[bc];
+        if(it && it.etsyListingId && !out[String(it.etsyListingId)]) out[String(it.etsyListingId)] = it;
+      });
+      return out;
+    }
+    function enrich(list){
+      const idx = tillIndex();
+      return list.map(l => {
+        const it = idx[l.listingId];
+        const tillName = it && it.name ? String(it.name).split(/\s[—–]\s/)[0] : '';
+        const name = pmShortName(tillName || l.title);
+        return Object.assign({}, l, { name: name, type: pmTypeOf(((it && it.folder) || '') + ' ' + (tillName || l.title)) });
+      });
+    }
+
+    async function open(){
+      $('pmModal').style.display = 'flex';
+      $('pmOut').style.display = 'none';
+      files = [];
+      try{ myBackdrop = localStorage.getItem(BACKDROP_KEY) || null; }catch(e){ myBackdrop = null; }
+      syncBackdropUi();
+      if(!Sync.isConnected()){ note('Turn on Team sync first: Etsy only answers a signed-in till.'); $('pmGrid').innerHTML = ''; return; }
+      note('Loading what is live on Etsy…');
+      $('pmGrid').innerHTML = '';
+      try{
+        const r = await EtsyLink.call('/staff/live', { method: 'GET' });
+        live = enrich((r && r.listings) || []);
+        if(!live.length){ note('Nothing is live on Etsy yet. Publish a listing on Etsy first.'); return; }
+        choose(mode);
+      }catch(e){
+        note(e && e.code === 'email-unverified' ? 'The till\'s email needs verifying first (Settings → Etsy).' : ('Could not load from Etsy: ' + (e && e.message || e)));
+      }
+    }
+    function close(){ $('pmModal').style.display = 'none'; }
+
+    function choose(m){
+      mode = m;
+      picked = pmPick(live, m, 5);
+      document.querySelectorAll('#pmModes .btn').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+      render();
+    }
+    function render(){
+      const n = live.length;
+      note(n + ' item' + (n === 1 ? '' : 's') + ' live on Etsy. ' + picked.length + ' chosen' + (picked.length ? '' : ': tap some to choose') + '.');
+      $('pmGrid').innerHTML = live.map(l => {
+        const at = picked.indexOf(l);
+        const ph = l.photos[0] ? l.photos[0].medium : '';
+        return '<button type="button" class="pm-tile' + (at >= 0 ? ' on' : '') + '" data-id="' + escapeHtml(l.listingId) + '">' +
+          '<span class="pm-n">' + (at + 1) + '</span>' +
+          (ph ? '<img alt="" loading="lazy" referrerpolicy="no-referrer" src="' + escapeHtml(ph) + '">' : '<img alt="">') +
+          '<span class="pm-t"><b>' + escapeHtml(l.name) + '</b>' + escapeHtml(pmPrice(l.price)) + '</span></button>';
+      }).join('');
+    }
+    function toggle(id){
+      const l = live.find(x => x.listingId === id);
+      if(!l) return;
+      const at = picked.indexOf(l);
+      if(at >= 0) picked.splice(at, 1);
+      else if(picked.length >= MAX_PICK){ showToast('Up to ' + MAX_PICK + ' items in one post'); return; }
+      else if(!l.photos.length){ showToast('That listing has no photo'); return; }
+      else picked.push(l);
+      mode = 'choose';
+      document.querySelectorAll('#pmModes .btn').forEach(b => b.classList.remove('on'));
+      render();
+    }
+
+    // ---- pictures ----
+    function loadImg(src){
+      return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('picture would not load')); im.src = src; });
+    }
+    // Through the Etsy service, so the canvas can be saved (see the service).
+    async function etsyPhoto(url){
+      const token = await Sync.getIdToken();
+      const res = await fetch(EtsyLink.get() + '/staff/photo?u=' + encodeURIComponent(url), { headers: { Authorization: 'Bearer ' + token } });
+      if(!res.ok) throw new Error('Etsy photo ' + res.status);
+      const blob = await res.blob();
+      const src = URL.createObjectURL(blob);
+      try{ return await loadImg(src); } finally { setTimeout(() => URL.revokeObjectURL(src), 60000); }
+    }
+    async function getLogo(){ if(!logo) logo = await loadImg('icons/icon-512.png'); return logo; }
+
+    function roundRect(ctx, x, y, w, h, r){
+      ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+    }
+    function cover(ctx, img, x, y, w, h){
+      const s = Math.max(w / img.width, h / img.height), sw = w / s, sh = h / s;
+      ctx.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, x, y, w, h);
+    }
+    function seeded(n){ let s = n; return () => { s = (s * 16807) % 2147483647; return s / 2147483647; }; }
+    async function backdrop(ctx, kind){
+      if(kind === 'photo' && myBackdrop){
+        try{ cover(ctx, await loadImg(myBackdrop), 0, 0, W, H); ctx.fillStyle = 'rgba(30,8,50,.18)'; ctx.fillRect(0, 0, W, H); return 'dark'; }catch(e){}
+      }
+      if(kind === 'blush'){
+        const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#fdf3f1'); g.addColorStop(1, '#f2e2ee');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+        ctx.strokeStyle = '#b07810'; ctx.lineWidth = 4; roundRect(ctx, 28, 28, W - 56, H - 56, 26); ctx.stroke();
+        return 'light';
+      }
+      const g = ctx.createRadialGradient(W / 2, H * 0.42, 60, W / 2, H / 2, H * 0.8);
+      g.addColorStop(0, '#7b3fa3'); g.addColorStop(0.55, '#401070'); g.addColorStop(1, '#22083d');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      if(kind === 'night'){
+        const r = seeded(7);
+        for(let i = 0; i < 70; i++){
+          const x = r() * W, y = r() * H, rad = 6 + r() * 34, gold = r() > 0.5;
+          const b = ctx.createRadialGradient(x, y, 0, x, y, rad);
+          b.addColorStop(0, gold ? 'rgba(230,180,90,.35)' : 'rgba(240,170,230,.28)'); b.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = b; ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      return 'dark';
+    }
+    function ink(tone){ return tone === 'light' ? { main: '#401070', soft: '#683090', gold: '#9a6a0c' } : { main: '#ffffff', soft: '#f3e6ff', gold: '#e6bd5c' }; }
+    function wrap(ctx, text, maxW){
+      const words = String(text).split(' '), lines = [];
+      let line = '';
+      words.forEach(wd => { const t = line ? line + ' ' + wd : wd; if(ctx.measureText(t).width > maxW && line){ lines.push(line); line = wd; } else line = t; });
+      if(line) lines.push(line);
+      return lines.slice(0, 2);
+    }
+    function header(ctx, c){
+      ctx.fillStyle = c.gold; ctx.font = '600 30px ' + SANS; ctx.textAlign = 'center';
+      ctx.fillText('SOUL CREATIONS BY KAY', W / 2, 92);
+    }
+    function footer(ctx, c){
+      ctx.fillStyle = c.soft; ctx.font = '500 28px ' + SANS; ctx.textAlign = 'center';
+      ctx.fillText('@soulcreationsbykay  ·  Shop on Etsy', W / 2, H - 32);
+    }
+    async function logoAt(ctx, x, y, size){
+      try{
+        const im = await getLogo();
+        ctx.save(); ctx.beginPath(); ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2); ctx.clip();
+        ctx.drawImage(im, x, y, size, size); ctx.restore();
+        ctx.save(); ctx.strokeStyle = '#b07810'; ctx.lineWidth = Math.max(3, size / 50);
+        ctx.beginPath(); ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+      }catch(e){}
+    }
+
+    // A cut-out of a photo, or null when its background is not plain enough.
+    function cutout(img){
+      const scale = Math.min(1, 900 / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      const x = c.getContext('2d'); x.drawImage(img, 0, 0, w, h);
+      const px = x.getImageData(0, 0, w, h);
+      const m = pmMask(px.data, w, h);
+      if(!m.ok) return null;
+      for(let i = 0; i < w * h; i++) px.data[i * 4 + 3] = Math.min(px.data[i * 4 + 3], m.alpha[i]);
+      x.putImageData(px, 0, 0);
+      const out = document.createElement('canvas'); out.width = m.box.w; out.height = m.box.h;
+      out.getContext('2d').drawImage(c, m.box.x, m.box.y, m.box.w, m.box.h, 0, 0, m.box.w, m.box.h);
+      return out;
+    }
+
+    async function coverSlide(kind, title, photos){
+      const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+      const ctx = cv.getContext('2d'); const c = ink(await backdrop(ctx, kind));
+      await logoAt(ctx, W / 2 - 150, 110, 300);
+      ctx.textAlign = 'center'; ctx.fillStyle = c.main; ctx.font = '700 96px ' + SERIF;
+      ctx.fillText(title, W / 2, 530);
+      ctx.fillStyle = c.soft; ctx.font = 'italic 44px ' + SERIF;
+      ctx.fillText('Handmade by Kay · swipe to see ➜', W / 2, 600);
+      const four = photos.slice(0, 4), S = 255, G = 20;
+      const cols = four.length === 1 ? 1 : 2, rows = Math.ceil(four.length / cols);
+      const x0 = (W - (cols * S + (cols - 1) * G)) / 2, y0 = 660 + (rows === 1 ? S / 2 : 0);
+      four.forEach((im, i) => {
+        const x = x0 + (i % cols) * (S + G), y = y0 + Math.floor(i / cols) * (S + G);
+        ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 8;
+        ctx.fillStyle = '#fff'; roundRect(ctx, x, y, S, S, 22); ctx.fill(); ctx.restore();
+        ctx.save(); roundRect(ctx, x + 8, y + 8, S - 16, S - 16, 16); ctx.clip(); cover(ctx, im, x + 8, y + 8, S - 16, S - 16); ctx.restore();
+      });
+      return cv;
+    }
+    async function productSlide(kind, l, img, cut){
+      const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+      const ctx = cv.getContext('2d'); const c = ink(await backdrop(ctx, kind));
+      header(ctx, c);
+      let didCut = false;
+      if(cut){
+        const co = cutout(img);
+        if(co){
+          didCut = true;
+          const bx = 110, by = 140, bw = W - 220, bh = 880;
+          const s = Math.min(bw / co.width, bh / co.height, 3);
+          const dw = co.width * s, dh = co.height * s;
+          ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.38)'; ctx.shadowBlur = 40; ctx.shadowOffsetY = 18;
+          ctx.drawImage(co, bx + (bw - dw) / 2, by + (bh - dh) / 2, dw, dh); ctx.restore();
+        }
+      }
+      if(!didCut){
+        const x = 90, y = 130, w = W - 180, h = 900;
+        ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 36; ctx.shadowOffsetY = 12;
+        ctx.fillStyle = '#fff'; roundRect(ctx, x, y, w, h, 34); ctx.fill(); ctx.restore();
+        ctx.save(); roundRect(ctx, x + 14, y + 14, w - 28, h - 28, 24); ctx.clip(); cover(ctx, img, x + 14, y + 14, w - 28, h - 28); ctx.restore();
+      }
+      ctx.textAlign = 'center'; ctx.fillStyle = c.main; ctx.font = '700 58px ' + SERIF;
+      const lines = wrap(ctx, l.name, W - 160);
+      lines.forEach((t, i) => ctx.fillText(t, W / 2, 1098 + i * 62));
+      const price = pmPrice(l.price);
+      if(price){
+        ctx.font = '700 46px ' + SANS;
+        const pw = ctx.measureText(price).width + 64, py = 1098 + lines.length * 62 - 10;
+        ctx.fillStyle = '#b07810'; roundRect(ctx, (W - pw) / 2, py, pw, 64, 32); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.fillText(price, W / 2, py + 47);
+      }
+      footer(ctx, c);
+      return { canvas: cv, cut: didCut };
+    }
+    async function endSlide(kind){
+      const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+      const ctx = cv.getContext('2d'); const c = ink(await backdrop(ctx, kind));
+      await logoAt(ctx, W / 2 - 200, 200, 400);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = c.main; ctx.font = '700 104px ' + SERIF; ctx.fillText('Shop on Etsy', W / 2, 760);
+      ctx.fillStyle = c.gold; ctx.font = '600 44px ' + SANS; ctx.fillText('Link in bio', W / 2, 840);
+      ctx.fillStyle = c.soft; ctx.font = '500 38px ' + SANS; ctx.fillText('etsy.com/shop/SoulCreationsByKay', W / 2, 920);
+      ctx.font = 'italic 44px ' + SERIF; ctx.fillText('Handmade with love by Kay', W / 2, 1060);
+      ctx.fillStyle = c.gold; ctx.font = '600 30px ' + SANS; ctx.fillText('CREATE  •  INSPIRE  •  AWAKEN', W / 2, 1130);
+      return cv;
+    }
+    function toBlob(cv){ return new Promise(res => cv.toBlob(b => res(b), 'image/jpeg', 0.92)); }
+
+    async function make(){
+      if(busy) return;
+      if(!picked.length){ showToast('Choose at least one item'); return; }
+      busy = true; $('pmMakeBtn').disabled = true; $('pmMakeBtn').textContent = 'Making…';
+      try{
+        const kind = $('pmBackdrop').value, cut = $('pmCutout').checked;
+        const imgs = [], skipped = [];
+        for(const l of picked){
+          try{ imgs.push({ l: l, img: await etsyPhoto(l.photos[0].full || l.photos[0].medium) }); }
+          catch(e){ skipped.push(l.name); }
+        }
+        if(!imgs.length) throw new Error('None of the photos would load from Etsy.');
+        const caps = pmCaptions(mode, imgs.map(x => x.l), new Date().getMonth(), SHOP_URL);
+        const slides = [await coverSlide(kind, caps.slideTitle, imgs.map(x => x.img))];
+        let framed = 0;
+        for(const x of imgs){ const s = await productSlide(kind, x.l, x.img, cut); slides.push(s.canvas); if(cut && !s.cut) framed++; }
+        slides.push(await endSlide(kind));
+        files = [];
+        for(let i = 0; i < slides.length; i++){
+          const b = await toBlob(slides[i]);
+          files.push(new File([b], 'soulcreations-' + (i + 1) + '.jpg', { type: 'image/jpeg' }));
+        }
+        $('pmSlides').innerHTML = '';
+        slides.forEach(cv => { const im = document.createElement('img'); im.alt = ''; im.src = cv.toDataURL('image/jpeg', 0.7); $('pmSlides').appendChild(im); });
+        const notes = [slides.length + ' slides, ready to post as one carousel.'];
+        if(framed) notes.push(framed + ' photo' + (framed === 1 ? '' : 's') + ' had a busy background, so ' + (framed === 1 ? 'it is' : 'they are') + ' shown in a frame instead.');
+        if(skipped.length) notes.push('Left out (photo would not load): ' + skipped.join(', ') + '.');
+        $('pmOutNote').textContent = notes.join(' ');
+        $('pmCapIg').value = caps.instagram;
+        $('pmCapFb').value = caps.facebook;
+        $('pmOut').style.display = 'block';
+        $('pmOut').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }catch(e){
+        showToast('Could not make the slides', 'error');
+        $('pmOutNote').textContent = String(e && e.message || e);
+      }finally{
+        busy = false; $('pmMakeBtn').disabled = false; $('pmMakeBtn').textContent = 'Make the slides';
+      }
+    }
+    // Straight to Instagram or Facebook on the iPad and phone; downloads on a
+    // laptop. The files are made in advance because Safari only lets Share
+    // open straight from a tap.
+    async function share(){
+      if(!files.length) return;
+      if(navigator.canShare && navigator.canShare({ files: files })){
+        try{ await navigator.share({ files: files, title: 'Soul Creations by Kay' }); }
+        catch(e){ if(e && e.name !== 'AbortError') showToast('Sharing did not work', 'error'); }
+        return;
+      }
+      files.forEach((f, i) => setTimeout(() => {
+        const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name;
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+      }, i * 400));
+    }
+    async function copy(id){
+      const t = $(id).value;
+      try{ await navigator.clipboard.writeText(t); showToast('Caption copied'); }
+      catch(e){ $(id).select(); showToast('Select and copy the text'); }
+    }
+
+    function syncBackdropUi(){
+      const photo = $('pmBackdrop').value === 'photo';
+      $('pmBackdropPhotoBtn').style.display = photo ? 'block' : 'none';
+      $('pmBackdropPhotoBtn').textContent = myBackdrop ? '📷 Change my backdrop photo' : '📷 Choose my backdrop photo';
+    }
+    // Kay's own backdrop (velvet, wood, fairy lights), kept on this device,
+    // shrunk to slide size so it fits in local storage.
+    async function setBackdrop(file){
+      if(!file) return;
+      try{
+        const src = URL.createObjectURL(file);
+        const im = await loadImg(src); URL.revokeObjectURL(src);
+        const c = document.createElement('canvas'); c.width = W; c.height = H;
+        cover(c.getContext('2d'), im, 0, 0, W, H);
+        myBackdrop = c.toDataURL('image/jpeg', 0.82);
+        try{ localStorage.setItem(BACKDROP_KEY, myBackdrop); }catch(e){ showToast('Using it now, but it could not be saved on this device'); }
+        syncBackdropUi(); showToast('Backdrop photo set');
+      }catch(e){ showToast('That photo would not open', 'error'); }
+    }
+
+    function wire(){
+      if(!$('pmModal')) return;
+      $('pmOpenBtn').addEventListener('click', open);
+      $('pmCloseBtn').addEventListener('click', close);
+      $('pmModes').addEventListener('click', e => { const b = e.target.closest('[data-mode]'); if(b && live.length) choose(b.dataset.mode); });
+      $('pmGrid').addEventListener('click', e => { const b = e.target.closest('.pm-tile'); if(b) toggle(b.dataset.id); });
+      $('pmMakeBtn').addEventListener('click', make);
+      $('pmShareBtn').addEventListener('click', share);
+      $('pmCopyIg').addEventListener('click', () => copy('pmCapIg'));
+      $('pmCopyFb').addEventListener('click', () => copy('pmCapFb'));
+      $('pmBackdrop').addEventListener('change', () => { syncBackdropUi(); if($('pmBackdrop').value === 'photo' && !myBackdrop) $('pmBackdropInput').click(); });
+      $('pmBackdropPhotoBtn').addEventListener('click', () => $('pmBackdropInput').click());
+      $('pmBackdropInput').addEventListener('change', e => { setBackdrop(e.target.files && e.target.files[0]); e.target.value = ''; });
+    }
+    wire();
+    return { open: open };
+  })();
 
   // ---- Init ----
   renderSession();

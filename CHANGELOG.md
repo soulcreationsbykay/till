@@ -10,6 +10,33 @@ fixes.
 
 ---
 
+## v1.81.0 - 21 October 2026
+
+**Post maker: Instagram and Facebook carousels from what is live on Etsy.**
+Settings → Etsy → **📣 Make a post from Etsy items**. Needs the Etsy service
+updated the same day (it adds `/staff/live` and `/staff/photo`).
+
+- It loads only listings that are **live on Etsy**, with their real Etsy
+  photos, so nothing sold elsewhere (the loose crystals), no draft and nothing
+  sold out can end up in a post.
+- Press **✨ Newest**, **🎁 Under £10** (strictly under) or **💜 A mix** (one of
+  each kind in turn), or tap items yourself, up to 8.
+- **Make the slides** makes a cover slide, one slide per item (photo in a
+  white frame, name, gold price) and a "Shop on Etsy" slide, 1080 × 1350 in
+  Kay's purple and gold, with a choice of background: purple glow, purple
+  sparkle, soft pink, or Kay's own backdrop photo (kept on that device).
+- **✂️ Cut out the background** takes away a *plain* background so the item
+  sits on the chosen one. Only the background goes; the item's own pixels are
+  never changed. A photo whose background is not plain (texture, props,
+  crumbs) is refused and stays in its frame, and the screen says how many.
+- It writes an Instagram caption (with up to 10 hashtags) and a Facebook one
+  (with the shop link, no hashtags). Words that would make a health claim
+  about crystals ("healing", "protection", "energy"...) are taken out of names.
+- **📤 Share / save slides** opens the share sheet on the iPad or phone
+  (straight to Instagram or Facebook); on a laptop it downloads the pictures.
+
+---
+
 ## v1.80.0 - 20 October 2026
 
 **The Stock tab shows what is live on Etsy and what still needs loading.**
