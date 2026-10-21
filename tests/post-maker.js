@@ -20,7 +20,7 @@ const a = HTML.indexOf(START), b = HTML.indexOf(END);
 if (a < 0 || b < 0 || b < a) { console.error('could not locate the Post maker block'); process.exit(2); }
 const ctx = { console, Uint8Array, Uint8ClampedArray, Math };
 vm.createContext(ctx);
-vm.runInContext(HTML.slice(a, b) + '\nthis.T = { pmSafe, pmShortName, pmPrice, pmTypeOf, pmPick, pmHashtags, pmCaptions, pmMask, pmPinText };', ctx);
+vm.runInContext(HTML.slice(a, b) + '\nthis.T = { pmSafe, pmShortName, pmPrice, pmTypeOf, pmPick, pmHashtags, pmCaptions, pmMask, pmPinText, pmPinKicker, pmPinTag, pmBars };', ctx);
 const T = ctx.T;
 
 let pass = 0, fail = 0;
@@ -149,6 +149,30 @@ const cheap = T.pmPinText(pinItem({ price: 7 }), 10).topics;
 check('under £10 is tagged as a stocking stuffer', cheap.includes('Stocking stuffers'), cheap.join(', '));
 check('kids\' things are not tagged "Gifts for her"', !T.pmPinText(pinItem({ type: 'kids', price: 3 }), 4).topics.includes('Gifts for her'));
 check('no claim words in topics', !/heal|energy|protect/i.test(Object.keys({ a: 1 }).map(() => ['earrings', 'witchy', 'hangings', 'other'].map((type) => T.pmPinText(pinItem({ type }), 10).topics.join(' ')).join(' ')).join('')));
+
+// ---- pin picture: tag, kicker, bars (v1.83.0) ----
+check('no exact price on the picture unless asked for', T.pmPinTag(pinItem({ price: 12 }), false) === null);
+check('under £10 gets an "Under £10" tag instead', T.pmPinTag(pinItem({ price: 7 }), false) === 'Under £10');
+check('with Show price ticked, the price', T.pmPinTag(pinItem({ price: 8.5 }), true) === '£8.50');
+check('every kind has a kicker line, none with claim words', ['earrings', 'bracelets', 'necklaces', 'bookmarks', 'keyrings', 'kids', 'crochet', 'hangings', 'witchy', 'brooches', 'other', 'nonsense'].every((k) => { const s = T.pmPinKicker(k); return s && !/heal|energy|protect/i.test(s); }));
+function lbox(w, h, barTop, barBottom, colour) {
+  const d = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = (y * w + x) * 4, bar = y < barTop || y >= h - barBottom;
+    const v = bar ? colour : (x * 7 + y * 3) % 200 + 20;
+    d[i] = v; d[i + 1] = bar ? colour : (v * 2) % 255; d[i + 2] = bar ? colour : 120; d[i + 3] = 255;
+  }
+  return d;
+}
+const lb = T.pmBars(lbox(100, 200, 50, 40, 0), 100, 200);
+check('flat black bars top and bottom are found', lb.top === 50 && lb.bottom === 40 && lb.left === 0 && lb.right === 0, JSON.stringify(lb));
+const wb = T.pmBars(lbox(100, 200, 30, 30, 255), 100, 200);
+check('flat white bars too', wb.top === 30 && wb.bottom === 30, JSON.stringify(wb));
+const none = T.pmBars(lbox(100, 200, 0, 0, 0), 100, 200);
+check('a photo with no bars is left alone', none.top + none.bottom + none.left + none.right === 0);
+check('a thin dark line is not a bar', T.pmBars(lbox(100, 200, 2, 0, 0), 100, 200).top === 0);
+const allBlack = T.pmBars(lbox(100, 200, 200, 0, 0), 100, 200);
+check('an all-black picture is not trimmed away', allBlack.top === 0 && allBlack.bottom === 0);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-vXoVy6D9AgaWiECSuQ+pr6yUjw4VWiDqQnnMu3HJabA=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-ZmeiY2hPVGJdvzdTpkyMmGXeYHlMFzRK3xgnYhD5V+w=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -1647,6 +1647,12 @@ if (window.top !== window.self) {
     <label style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-weight:600;">
       <input type="checkbox" id="pmCutout" style="width:auto;margin-top:3px;">
       <span>✂️ Cut out the background<br><span class="folder-hint" style="display:block;margin:2px 0 0;font-weight:400;">Takes away a plain background so the item sits on the one above. Only the background goes; the item itself is never changed. Photos with a busy background stay in a frame.</span></span>
+    </label>
+    <!-- Pinterest only (v1.83.0): a pin is seen for months, so no exact price
+         on the picture unless asked for. -->
+    <label id="pmPinPriceRow" style="display:none;gap:8px;align-items:flex-start;margin-top:10px;font-weight:600;">
+      <input type="checkbox" id="pmPinPrice" style="width:auto;margin-top:3px;">
+      <span>Show the price on the pin picture<br><span class="folder-hint" style="display:block;margin:2px 0 0;font-weight:400;">Off is safer: pins are found for months and a price on the picture cannot be changed. Items under £10 get an "Under £10" tag instead, and the price is always in the description.</span></span>
     </label>
     <button class="btn btn-primary" id="pmMakeBtn" style="width:100%;margin-top:10px;">Make the slides</button>
     <div id="pmOut" style="display:none;margin-top:12px;">
@@ -4835,9 +4841,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.82.1';
+  const APP_VERSION = '1.83.0';
   const BUILD_DATE  = '21 Oct 2026';
-  const BUILD_TIME  = '16:46';
+  const BUILD_TIME  = '17:15';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -19029,6 +19035,25 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if(l.type !== 'kids') add('Gifts for her');
     return out;
   }
+  // The small line above the name on a pin (v1.83.0): what it is, in words a
+  // shopper scrolling Pinterest takes in at a glance. No claims.
+  const PM_PIN_KICKER = {
+    earrings: 'Crystal earrings', bracelets: 'Handmade bracelet', necklaces: 'Handmade necklace',
+    bookmarks: 'Gift for book lovers', keyrings: 'Crystal keyring', kids: 'For little ones',
+    crochet: 'Hand-crocheted', hangings: 'Boho home decor', witchy: 'Witchy gift',
+    brooches: 'Handmade brooch', other: 'Handmade gift',
+  };
+  function pmPinKicker(type){ return PM_PIN_KICKER[type] || PM_PIN_KICKER.other; }
+  // The tag on the picture. A pin is seen for months, so an exact price on
+  // the picture goes out of date and cannot be edited: only when asked for.
+  // Otherwise "Under £10" for the cheaper things, which stays true longer,
+  // and nothing for the rest (the price is in the description, which can be
+  // edited on Pinterest).
+  function pmPinTag(l, showPrice){
+    if(showPrice) return pmPrice(l.price) || null;
+    if(l.price !== null && l.price !== undefined && l.price < 10) return 'Under £10';
+    return null;
+  }
   function pmCap(s, max){
     s = String(s || '');
     if(s.length <= max) return s;
@@ -19053,6 +19078,31 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       'Tap to see it on Etsy.'
     ), 500);
     return { title: title, description: description, link: l.url || '', boards: [first, second], topics: pmPinTopics(l, month) };
+  }
+  // Bars baked into a photo (v1.83.0): plain black (or white) strips along
+  // the edges, as from a screenshot or a letterboxed export. Returns how many
+  // pixels to trim from each side; never more than 45% a side (a wide photo
+  // letterboxed into a tall frame has deep bars), and only rows or
+  // columns that are one flat colour all the way across.
+  function pmBars(data, w, h){
+    // A bar row: nearly every pixel near black, or nearly every one near
+    // white (a few stray pixels from compression are allowed).
+    const flat = (get, n) => {
+      let dark = 0, light = 0;
+      for(let k = 0; k < n; k++){ const v = get(k); if(v < 28) dark++; else if(v > 245) light++; }
+      return dark >= n * 0.97 || light >= n * 0.97;
+    };
+    const lum = i => (data[i * 4] * 3 + data[i * 4 + 1] * 6 + data[i * 4 + 2]) / 10;
+    const row = y => flat(k => lum(y * w + k), w);
+    const col = x => flat(k => lum(k * w + x), h);
+    let top = 0, bottom = 0, left = 0, right = 0;
+    while(top < h * 0.45 && row(top)) top++;
+    while(bottom < h * 0.45 && row(h - 1 - bottom)) bottom++;
+    while(left < w * 0.45 && col(left)) left++;
+    while(right < w * 0.45 && col(w - 1 - right)) right++;
+    // A thin line is not a bar; a photo of a white thing on white is not one either
+    const keep = (n, of) => (n >= of * 0.03 && n < of * 0.45) ? n : 0;
+    return { top: keep(top, h), bottom: keep(bottom, h), left: keep(left, w), right: keep(right, w) };
   }
   // POST MAKER: END OF THE PURE PART
 
@@ -19151,7 +19201,25 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       if(!res.ok) throw new Error('Etsy photo ' + res.status);
       const blob = await res.blob();
       const src = URL.createObjectURL(blob);
-      try{ return await loadImg(src); } finally { setTimeout(() => URL.revokeObjectURL(src), 60000); }
+      try{ return trimBars(await loadImg(src)); } finally { setTimeout(() => URL.revokeObjectURL(src), 60000); }
+    }
+    // The photo without any black or white bars along its edges (v1.83.0),
+    // so it fills a pin or slide. The photo itself is not changed otherwise.
+    function trimBars(img){
+      try{
+        const s = Math.min(1, 400 / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * s)), h = Math.max(1, Math.round(img.height * s));
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        const x = c.getContext('2d'); x.drawImage(img, 0, 0, w, h);
+        const b = pmBars(x.getImageData(0, 0, w, h).data, w, h);
+        if(!b.top && !b.bottom && !b.left && !b.right) return img;
+        const sx = Math.ceil(b.left / s) + 1, sy = Math.ceil(b.top / s) + 1;
+        const sw = img.width - sx - Math.ceil(b.right / s) - 1, sh = img.height - sy - Math.ceil(b.bottom / s) - 1;
+        if(sw < img.width * 0.15 || sh < img.height * 0.15) return img;
+        const out = document.createElement('canvas'); out.width = sw; out.height = sh;
+        out.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+        return out;
+      }catch(e){ return img; }
     }
     async function getLogo(){ if(!logo) logo = await loadImg('icons/icon-512.png'); return logo; }
 
@@ -19298,44 +19366,80 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       ctx.fillStyle = c.gold; ctx.font = '600 30px ' + SANS; ctx.fillText('CREATE  •  INSPIRE  •  AWAKEN', W / 2, 1130);
       return cv;
     }
-    // One Pinterest pin: tall, the photo large, name and price, and "Shop on
-    // Etsy" so it reads as a product someone can buy.
-    async function pinSlide(kind, l, img, cut){
+    // One Pinterest pin (redesigned v1.83.0): the photo fills the top two
+    // thirds edge to edge, as the pins people stop for do; below it a calm
+    // panel in the chosen colours with the lotus as a seal on the join, a
+    // small line saying what it is, the name in a serif, "Handmade by Kay",
+    // and a tag. With Cut out ticked, the item sits on the backdrop instead.
+    async function pinSlide(kind, l, img, cut, showPrice){
       const cv = document.createElement('canvas'); cv.width = PW; cv.height = PH;
-      const ctx = cv.getContext('2d'); const c = ink(await backdrop(ctx, kind, PW, PH));
-      ctx.fillStyle = c.gold; ctx.font = '600 30px ' + SANS; ctx.textAlign = 'center';
-      ctx.fillText('SOUL CREATIONS BY KAY', PW / 2, 86);
+      const ctx = cv.getContext('2d');
+      const SPLIT = 1010;
+      // Panel first: the chosen background, then a soft wash so it reads calm.
+      const c = ink(await backdrop(ctx, kind, PW, PH));
       let didCut = false;
       if(cut){
         const co = cutout(img);
         if(co){
           didCut = true;
-          const bx = 90, by = 130, bw = PW - 180, bh = 950;
+          const bx = 80, by = 70, bw = PW - 160, bh = SPLIT - 150;
           const s = Math.min(bw / co.width, bh / co.height, 3), dw = co.width * s, dh = co.height * s;
-          ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.38)'; ctx.shadowBlur = 40; ctx.shadowOffsetY = 18;
+          ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 44; ctx.shadowOffsetY = 22;
           ctx.drawImage(co, bx + (bw - dw) / 2, by + (bh - dh) / 2, dw, dh); ctx.restore();
         }
       }
       if(!didCut){
-        const x = 70, y = 120, w = PW - 140, h = 980;
-        ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 36; ctx.shadowOffsetY = 12;
-        ctx.fillStyle = '#fff'; roundRect(ctx, x, y, w, h, 34); ctx.fill(); ctx.restore();
-        ctx.save(); roundRect(ctx, x + 14, y + 14, w - 28, h - 28, 24); ctx.clip(); cover(ctx, img, x + 14, y + 14, w - 28, h - 28); ctx.restore();
+        cover(ctx, img, 0, 0, PW, SPLIT);
+        // A gentle shade at the foot of the photo so the join is soft.
+        const sh = ctx.createLinearGradient(0, SPLIT - 160, 0, SPLIT);
+        sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,.18)');
+        ctx.fillStyle = sh; ctx.fillRect(0, SPLIT - 160, PW, 160);
       }
-      ctx.textAlign = 'center'; ctx.fillStyle = c.main; ctx.font = '700 62px ' + SERIF;
-      const lines = wrap(ctx, l.name, PW - 140);
-      lines.forEach((tx, i) => ctx.fillText(tx, PW / 2, 1196 + i * 68));
-      let y = 1196 + lines.length * 68 - 8;
-      const price = pmPrice(l.price);
-      if(price){
-        ctx.font = '700 48px ' + SANS;
-        const pw = ctx.measureText(price).width + 66;
-        ctx.fillStyle = '#b07810'; roundRect(ctx, (PW - pw) / 2, y, pw, 68, 34); ctx.fill();
-        ctx.fillStyle = '#fff'; ctx.fillText(price, PW / 2, y + 50);
-        y += 68;
+      // The panel: redraw the background below the join so a photo never
+      // spills into it, and give it a curved top edge.
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(0, SPLIT + 20); ctx.quadraticCurveTo(PW / 2, SPLIT - 40, PW, SPLIT + 20);
+      ctx.lineTo(PW, PH); ctx.lineTo(0, PH); ctx.closePath(); ctx.clip();
+      await backdrop(ctx, kind === 'photo' ? 'plum' : kind, PW, PH);
+      ctx.restore();
+      ctx.save(); ctx.strokeStyle = '#c99a3a'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(0, SPLIT + 20); ctx.quadraticCurveTo(PW / 2, SPLIT - 40, PW, SPLIT + 20); ctx.stroke(); ctx.restore();
+      const pc = kind === 'photo' ? ink('dark') : c;
+      // The lotus seal on the join.
+      const R = 66;
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.3)'; ctx.shadowBlur = 18; ctx.shadowOffsetY = 6;
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(PW / 2, SPLIT - 10, R + 6, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      await logoAt(ctx, PW / 2 - R, SPLIT - 10 - R, R * 2);
+      // Words, centred in the panel below the seal whatever their length.
+      ctx.textAlign = 'center';
+      let size = 66;
+      ctx.font = '700 ' + size + 'px ' + SERIF;
+      let lines = wrap(ctx, l.name, PW - 150);
+      if(lines.length > 1 && ctx.measureText(lines[1]).width > PW - 150){ size = 56; ctx.font = '700 ' + size + 'px ' + SERIF; lines = wrap(ctx, l.name, PW - 150); }
+      const tag = pmPinTag(l, showPrice);
+      const lineH = size + 10;
+      // kicker cap height, gap, name lines, gap to "Handmade by Kay", tag
+      const blockH = 24 + 34 + size + (lines.length - 1) * lineH + 56 + (tag ? 34 + 60 : 0);
+      const areaTop = SPLIT + 80, areaBottom = PH - 40;
+      let y = areaTop + Math.max(0, (areaBottom - areaTop - blockH) / 2) + 24;
+      ctx.fillStyle = pc.gold; ctx.font = '600 30px ' + SANS;
+      if('letterSpacing' in ctx) ctx.letterSpacing = '6px';
+      ctx.fillText(pmPinKicker(l.type).toUpperCase(), PW / 2, y);
+      if('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+      y += 34 + size;
+      ctx.fillStyle = pc.main; ctx.font = '700 ' + size + 'px ' + SERIF;
+      lines.forEach((tx, k) => ctx.fillText(tx, PW / 2, y + k * lineH));
+      y += (lines.length - 1) * lineH + 56;
+      ctx.fillStyle = pc.soft; ctx.font = 'italic 38px ' + SERIF;
+      ctx.fillText('Handmade by Kay  ·  Soul Creations', PW / 2, y);
+      if(tag){
+        y += 34;
+        ctx.font = '700 36px ' + SANS;
+        const tw = ctx.measureText(tag).width + 56;
+        ctx.save(); ctx.strokeStyle = pc.gold; ctx.lineWidth = 3; roundRect(ctx, (PW - tw) / 2, y, tw, 60, 30); ctx.stroke(); ctx.restore();
+        ctx.fillStyle = pc.gold; ctx.fillText(tag, PW / 2, y + 43);
       }
-      ctx.fillStyle = c.soft; ctx.font = '600 34px ' + SANS;
-      ctx.fillText('Handmade by Kay  ·  Shop on Etsy', PW / 2, Math.max(y + 70, PH - 50));
       return { canvas: cv, cut: didCut };
     }
     function toBlob(cv){ return new Promise(res => cv.toBlob(b => res(b), 'image/jpeg', 0.92)); }
@@ -19409,7 +19513,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       pins = [];
       let framed = 0;
       for(const x of imgs){
-        const s = await pinSlide(kind, x.l, x.img, cut);
+        const s = await pinSlide(kind, x.l, x.img, cut, $('pmPinPrice').checked);
         if(cut && !s.cut) framed++;
         const b = await toBlob(s.canvas);
         const slug = String(x.l.name || 'pin').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'pin';
@@ -19459,6 +19563,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       format = f;
       document.querySelectorAll('#pmFormat .btn').forEach(b => b.classList.toggle('on', b.dataset.format === f));
       $('pmMakeBtn').textContent = f === 'pins' ? 'Make the pins' : 'Make the slides';
+      $('pmPinPriceRow').style.display = f === 'pins' ? 'flex' : 'none';
       $('pmOut').style.display = 'none'; $('pmPinsOut').style.display = 'none';
     }
     async function copy(id){

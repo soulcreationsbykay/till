@@ -10,6 +10,28 @@ fixes.
 
 ---
 
+## v1.83.0 - 21 October 2026
+
+**Pinterest pins redesigned, and no price on the picture by default.**
+
+- **New look:** the photo now fills the top two thirds of the pin edge to
+  edge, as the pins people stop for do. Below it, a calm panel with a curved
+  gold edge, the lotus as a seal on the join, a small line saying what it is
+  ("CRYSTAL EARRINGS", "HAND-CROCHETED"...), the name in a serif, and
+  "Handmade by Kay · Soul Creations", all centred. With Cut out ticked, the
+  item sits on the backdrop instead.
+- **Price:** a pin is found for months and its picture cannot be edited, so an
+  exact price on it would go out of date. Now there is none by default; items
+  under £10 get an **"Under £10"** tag instead, and the price stays in the
+  description (which can be edited on Pinterest). Tick **Show the price on the
+  pin picture** to put it back. Instagram and Facebook slides still show the
+  price, as those posts are seen within a day or two.
+- **Bars trimmed:** plain black or white bars along a photo's edges (as from
+  a screenshot or a letterboxed export) are trimmed off so the photo fills the
+  pin or slide. Only truly flat bars; the photo is not otherwise changed.
+
+---
+
 ## v1.82.1 - 21 October 2026
 
 **Pinterest pins: the two boards on separate lines.** Each pin now shows
