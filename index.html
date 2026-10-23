@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-oojVdTqBiBSAa64NdUvvwCwuPDKcx5cPti+xqaTJok8=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-uXAOdt0pzsLqzaX2s6Gu7Kod3EzXXbXAPfx00dBA1Q4=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -1845,6 +1845,11 @@ if (window.top !== window.self) {
       <option value="clear">Not chosen yet</option>
     </select>
     <div class="folder-hint">What the website charges to post these: large letter or small parcel. Tick a whole folder to set it in one go.</div>
+    <label for="bulkLabelInput">Label needed</label>
+    <input type="text" id="bulkLabelInput" list="labelOptions" placeholder="Leave blank to keep current" autocomplete="off">
+    <button type="button" class="folder-toggle" id="bulkLabelToggle" style="display:none;"></button>
+    <div class="folder-picks" id="bulkLabelPicks" style="display:none;"></div>
+    <div class="folder-hint">Type just - (or tap No label) to take the label off these items.</div>
 
     <!-- Mix-and-match deal. Ticking the members and setting the terms is ONE
          action on purpose: the numbers are repeated on every item, and a deal
@@ -4841,7 +4846,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.84.0';
+  const APP_VERSION = '1.85.0';
   const BUILD_DATE  = '21 Oct 2026';
   const BUILD_TIME  = '17:37';
   const versionEl = document.getElementById('appVersion');
@@ -7711,7 +7716,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   const LABEL_PICKERS = {
     edit: { input:'editItemLabel', box:'editLabelPicks', toggle:'editLabelToggle' },
     add:  { input:'manualLabel',   box:'addLabelPicks',  toggle:'addLabelToggle'  },
-    scan: { input:'newItemLabel',  box:'newLabelPicks',  toggle:'newLabelToggle'  }
+    scan: { input:'newItemLabel',  box:'newLabelPicks',  toggle:'newLabelToggle'  },
+    // Bulk edit (v1.85.0): blank there means "leave as it is", so taking the
+    // label off is spelt "-", the same as the made-by and deal boxes.
+    bulk: { input:'bulkLabelInput', box:'bulkLabelPicks', toggle:'bulkLabelToggle', clear:'-', blank:'Leave as it is' }
   };
 
   const labelPicksOpen = {};
@@ -7747,15 +7755,18 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
 
     const current = String(input.value || '').trim();
     const open = !!labelPicksOpen[which];
+    // What "No label" writes in the box: nothing, except on bulk edit.
+    const clearVal = cfg.clear || '';
+    const isClear = current === clearVal;
 
     if(toggle){
       toggle.style.display = 'flex';
       const known = all.some(v => v.toLowerCase() === current.toLowerCase());
-      const now = current
-        ? `🏷️ ${escapeHtml(current)}${known ? ` <span style="opacity:.7;">${labelItemCount(current)}</span>` : ' <span style="opacity:.7;">new</span>'}`
-        : 'No label';
+      const now = !current ? (cfg.blank || 'No label')
+        : isClear ? 'No label'
+        : `🏷️ ${escapeHtml(current)}${known ? ` <span style="opacity:.7;">${labelItemCount(current)}</span>` : ' <span style="opacity:.7;">new</span>'}`;
       toggle.innerHTML =
-        `<span class="ft-now${current ? '' : ' none'}">${now}</span>` +
+        `<span class="ft-now${current && !isClear ? '' : ' none'}">${now}</span>` +
         `<span class="ft-do">${open ? 'Done ▴' : 'Choose label ▾'}</span>`;
     }
 
@@ -7771,7 +7782,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       if(hits.length) shown = hits;
     }
 
-    let html = `<div class="folder-pick ${current ? '' : 'on'}" data-label="">No label</div>`;
+    let html = `<div class="folder-pick ${isClear ? 'on' : ''}" data-label="${escapeAttr(clearVal)}">No label</div>`;
     html += shown.map(v =>
       `<div class="folder-pick ${v === current ? 'on' : ''}" data-label="${escapeAttr(v)}">🏷️ ${escapeHtml(v)} <span style="opacity:.7;">${labelItemCount(v)}</span></div>`
     ).join('');
@@ -7820,7 +7831,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   function resetLabelPicks(which){
     delete labelPicksOpen[which];
     const input = document.getElementById(LABEL_PICKERS[which].input);
-    if(input) input.placeholder = 'e.g. Small swing tag';
+    if(input) input.placeholder = which === 'bulk' ? 'Leave blank to keep current' : 'e.g. Small swing tag';
     refreshFolderOptions();
     renderLabelPicks(which);
   }
@@ -9754,6 +9765,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     document.getElementById('bulkWebInput').value = '';
     document.getElementById('bulkPostInput').value = '';
     document.getElementById('bulkDealTag').value = '';
+    document.getElementById('bulkLabelInput').value = '';
+    resetLabelPicks('bulk');
     // Two, not blank. Nearly every offer is "any 2 for", and a box that opens
     // empty under a label saying "Buy how many" is how the first real attempt
     // at this was refused.
@@ -9824,6 +9837,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const dk = Math.floor(Number(document.getElementById('bulkDealPick').value) || 0);
     const dp = round2(Number(document.getElementById('bulkDealPrice').value) || 0);
     const dx = document.getElementById('bulkDealExpires').value;
+    const lb = document.getElementById('bulkLabelInput').value.trim();
 
     // A deal is set in ONE action across every member, which is what keeps the
     // repeated numbers agreeing with each other. Half a deal is refused here
@@ -9846,7 +9860,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
                   + ' — they should know before this goes on the shelf.\n\nSet the deal?')) return;
     }
 
-    if(!f && !m && !w && !ps && !dt){ showToast('Fill in a folder, a made-by, the website setting, the postage size or a deal first', 'error'); return; }
+    if(!f && !m && !w && !ps && !dt && !lb){ showToast('Fill in a folder, a made-by, the website setting, the postage size, a label or a deal first', 'error'); return; }
     const bcs = Object.keys(bulkPicked);
     bcs.forEach(bc => {
       if(!items[bc]) return;
@@ -9856,6 +9870,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       else if(w === 'off') delete items[bc].web;
       if(ps === 'clear') delete items[bc].post;
       else if(postSize(ps)) items[bc].post = postSize(ps);
+      if(lb === '-') delete items[bc].label;
+      else if(lb) items[bc].label = lb;
       if(dt === '-'){
         delete items[bc].dealTag; delete items[bc].dealPick;
         delete items[bc].dealPrice; delete items[bc].dealExpires;

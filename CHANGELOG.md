@@ -10,6 +10,16 @@ fixes.
 
 ---
 
+## v1.85.0 - 23 October 2026
+
+**Bulk Edit can set the label.** Tick items on the Stock list, tap **✏ Edit**, and
+there is now a **Label needed** box with the same Choose label list (including
+**＋ New label**). Pick or type a label and Apply, and every ticked item gets it.
+Like the other boxes there, leaving it blank changes nothing; tap **No label** (or
+type just -) to take the label off the ticked items.
+
+---
+
 ## v1.84.0 - 23 October 2026
 
 **Label needed: a ＋ New label button.** The Choose label list only showed the
