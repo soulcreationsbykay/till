@@ -10,6 +10,17 @@ fixes.
 
 ---
 
+## v1.84.0 - 23 October 2026
+
+**Label needed: a ＋ New label button.** The Choose label list only showed the
+labels already in use, so adding a different type meant knowing to type it in the
+box above. The list now ends with **＋ New label**: tap it, the box empties and the
+keyboard comes up, type the new label (for example "40x20 Round Label") and save
+the item. From then on it is in the list with the others. Works on Add, Scan and
+Edit item.
+
+---
+
 ## v1.83.1 - 21 October 2026
 
 **Post maker: no repeated label in names.** A name like "Brooch - Citrine Kilt

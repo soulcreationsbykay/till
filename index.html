@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-rwiqnyd82BAuLxlRUMMGAKh5S87VeAZ4TpDbp/B8mw0=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-oojVdTqBiBSAa64NdUvvwCwuPDKcx5cPti+xqaTJok8=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -4841,7 +4841,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.83.1';
+  const APP_VERSION = '1.84.0';
   const BUILD_DATE  = '21 Oct 2026';
   const BUILD_TIME  = '17:37';
   const versionEl = document.getElementById('appVersion');
@@ -7775,6 +7775,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     html += shown.map(v =>
       `<div class="folder-pick ${v === current ? 'on' : ''}" data-label="${escapeAttr(v)}">🏷️ ${escapeHtml(v)} <span style="opacity:.7;">${labelItemCount(v)}</span></div>`
     ).join('');
+    // A new kind of label (v1.84.0): the list only ever offers wordings already
+    // in use, so without this a new one meant knowing to type in the box above.
+    html += `<div class="folder-pick more" data-newlabel="1">＋ New label</div>`;
     box.innerHTML = html;
   }
 
@@ -7794,6 +7797,17 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     box.addEventListener('click', (e) => {
       const pick = e.target.closest('.folder-pick');
       if(!pick) return;
+      if(pick.dataset.newlabel){
+        // Empty box, keyboard up, and say what goes in it. Saving the item is
+        // what adds the new wording to the list for next time.
+        input.value = '';
+        input.placeholder = 'Type the new label, e.g. 40x20 Round Label';
+        labelPicksOpen[which] = false;
+        renderLabelPicks(which);
+        try { input.scrollIntoView({ block:'center' }); } catch(err){}
+        input.focus();
+        return;
+      }
       input.value = pick.getAttribute('data-label') || '';
       labelPicksOpen[which] = false;
       renderLabelPicks(which);
@@ -7805,6 +7819,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // the button has to say the label this item actually has.
   function resetLabelPicks(which){
     delete labelPicksOpen[which];
+    const input = document.getElementById(LABEL_PICKERS[which].input);
+    if(input) input.placeholder = 'e.g. Small swing tag';
     refreshFolderOptions();
     renderLabelPicks(which);
   }
