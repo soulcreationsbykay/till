@@ -77,7 +77,7 @@ const ITEMS = { 'CA-031': { maker: 'Meg' } };
 // the shelf, for the stock take export
 const STOCK = {
   'CA-001': { name: 'Rose Quartz "Heart"', folder: 'Kay/Jewellery', maker: 'Kay',
-              price: 12.5, qty: 2, counted: 1, label: 'Small swing tag', materials: 'Mixed fibres yarn, alloy clasp', batch: 'lot 4821',
+              price: 12.5, qty: 2, counted: 1, label: 'Small swing tag', materials: 'Mixed fibres yarn, alloy clasp', batch: 'lot 4821', boughtFrom: 'Wool Warehouse',
               addedAt: '2026-08-01T09:00:00.000Z' },
   // no addedAt - it falls back to the date the count started. No label either,
   // which is the normal case: most items will never have one.
@@ -178,14 +178,14 @@ console.log('\nThe stock take CSV');
         csv === want ? '' : '\n--- got ---\n' + csv + '--- want ---\n' + want);
   const lines = csv.trim().split('\n');
   check('the header row is not quoted',
-        lines[0] === 'Barcode,Name,Folder,Made By,Price Each,Expected Qty,Counted Qty,Difference,Counted Value,Date Added,Label,Materials,Batch Numbers');
+        lines[0] === 'Barcode,Name,Folder,Made By,Price Each,Expected Qty,Counted Qty,Difference,Counted Value,Date Added,Label,Materials,Batch Numbers,Bought From');
   check('one row per item, plus a total', lines.length === Object.keys(STOCK).length + 2);
   check('the price is money', lines[1].indexOf('"12.50"') !== -1);
   check('a short count shows as a negative difference', lines[1].indexOf('"-1"') !== -1);
   check('the counted value is the counted quantity, not the expected one',
         lines[1].indexOf('"12.50"') !== -1 && lines[1].split(',')[8] === '"12.50"', lines[1]);
   check('the total row counts the units and their value',
-        lines[4] === '"TOTAL","","","","","","6","","52.50","","","",""', lines[4]);
+        lines[4] === '"TOTAL","","","","","","6","","52.50","","","","",""', lines[4]);
 
   // The label the shop needs to print. It rides in the export and nowhere else:
   // shop-worker never asks Firestore for it, which test/sets.test.js over there
@@ -197,10 +197,10 @@ console.log('\nThe stock take CSV');
   // v1.90.0: the materials go on the label too, so they ride next to it.
   check('the materials come out after the label, commas and all',
         lines[1].indexOf('"Small swing tag","Mixed fibres yarn, alloy clasp",') !== -1, lines[1]);
-  check('the batch numbers come out in the last column',
-        lines[1].endsWith('"lot 4821"'), lines[1]);
-  check('an item with neither gets empty cells',
-        lines[2].endsWith(',"",""'), lines[2]);
+  check('the batch numbers come next, then who the parts came from',
+        lines[1].endsWith('"lot 4821","Wool Warehouse"'), lines[1]);
+  check('an item with none of them gets empty cells',
+        lines[2].endsWith(',"","",""'), lines[2]);
 }
 
 /* ---------- 2. the .xlsx is really a .xlsx ---------- */
@@ -371,6 +371,9 @@ function readZip(buf) {
     check('the batch numbers are column M',
           sheet.indexOf('<c r="M1" s="1" t="inlineStr"><is><t xml:space="preserve">Batch Numbers</t></is></c>') !== -1 &&
           sheet.indexOf('<c r="M2" t="inlineStr"><is><t xml:space="preserve">lot 4821</t></is></c>') !== -1);
+    check('who the parts came from is column N',
+          sheet.indexOf('<c r="N1" s="1" t="inlineStr"><is><t xml:space="preserve">Bought From</t></is></c>') !== -1 &&
+          sheet.indexOf('<c r="N2" t="inlineStr"><is><t xml:space="preserve">Wool Warehouse</t></is></c>') !== -1);
   }
 
   console.log('\nThe report as a workbook');
@@ -614,10 +617,10 @@ function oldSalesCsv(sales, items) {
 // v1.18.0 added the Label column to this file DELIBERATELY - it is the one
 // change to the stock CSV since this reference was taken, written in here
 // rather than papered over by loosening the comparison. v1.90.0 added Materials
-// and Batch Numbers after it, the same way and for the same reason: they go on the label.
+// and Batch Numbers and Bought From after it, the same way and for the same reason: they go on the label.
 function oldStockCsv(items) {
   const itemFolder = ctx.itemFolder, fmtDate = ctx.fmtDate, sessionDate = ctx.sessionDate;
-  let csv = 'Barcode,Name,Folder,Made By,Price Each,Expected Qty,Counted Qty,Difference,Counted Value,Date Added,Label,Materials,Batch Numbers\n';
+  let csv = 'Barcode,Name,Folder,Made By,Price Each,Expected Qty,Counted Qty,Difference,Counted Value,Date Added,Label,Materials,Batch Numbers,Bought From\n';
   let totalUnits = 0, totalValue = 0;
   Object.keys(items).forEach(bc => {
     const it = items[bc];
@@ -628,10 +631,10 @@ function oldStockCsv(items) {
     totalUnits += counted;
     totalValue += lineValue;
     const row = [bc, it.name, itemFolder(it), it.maker || '', price.toFixed(2), it.qty, counted, diff,
-      lineValue.toFixed(2), fmtDate(it.addedAt || sessionDate), it.label || '', it.materials || '', it.batch || ''];
+      lineValue.toFixed(2), fmtDate(it.addedAt || sessionDate), it.label || '', it.materials || '', it.batch || '', it.boughtFrom || ''];
     csv += row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',') + '\n';
   });
-  csv += `"TOTAL","","","","","",${totalUnits},"","${totalValue.toFixed(2)}","","","",""\n`;
+  csv += `"TOTAL","","","","","",${totalUnits},"","${totalValue.toFixed(2)}","","","","",""\n`;
   return csv;
 }
 

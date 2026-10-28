@@ -10,6 +10,19 @@ fixes.
 
 ---
 
+## v1.91.0 - 28 October 2026
+
+**Bought from: who the parts came from.** A **Bought from** box after Batch
+numbers, e.g. "Wool Warehouse, Beads Direct". Every supplier you've typed before
+shows underneath to tap on or off, the same way as Materials. It's in Add item,
+the new-item box after a scan, Edit item (under More) and bulk Edit, where it
+replaces what the ticked items had and just - clears it.
+
+It comes out in the stock export as a **Bought From** column after Batch Numbers
+(no other column moves), is kept in the Sold items record, and Records → **Trace a
+part, batch or supplier** now finds items by supplier too. Never sent to the
+website or Etsy.
+
 ## v1.90.0 - 28 October 2026
 
 **Materials: every part an item is made from.** A new **Materials** box, one line

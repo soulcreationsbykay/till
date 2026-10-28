@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-1pvtKYuxQPcvo00RP60q1BUUoz9zrDie8aXmWIY4Rb8=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-jXKs9ZjEk2DGM/UrwdTyljayOy+XnBycRtr/55yOMcI=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -1167,6 +1167,10 @@ if (window.top !== window.self) {
       <label for="manualBatch">Batch numbers (optional)</label>
       <input type="text" id="manualBatch" placeholder="e.g. yarn lot 4821, clasps order 48213" autocomplete="off">
       <div class="folder-hint">Which batch, lot or order each part came from, so a problem can be traced back. Not for the label: it comes out in the stock export after Materials.</div>
+      <label for="manualBoughtFrom">Bought from (optional)</label>
+      <input type="text" id="manualBoughtFrom" placeholder="e.g. Wool Warehouse, Beads Direct" autocomplete="off">
+      <div class="folder-picks" id="manualBoughtFromPicks"></div>
+      <div class="folder-hint">Who you bought the parts from, split by commas. Tap one you have used before to add it. It comes out in the stock export after Batch Numbers.</div>
       <!-- The website photo: hidden while Etsy is ticked (v1.57.1). -->
       <div class="etsy-hide">
       <label>Photo (optional)</label>
@@ -1309,10 +1313,10 @@ if (window.top !== window.self) {
        or batch, the safety complaints log, and the sold items record. -->
   <div id="tab-records" style="display:none;">
     <div class="card">
-      <div class="quick-sell-head">🔎 Trace a part or batch</div>
-      <input type="text" id="traceSearch" placeholder="e.g. lot 4821, or alloy clasp" autocomplete="off">
+      <div class="quick-sell-head">🔎 Trace a part, batch or supplier</div>
+      <input type="text" id="traceSearch" placeholder="e.g. lot 4821, alloy clasp or Wool Warehouse" autocomplete="off">
       <div id="traceResults" style="font-size:13px;line-height:1.45;margin-top:8px;"></div>
-      <div class="folder-hint">Finds every item still in the till made with that part or batch, sold or not, from its Materials and Batch numbers. Items already cleared out are in your sold items record files.</div>
+      <div class="folder-hint">Finds every item still in the till made with that part, batch or supplier, sold or not, from its Materials, Batch numbers and Bought from. Items already cleared out are in your sold items record files.</div>
     </div>
 
     <div class="card">
@@ -1331,7 +1335,7 @@ if (window.top !== window.self) {
 
     <div class="card">
       <div class="quick-sell-head">📜 Sold items record</div>
-      <div class="folder-hint" style="margin:0 0 8px;">Save sold-out items, with their photo, materials, batch numbers and every sale, to a file you keep for six years, then clear them out of the till.</div>
+      <div class="folder-hint" style="margin:0 0 8px;">Save sold-out items, with their photo, materials, batch numbers, where the parts came from and every sale, to a file you keep for six years, then clear them out of the till.</div>
       <!-- Sold items record (v1.89.0; moved here from Settings in v1.90.0) -->
       <button class="btn btn-secondary" id="soldRecordBtn" style="width:100%;">📜 Sold items record</button>
     </div>
@@ -1833,6 +1837,9 @@ if (window.top !== window.self) {
     <div class="folder-picks" id="newItemMaterialPicks"></div>
     <label for="newItemBatch">Batch numbers (optional)</label>
     <input type="text" id="newItemBatch" placeholder="e.g. yarn lot 4821, clasps order 48213" autocomplete="off">
+    <label for="newItemBoughtFrom">Bought from (optional)</label>
+    <input type="text" id="newItemBoughtFrom" placeholder="e.g. Wool Warehouse, Beads Direct" autocomplete="off">
+    <div class="folder-picks" id="newItemBoughtFromPicks"></div>
     <label>Photo (optional)</label>
     <button class="btn-generate photo-btn" type="button" data-pick="newPhotoInput">📷 Add photo</button>
     <input type="file" id="newPhotoInput" accept="image/*" style="display:none;">
@@ -1911,6 +1918,10 @@ if (window.top !== window.self) {
     <label for="bulkBatchInput">Batch numbers</label>
     <input type="text" id="bulkBatchInput" placeholder="Leave blank to keep current" autocomplete="off">
     <div class="folder-hint">e.g. yarn lot 4821. Handy when a whole batch was made from the same yarn. Type just - to take it off them.</div>
+    <label for="bulkBoughtFrom">Bought from</label>
+    <input type="text" id="bulkBoughtFrom" placeholder="Leave blank to keep current" autocomplete="off">
+    <div class="folder-picks" id="bulkBoughtFromPicks"></div>
+    <div class="folder-hint">Who the parts came from, split by commas. This replaces what these items have now. Type just - to take it off them.</div>
 
     <!-- Mix-and-match deal. Ticking the members and setting the terms is ONE
          action on purpose: the numbers are repeated on every item, and a deal
@@ -2280,7 +2291,7 @@ if (window.top !== window.self) {
          is the everyday boxes, the Etsy part and Save. It opens by itself for
          an item that has a label or is part of a set. -->
     <details class="more-box" id="editMore">
-      <summary>More: label, materials, batch, complaints, sets, QR code, delete</summary>
+      <summary>More: label, materials, batch, bought from, complaints, sets, QR code, delete</summary>
     <label>Label needed (optional)</label>
     <input type="text" id="editItemLabel" list="labelOptions" placeholder="e.g. Small swing tag" autocomplete="off">
     <button type="button" class="folder-toggle" id="editLabelToggle" style="display:none;"></button>
@@ -2293,6 +2304,10 @@ if (window.top !== window.self) {
     <label for="editItemBatch">Batch numbers (optional)</label>
     <input type="text" id="editItemBatch" placeholder="e.g. yarn lot 4821, clasps order 48213" autocomplete="off">
     <div class="folder-hint">Which batch, lot or order each part came from, so a problem can be traced back. Not for the label: it comes out in the stock export after Materials.</div>
+    <label for="editItemBoughtFrom">Bought from (optional)</label>
+    <input type="text" id="editItemBoughtFrom" placeholder="e.g. Wool Warehouse, Beads Direct" autocomplete="off">
+    <div class="folder-picks" id="editItemBoughtFromPicks"></div>
+    <div class="folder-hint">Who you bought the parts from, split by commas. Tap one you have used before to add it. It comes out in the stock export after Batch Numbers.</div>
 
     <!-- Safety complaints (v1.90.0): the register the safety rules ask for,
          kept on the item so it syncs and travels with it. -->
@@ -4951,7 +4966,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.90.0';
+  const APP_VERSION = '1.91.0';
   const BUILD_DATE  = '28 Oct 2026';
   const BUILD_TIME  = '13:55';
   const versionEl = document.getElementById('appVersion');
@@ -6884,7 +6899,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         ? '<img src="' + esc(e.photo) + '" alt="">' : '<div class="nopic">No photo</div>';
       const facts = [
         ['Code', e.bc], ['Price', gbp(it.price)], ['Folder', it.folder], ['Made by', it.maker],
-        ['Label', it.label], ['Materials', it.materials], ['Batch numbers', it.batch], ['Etsy listing', it.etsyListingId], ['Added', it.addedAt ? day(it.addedAt) : '']
+        ['Label', it.label], ['Materials', it.materials], ['Batch numbers', it.batch], ['Bought from', it.boughtFrom], ['Etsy listing', it.etsyListingId], ['Added', it.addedAt ? day(it.addedAt) : '']
       ].filter(f => f[1] !== undefined && f[1] !== null && String(f[1]) !== '')
        .map(f => '<tr><th>' + f[0] + '</th><td>' + esc(f[1]) + '</td></tr>').join('');
       const sold = (e.lines || []).map(l =>
@@ -6952,16 +6967,16 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       rows: (list || []).map(c => [day(c.date), c.bc, c.name, c.what, c.done])
     };
   }
-  // Every item whose Materials or Batch numbers mention what was typed, any
-  // capitals, for tracing a faulty part or a recalled batch.
+  // Every item whose Materials, Batch numbers or Bought from mention what was
+  // typed, any capitals, for tracing a faulty part, a recalled batch or a supplier.
   function traceItems(items, q){
     const want = String(q || '').trim().toLowerCase();
     if(want.length < 2) return [];
     return Object.keys(items || {}).filter(bc => {
       const it = items[bc];
-      return it && (String(it.materials || '') + '\n' + String(it.batch || '')).toLowerCase().indexOf(want) > -1;
+      return it && [it.materials, it.batch, it.boughtFrom].map(v => String(v || '')).join('\n').toLowerCase().indexOf(want) > -1;
     }).sort().map(bc => ({ bc: bc, name: items[bc].name || '', materials: items[bc].materials || '',
-      batch: items[bc].batch || '', left: Number(items[bc].counted) || 0 }));
+      batch: items[bc].batch || '', boughtFrom: items[bc].boughtFrom || '', left: Number(items[bc].counted) || 0 }));
   }
   // COMPLAINTS: END
 
@@ -7425,37 +7440,45 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // wants it on anything that is mostly yarn, thread or fabric.
   // Functions, not constants: the stock list is drawn (and these with it)
   // before the script has reached this far.
+  // Bought from (v1.90.0) works the same way: who the parts came from, one
+  // line split by commas, offering back every supplier already typed.
   function materialBoxes(){
     return {
-      manualMaterials:    'manualMaterialPicks',
-      newItemMaterials:   'newItemMaterialPicks',
-      editItemMaterials:  'editItemMaterialPicks',
-      bulkMaterialsInput: 'bulkMaterialPicks'
+      manualMaterials:    { box:'manualMaterialPicks',    field:'materials' },
+      newItemMaterials:   { box:'newItemMaterialPicks',   field:'materials' },
+      editItemMaterials:  { box:'editItemMaterialPicks',  field:'materials' },
+      bulkMaterialsInput: { box:'bulkMaterialPicks',      field:'materials' },
+      manualBoughtFrom:   { box:'manualBoughtFromPicks',  field:'boughtFrom' },
+      newItemBoughtFrom:  { box:'newItemBoughtFromPicks', field:'boughtFrom' },
+      editItemBoughtFrom: { box:'editItemBoughtFromPicks', field:'boughtFrom' },
+      bulkBoughtFrom:     { box:'bulkBoughtFromPicks',    field:'boughtFrom' }
     };
   }
   function materialParts(s){
     return String(s || '').split(',').map(p => p.trim()).filter(p => p && p !== '-');
   }
-  // The usual ones, then every part already used, once each whatever its capitals.
-  function materialPartsOffered(){
+  // The usual parts (materials only), then every one already used, once each
+  // whatever its capitals.
+  function materialPartsOffered(field){
     const seen = {}, out = [], used = [];
     const add = v => { const k = v.toLowerCase(); if(!seen[k]){ seen[k] = 1; out.push(v); } };
-    ['100% acrylic yarn', '100% cotton yarn', 'Mixed fibres', 'Glass beads', 'Alloy clasp', 'Polyester stuffing'].forEach(add);
-    Object.keys(items).forEach(bc => { if(items[bc]) used.push(...materialParts(items[bc].materials)); });
+    if(field === 'materials') ['100% acrylic yarn', '100% cotton yarn', 'Mixed fibres', 'Glass beads', 'Alloy clasp', 'Polyester stuffing'].forEach(add);
+    Object.keys(items).forEach(bc => { if(items[bc]) used.push(...materialParts(items[bc][field])); });
     used.sort((a, b) => a.localeCompare(b)).forEach(add);
     return out;
   }
   function renderMaterialPicks(inputId){
-    const input = document.getElementById(inputId), box = document.getElementById(materialBoxes()[inputId]);
+    const cfg = materialBoxes()[inputId];
+    const input = document.getElementById(inputId), box = cfg && document.getElementById(cfg.box);
     if(!input || !box) return;
     const have = {};
     materialParts(input.value).forEach(p => { have[p.toLowerCase()] = 1; });
-    box.innerHTML = materialPartsOffered().map(p =>
+    box.innerHTML = materialPartsOffered(cfg.field).map(p =>
       `<div class="folder-pick${have[p.toLowerCase()] ? ' on' : ''}" data-part="${escapeAttr(p)}">${escapeHtml(p)}</div>`).join('');
   }
   // Tapping a part adds it to the end of the box, or takes it out if it is there.
   Object.keys(materialBoxes()).forEach(inputId => {
-    const input = document.getElementById(inputId), box = document.getElementById(materialBoxes()[inputId]);
+    const input = document.getElementById(inputId), box = document.getElementById(materialBoxes()[inputId].box);
     if(!input || !box) return;
     box.addEventListener('click', e => {
       const pick = e.target.closest('.folder-pick');
@@ -10112,6 +10135,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     resetLabelPicks('bulk');
     document.getElementById('bulkMaterialsInput').value = '';
     document.getElementById('bulkBatchInput').value = '';
+    document.getElementById('bulkBoughtFrom').value = '';
+    renderMaterialPicks('bulkBoughtFrom');
     renderMaterialPicks('bulkMaterialsInput');
     // Two, not blank. Nearly every offer is "any 2 for", and a box that opens
     // empty under a label saying "Buy how many" is how the first real attempt
@@ -10186,6 +10211,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const lb = document.getElementById('bulkLabelInput').value.trim();
     const mt = document.getElementById('bulkMaterialsInput').value.trim();
     const bn = document.getElementById('bulkBatchInput').value.trim();
+    const bf = document.getElementById('bulkBoughtFrom').value.trim();
 
     // A deal is set in ONE action across every member, which is what keeps the
     // repeated numbers agreeing with each other. Half a deal is refused here
@@ -10208,7 +10234,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
                   + ' — they should know before this goes on the shelf.\n\nSet the deal?')) return;
     }
 
-    if(!f && !m && !w && !ps && !dt && !lb && !mt && !bn){ showToast('Fill in a folder, a made-by, the website setting, the postage size, a label, the materials, a batch number or a deal first', 'error'); return; }
+    if(!f && !m && !w && !ps && !dt && !lb && !mt && !bn && !bf){ showToast('Fill in a folder, a made-by, the website setting, the postage size, a label, the materials, a batch number, a supplier or a deal first', 'error'); return; }
     const bcs = Object.keys(bulkPicked);
     bcs.forEach(bc => {
       if(!items[bc]) return;
@@ -10224,6 +10250,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       else if(mt) items[bc].materials = materialParts(mt).join(', ');
       if(bn === '-') delete items[bc].batch;
       else if(bn) items[bc].batch = bn;
+      if(bf === '-') delete items[bc].boughtFrom;
+      else if(bf) items[bc].boughtFrom = materialParts(bf).join(', ');
       if(dt === '-'){
         delete items[bc].dealTag; delete items[bc].dealPick;
         delete items[bc].dealPrice; delete items[bc].dealExpires;
@@ -12491,7 +12519,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const cols = [
       { h:'Barcode' }, { h:'Name' }, { h:'Folder' }, { h:'Made By' }, { h:'Price Each' },
       { h:'Expected Qty' }, { h:'Counted Qty' }, { h:'Difference' }, { h:'Counted Value' },
-      { h:'Date Added' }, { h:'Label' }, { h:'Materials' }, { h:'Batch Numbers' }
+      { h:'Date Added' }, { h:'Label' }, { h:'Materials' }, { h:'Batch Numbers' }, { h:'Bought From' }
     ];
     const rows = [];
     let totalUnits = 0, totalValue = 0;
@@ -12504,10 +12532,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       totalValue += lineValue;
       rows.push([bc, it.name, itemFolder(it), it.maker || '', moneyCell(price),
                  it.qty, counted, counted - it.qty, moneyCell(lineValue),
-                 fmtDate(it.addedAt || sessionDate), it.label || '', it.materials || '', it.batch || '']);
+                 fmtDate(it.addedAt || sessionDate), it.label || '', it.materials || '', it.batch || '', it.boughtFrom || '']);
     });
     // Totals row so the spreadsheet is useful without adding formulas by hand
-    rows.push(['TOTAL','','','','','', totalUnits, '', moneyCell(totalValue), '', '', '', '']);
+    rows.push(['TOTAL','','','','','', totalUnits, '', moneyCell(totalValue), '', '', '', '', '']);
     return { cols: cols, rows: rows };
   }
 
@@ -16241,6 +16269,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if(materials) it.materials = materials;
     const batch = String(f.batch || '').trim();
     if(batch) it.batch = batch;
+    const boughtFrom = String(f.boughtFrom || '').split(',').map(p => p.trim()).filter(Boolean).join(', ');
+    if(boughtFrom) it.boughtFrom = boughtFrom;
     // Kept for Etsy is never on the website as well (v1.55.0), so an Etsy tick
     // wins over a website one. Both need the description and postage size:
     // Etsy lists the description and posts it like a website order.
@@ -16341,6 +16371,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       label: document.getElementById('manualLabel').value,
       materials: document.getElementById('manualMaterials').value,
       batch: document.getElementById('manualBatch').value,
+      boughtFrom: document.getElementById('manualBoughtFrom').value,
       web: document.getElementById('manualWebOn').checked,
       etsy: document.getElementById('manualEtsyOn').checked,
       etsyTitle: etsyText.title,
@@ -16354,7 +16385,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const forEtsy = !!items[bc].etsy;
     clearAddEtsy();
     manualPhoto.clear();
-    ['manualBarcode','manualName','manualQty','manualMaker','manualPrice','manualFolder','manualLabel','manualMaterials','manualBatch','manualWebDesc','manualPost','manualEtsyTitle','manualEtsyTags'].forEach(id => document.getElementById(id).value='');
+    ['manualBarcode','manualName','manualQty','manualMaker','manualPrice','manualFolder','manualLabel','manualMaterials','manualBatch','manualBoughtFrom','manualWebDesc','manualPost','manualEtsyTitle','manualEtsyTags'].forEach(id => document.getElementById(id).value='');
     renderEtsyTextHints('manual');
     // Back to ticked, which is the default for a reason - see the form.
     document.getElementById('manualWebOn').checked = true;
@@ -16981,6 +17012,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     document.getElementById('newItemLabel').value = '';
     document.getElementById('newItemMaterials').value = '';
     document.getElementById('newItemBatch').value = '';
+    document.getElementById('newItemBoughtFrom').value = '';
+    renderMaterialPicks('newItemBoughtFrom');
     renderMaterialPicks('newItemMaterials');
     resetFolderPicks('scan');
     resetLabelPicks('scan');
@@ -17010,6 +17043,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if(materials) items[bc].materials = materials;
     const batch = document.getElementById('newItemBatch').value.trim();
     if(batch) items[bc].batch = batch;
+    const boughtFrom = materialParts(document.getElementById('newItemBoughtFrom').value).join(', ');
+    if(boughtFrom) items[bc].boughtFrom = boughtFrom;
     saveItems();
     document.getElementById('newItemModal').style.display = 'none';
     renderList(document.getElementById('searchBox').value);
@@ -17132,6 +17167,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     document.getElementById('editItemMaterials').value = it.materials || '';
     renderMaterialPicks('editItemMaterials');
     document.getElementById('editItemBatch').value = it.batch || '';
+    document.getElementById('editItemBoughtFrom').value = it.boughtFrom || '';
+    renderMaterialPicks('editItemBoughtFrom');
     resetComplaintForm();
     renderEditComplaints(it);
     editPhoto.set(it.photo || '');
@@ -17182,7 +17219,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     setTimeout(() => {
       const more = document.getElementById('editMore');
       const cur = items[currentEditBarcode];
-      if(more) more.open = !!(cur && (String(cur.label || '').trim() || String(cur.materials || '').trim() || String(cur.batch || '').trim() || (Array.isArray(cur.complaints) && cur.complaints.length) || document.getElementById('editSetWith').value));
+      if(more) more.open = !!(cur && (String(cur.label || '').trim() || String(cur.materials || '').trim() || String(cur.batch || '').trim() || String(cur.boughtFrom || '').trim() || (Array.isArray(cur.complaints) && cur.complaints.length) || document.getElementById('editSetWith').value));
     }, 0);
     // Before the website state is drawn: it decides whether the description
     // and postage boxes show.
@@ -17297,6 +17334,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if(materialsWanted) it.materials = materialsWanted; else delete it.materials;
     const batchWanted = document.getElementById('editItemBatch').value.trim();
     if(batchWanted) it.batch = batchWanted; else delete it.batch;
+    const boughtFromWanted = materialParts(document.getElementById('editItemBoughtFrom').value).join(', ');
+    if(boughtFromWanted) it.boughtFrom = boughtFromWanted; else delete it.boughtFrom;
     // Pressing Remove photo is the one thing that is allowed to destroy a
     // stored photo, so say so explicitly on the record. Without this marker
     // reconcilePhotos() cannot tell a removal from a photo that simply has not
@@ -17573,7 +17612,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         + hits.map(h => '<div style="border-top:1px solid var(--line);padding:6px 0;">' + escapeHtml(h.bc) + ' · ' + escapeHtml(h.name)
           + ' <span style="color:var(--muted);">(' + (h.left ? h.left + ' in stock' : 'sold out') + ')</span>'
           + (h.materials ? '<br><span style="color:var(--muted);">Materials: ' + escapeHtml(h.materials) + '</span>' : '')
-          + (h.batch ? '<br><span style="color:var(--muted);">Batch: ' + escapeHtml(h.batch) + '</span>' : '') + '</div>').join('')
+          + (h.batch ? '<br><span style="color:var(--muted);">Batch: ' + escapeHtml(h.batch) + '</span>' : '')
+          + (h.boughtFrom ? '<br><span style="color:var(--muted);">Bought from: ' + escapeHtml(h.boughtFrom) + '</span>' : '') + '</div>').join('')
       : '<span style="color:var(--muted);">Nothing in the till uses that.</span>';
   }
   function renderRecords(){
@@ -17914,6 +17954,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       if(typeof raw.label === 'string' && raw.label.trim()) it.label = raw.label.trim();
       if(typeof raw.materials === 'string' && raw.materials.trim()) it.materials = raw.materials.trim();
       if(typeof raw.batch === 'string' && raw.batch.trim()) it.batch = raw.batch.trim();
+      if(typeof raw.boughtFrom === 'string' && raw.boughtFrom.trim()) it.boughtFrom = raw.boughtFrom.trim();
       if(typeof raw.webDesc === 'string' && raw.webDesc.trim()) it.webDesc = raw.webDesc;
       // A mix-and-match deal travels as four flat fields, all or nothing:
       // a tag with no terms cannot fire, and terms with no tag belong to

@@ -126,7 +126,7 @@ console.log('\nTrace a part or batch');
 {
   const items = {
     'KA-060': { name: 'Spinner', materials: '100% acrylic yarn', batch: 'Yarn lot 4821', counted: 2 },
-    'KA-061': { name: 'Keyring', materials: 'Glass beads, Alloy clasp', batch: 'clasps order 48213', counted: 0 },
+    'KA-061': { name: 'Keyring', materials: 'Glass beads, Alloy clasp', batch: 'clasps order 48213', boughtFrom: 'Beads Direct', counted: 0 },
     'KA-062': { name: 'Brooch', materials: 'Mixed fibres', counted: 1 },
   };
   check('a batch number finds its item, any capitals', T.traceItems(items, 'LOT 4821').map(h => h.bc).join() === 'KA-060');
@@ -135,6 +135,8 @@ console.log('\nTrace a part or batch');
   check('sold out items are found too, with what is left', T.traceItems(items, 'clasp')[0].left === 0);
   check('one letter finds nothing yet', T.traceItems(items, 'a').length === 0);
   check('nothing matching, nothing found', T.traceItems(items, 'cotton').length === 0);
+  check('a supplier finds what was made from its parts', T.traceItems(items, 'beads direct').map(h => h.bc).join() === 'KA-061');
+  check('and says who it was', T.traceItems(items, 'beads direct')[0].boughtFrom === 'Beads Direct');
 }
 
 console.log('\nNothing to do');
@@ -147,7 +149,7 @@ console.log('\nThe file');
 {
   const html = T.soldRecordHtml([
     { bc: 'KA-037', photo: 'data:image/jpeg;base64,AAAA',
-      it: { name: 'Star <Brooch>', price: 10, folder: 'Kay/Brooches', label: 'Small tag', materials: 'Mixed fibres yarn, alloy clasp', batch: 'lot 4821', webDesc: 'Line one\nLine two' },
+      it: { name: 'Star <Brooch>', price: 10, folder: 'Kay/Brooches', label: 'Small tag', materials: 'Mixed fibres yarn, alloy clasp', batch: 'lot 4821', boughtFrom: 'Wool Warehouse', webDesc: 'Line one\nLine two' },
       lines: [{ at: '2026-08-01T10:00:00Z', kind: 'sale', qty: 1, net: 9.5, pay: 'card', receiptNo: 'R-12' }] },
     { bc: 'KA-040', photo: 'javascript:alert(1)', it: { name: 'No pic' }, lines: [] },
   ], Date.parse('2026-10-28T12:00:00Z'));
@@ -157,6 +159,7 @@ console.log('\nThe file');
   check('the name is escaped', html.indexOf('Star &lt;Brooch&gt;') > -1 && html.indexOf('<Brooch>') < 0);
   check('code, price, folder and label are there',
     ['KA-037', '£10.00', 'Kay/Brooches', 'Small tag'].every(s => html.indexOf(s) > -1));
+  check('who the parts came from is there', html.indexOf('Bought from') > -1 && html.indexOf('Wool Warehouse') > -1);
   check('the batch numbers are there', html.indexOf('Batch numbers') > -1 && html.indexOf('lot 4821') > -1);
   check('the materials are there', html.indexOf('Materials') > -1 && html.indexOf('Mixed fibres yarn, alloy clasp') > -1);
   check('the description is kept', html.indexOf('Line one\nLine two') > -1);
