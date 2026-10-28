@@ -89,6 +89,16 @@ console.log('\nThe rest of the record');
   check('addedAt is set', typeof it.addedAt === 'string' && it.addedAt.length > 10);
 }
 
+console.log('\nEvery part it is made from (v1.90.0)');
+{
+  const it = newItemRecord({ ...base, materials: ' 100% acrylic yarn ,alloy clasp,, ' });
+  check('the parts are kept, tidied to one comma and a space', it.materials === '100% acrylic yarn, alloy clasp', 'materials=' + it.materials);
+  check('none typed means no field at all', !('materials' in newItemRecord(base)));
+  check('a blank one is not stored', !('materials' in newItemRecord({ ...base, materials: ' , ' })));
+  check('batch numbers are kept, trimmed', newItemRecord({ ...base, batch: ' lot 4821 ' }).batch === 'lot 4821');
+  check('no batch numbers means no field', !('batch' in newItemRecord({ ...base, batch: ' ' })));
+}
+
 console.log('\nThe label the shop needs to print');
 {
   const it = newItemRecord({ ...base, label: ' Small swing tag ' });
@@ -109,7 +119,7 @@ console.log('\nThe label the shop needs to print');
   // by naming fields, but the till's own reports do not, so a stray key here
   // travels further than you would think.
   const it = newItemRecord({ ...base, web: true, webDesc: 'x', nonsense: 'should not appear' });
-  const expected = ['name', 'qty', 'maker', 'price', 'folder', 'photo', 'counted', 'addedAt', 'web', 'webDesc', 'label', 'post'];
+  const expected = ['name', 'qty', 'maker', 'price', 'folder', 'photo', 'counted', 'addedAt', 'web', 'webDesc', 'label', 'materials', 'batch', 'post'];
   check('no unexpected fields', Object.keys(it).every(k => expected.includes(k)),
     Object.keys(it).filter(k => !expected.includes(k)).join(', '));
 }
@@ -152,7 +162,7 @@ console.log('\nKept for Etsy');
   check('no title or tags typed leaves no fields', !('etsyTitle' in it) && !('etsyTags' in it));
   const webTitled = newItemRecord({ ...base, web: true, etsyTitle: 'x', etsyTags: ['y'] });
   check('a website item never gets Etsy text', !('etsyTitle' in webTitled) && !('etsyTags' in webTitled));
-  const allowed = ['name', 'qty', 'maker', 'price', 'folder', 'photo', 'counted', 'addedAt', 'etsy', 'etsyTitle', 'etsyTags', 'webDesc', 'label', 'post'];
+  const allowed = ['name', 'qty', 'maker', 'price', 'folder', 'photo', 'counted', 'addedAt', 'etsy', 'etsyTitle', 'etsyTags', 'webDesc', 'label', 'materials', 'batch', 'post'];
   check('no unexpected fields on an Etsy item', Object.keys(it).every(k => allowed.includes(k)),
     Object.keys(it).filter(k => !allowed.includes(k)).join(', '));
 }

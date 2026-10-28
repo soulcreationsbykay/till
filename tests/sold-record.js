@@ -18,11 +18,12 @@ function slice(start, end){
   return HTML.slice(a, b);
 }
 const SRC = slice('  // WHERE AN ITEM SELLS (v1.56.0)', '  // WHERE AN ITEM SELLS: END')
-          + slice('  // SOLD ITEMS RECORD (v1.89.0)', '  // SOLD ITEMS RECORD: END');
+          + slice('  // SOLD ITEMS RECORD (v1.89.0)', '  // SOLD ITEMS RECORD: END')
+          + slice('  // COMPLAINTS (v1.90.0)', '  // COMPLAINTS: END');
 
 const ctx = { console, Date };
 vm.createContext(ctx);
-vm.runInContext(SRC + '\nthis.T = { planSoldClearout, soldRecordHtml, SOLD_CLEAR_DAYS };', ctx);
+vm.runInContext(SRC + '\nthis.T = { planSoldClearout, soldRecordHtml, SOLD_CLEAR_DAYS, newComplaint, allComplaints, complaintsTable, traceItems };', ctx);
 const T = ctx.T;
 
 let pass = 0, fail = 0;
@@ -96,6 +97,46 @@ console.log('\nEtsy items');
   check('with Team sync off, one with no Etsy photos is still ready', off.ready.some(r => r.bc === 'E-5'));
 }
 
+console.log('\nSafety complaints');
+{
+  const items = {
+    'KA-050': { name: 'Clasp went green', counted: 0, complaints: [{ date: '2026-07-01', what: 'Clasp went green' }] },
+    'KA-051': { name: 'Fine', counted: 0 },
+    'KA-052': { name: 'Two', counted: 1, complaints: [{ date: '2026-09-02', what: 'Loose bead', done: 'Refunded' }, { date: '2026-05-01', what: 'Thread snapped' }] },
+  };
+  const p = T.planSoldClearout(items, [sale('KA-050', 90), sale('KA-051', 90)], { now: NOW });
+  check('an item with a complaint is never cleared out', p.kept.some(k => k.bc === 'KA-050' && k.why === 'has a complaint logged'));
+  check('one without is', p.ready.some(r => r.bc === 'KA-051'));
+  const all = T.allComplaints(items);
+  check('every complaint is in the log, newest first',
+    all.map(c => c.date).join() === '2026-09-02,2026-07-01,2026-05-01', all.map(c => c.date).join());
+  check('each carries its code, item and what was done',
+    all[0].bc === 'KA-052' && all[0].name === 'Two' && all[0].done === 'Refunded');
+  const t = T.complaintsTable(all);
+  check('the export has a column for each part', t.cols.map(c => c.h).join('|') === 'Date|Code|Item|What went wrong|What was done');
+  check('dates read the UK way', t.rows[0][0] === '02/09/2026', t.rows[0][0]);
+  const c = T.newComplaint({ date: '2026-10-20', what: '  Bead fell off ', done: ' ' }, NOW);
+  check('a new complaint keeps its date and words', c.date === '2026-10-20' && c.what === 'Bead fell off');
+  check('nothing done yet leaves no field', !('done' in c));
+  check('no words, no complaint', T.newComplaint({ what: '  ' }, NOW) === null);
+  check('a bad date becomes today', T.newComplaint({ date: 'soon', what: 'x' }, NOW).date === '2026-10-28');
+}
+
+console.log('\nTrace a part or batch');
+{
+  const items = {
+    'KA-060': { name: 'Spinner', materials: '100% acrylic yarn', batch: 'Yarn lot 4821', counted: 2 },
+    'KA-061': { name: 'Keyring', materials: 'Glass beads, Alloy clasp', batch: 'clasps order 48213', counted: 0 },
+    'KA-062': { name: 'Brooch', materials: 'Mixed fibres', counted: 1 },
+  };
+  check('a batch number finds its item, any capitals', T.traceItems(items, 'LOT 4821').map(h => h.bc).join() === 'KA-060');
+  check('a part finds its item', T.traceItems(items, 'alloy clasp').map(h => h.bc).join() === 'KA-061');
+  check('a number in either box is found', T.traceItems(items, '482').map(h => h.bc).join() === 'KA-060,KA-061');
+  check('sold out items are found too, with what is left', T.traceItems(items, 'clasp')[0].left === 0);
+  check('one letter finds nothing yet', T.traceItems(items, 'a').length === 0);
+  check('nothing matching, nothing found', T.traceItems(items, 'cotton').length === 0);
+}
+
 console.log('\nNothing to do');
 {
   check('no items, no crash', T.planSoldClearout({}, [], { now: NOW }).ready.length === 0);
@@ -106,7 +147,7 @@ console.log('\nThe file');
 {
   const html = T.soldRecordHtml([
     { bc: 'KA-037', photo: 'data:image/jpeg;base64,AAAA',
-      it: { name: 'Star <Brooch>', price: 10, folder: 'Kay/Brooches', label: 'Small tag', webDesc: 'Line one\nLine two' },
+      it: { name: 'Star <Brooch>', price: 10, folder: 'Kay/Brooches', label: 'Small tag', materials: 'Mixed fibres yarn, alloy clasp', batch: 'lot 4821', webDesc: 'Line one\nLine two' },
       lines: [{ at: '2026-08-01T10:00:00Z', kind: 'sale', qty: 1, net: 9.5, pay: 'card', receiptNo: 'R-12' }] },
     { bc: 'KA-040', photo: 'javascript:alert(1)', it: { name: 'No pic' }, lines: [] },
   ], Date.parse('2026-10-28T12:00:00Z'));
@@ -116,6 +157,8 @@ console.log('\nThe file');
   check('the name is escaped', html.indexOf('Star &lt;Brooch&gt;') > -1 && html.indexOf('<Brooch>') < 0);
   check('code, price, folder and label are there',
     ['KA-037', '£10.00', 'Kay/Brooches', 'Small tag'].every(s => html.indexOf(s) > -1));
+  check('the batch numbers are there', html.indexOf('Batch numbers') > -1 && html.indexOf('lot 4821') > -1);
+  check('the materials are there', html.indexOf('Materials') > -1 && html.indexOf('Mixed fibres yarn, alloy clasp') > -1);
   check('the description is kept', html.indexOf('Line one\nLine two') > -1);
   check('each sale is listed with amount, payment and receipt',
     ['£9.50', 'Card', 'R-12'].every(s => html.indexOf(s) > -1));

@@ -10,6 +10,42 @@ fixes.
 
 ---
 
+## v1.90.0 - 28 October 2026
+
+**Materials: every part an item is made from.** A new **Materials** box, one line
+split by commas, e.g. "100% acrylic yarn, alloy clasp, glass beads". Under it are
+parts to tap: the usual ones (100% acrylic yarn, 100% cotton yarn, Mixed fibres,
+Glass beads, Alloy clasp, Polyester stuffing) plus every part already used. Tap
+one to add it, tap it again to take it off. For yarn, thread or fabric, give the
+fibre ("Mixed fibres" when it isn't known), because the law wants that on the label.
+
+It's in Add item, the new-item box after a scan, Edit item (under More, next to
+the label) and bulk Edit. In bulk Edit it replaces what the ticked items had, and
+typing just - clears it.
+
+It comes out in the stock export (Excel and CSV) as a new **Materials** column
+after Label, so labels can be made from the same sheet. No other column has moved.
+It's also kept in the Sold items record. Like the label, it is never sent to the
+website or Etsy.
+
+**Batch numbers.** A **Batch numbers** box beside Materials, for which batch, lot
+or order each part came from (e.g. "yarn lot 4821, clasps order 48213"), so a
+problem can be traced back to the supplier. It's in the same four places as
+Materials, comes out in the stock export as a **Batch Numbers** column after
+Materials, and is kept in the Sold items record. It isn't meant for the label.
+
+**A new 📋 Records tab** (administrators only) puts the traceability together:
+
+- **🔎 Trace a part or batch.** Type a part or batch number (e.g. "lot 4821" or
+  "alloy clasp") to list every item in the till made with it, sold out or not.
+- **⚠️ Safety complaints.** The log of every complaint, newest first. Log a new
+  one here (pick the item, then the date, what went wrong and what you did), or
+  from the item itself: Edit → More → Safety complaints. Complaints are saved
+  straight away and sync with the item. **⤓ Export the log** saves them as Excel
+  or CSV to keep. An item with a complaint is never cleared out by the Sold items
+  record, so the log stays whole.
+- **📜 Sold items record**, moved here from Settings.
+
 ## v1.89.0 - 28 October 2026
 
 **Sold items record: keep six years of sold items outside the till.** Settings →
