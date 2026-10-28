@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-kPMWLLNtqQCMQeUzUkJUx7MD9zHnEq7yx8CAFalADsg=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-zjLp3ubfB/vAEVIg/DSi46L6TO8VSrsm9iyeiVYKjNQ=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -1605,6 +1605,8 @@ if (window.top !== window.self) {
 <!-- Parts and suppliers already used (v1.92.0), offered back in the parts lines. -->
 <datalist id="partOptions"></datalist>
 <datalist id="supplierOptions"></datalist>
+<!-- Batches already used for the part in the line being typed (v1.93.0). -->
+<datalist id="batchOptions"></datalist>
 
 <div id="toast" class="toast"></div>
 
@@ -4955,7 +4957,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.92.0';
+  const APP_VERSION = '1.93.0';
   const BUILD_DATE  = '28 Oct 2026';
   const BUILD_TIME  = '13:55';
   const versionEl = document.getElementById('appVersion');
@@ -6987,6 +6989,23 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     });
     return best;
   }
+  // Every batch already used for a part, newest first, once each - from that
+  // supplier only when one is given (v1.93.0). The first is the one to fill in.
+  function batchesFor(items, part, from){
+    const want = String(part || '').trim().toLowerCase(), who = String(from || '').trim().toLowerCase();
+    const found = [];
+    Object.keys(items || {}).forEach(bc => {
+      const it = items[bc];
+      if(!it || !Array.isArray(it.parts)) return;
+      normParts(it.parts).forEach(r => {
+        if(!r.batch || (want && r.part.toLowerCase() !== want) || (who && r.from.toLowerCase() !== who)) return;
+        found.push({ batch: r.batch, at: String(it.addedAt || '') });
+      });
+    });
+    const seen = {};
+    return found.sort((x, y) => y.at.localeCompare(x.at)).map(f => f.batch)
+      .filter(b => { const k = b.toLowerCase(); if(seen[k]) return false; seen[k] = 1; return true; });
+  }
   // PARTS: END
 
   // COMPLAINTS (v1.90.0)
@@ -7528,7 +7547,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     return '<div class="part-row">'
       + '<input type="text" class="pr-part" list="partOptions" placeholder="Part, e.g. 100% acrylic yarn" autocomplete="off" value="' + escapeAttr(r.part) + '">'
       + '<div class="pr-two"><input type="text" class="pr-from" list="supplierOptions" placeholder="Bought from" autocomplete="off" value="' + escapeAttr(r.from) + '">'
-      + '<input type="text" class="pr-batch" placeholder="Batch / order no." autocomplete="off" value="' + escapeAttr(r.batch) + '"></div>'
+      + '<input type="text" class="pr-batch" list="batchOptions" placeholder="Batch / order no." autocomplete="off" value="' + escapeAttr(r.batch) + '"></div>'
       + '<button type="button" class="pr-del" title="Take this part off">✕</button></div>';
   }
   function setParts(id, rows, exceptBc){
@@ -7570,14 +7589,31 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       }
     });
     box.addEventListener('change', e => {
-      if(e.target.classList.contains('pr-part')){
-        // Whoever this part was last bought from, unless one is typed already.
-        const from = e.target.closest('.part-row').querySelector('.pr-from');
-        if(!from.value.trim()) from.value = usualSupplier(items, e.target.value);
+      const row = e.target.closest('.part-row');
+      if(e.target.classList.contains('pr-part') || e.target.classList.contains('pr-from')){
+        // Whoever this part was last bought from, and the batch last used from
+        // them, unless something is typed already. A batch the till filled in
+        // (data-auto) follows a change of part or supplier; a typed one stays.
+        const part = row.querySelector('.pr-part').value, from = row.querySelector('.pr-from'), batch = row.querySelector('.pr-batch');
+        if(e.target.classList.contains('pr-part') && !from.value.trim()) from.value = usualSupplier(items, part);
+        if(part.trim() && (!batch.value.trim() || batch.dataset.auto)){
+          batch.value = batchesFor(items, part, from.value)[0] || '';
+          if(batch.value) batch.dataset.auto = '1'; else delete batch.dataset.auto;
+        }
       } else if(e.target.classList.contains('pr-copy')){
         const src = items[e.target.value];
         if(src) setParts(id, partsOf(src), box.dataset.except);
       }
+    });
+    // The batch box offers what has been used for this line's part before.
+    box.addEventListener('focusin', e => {
+      if(!e.target.classList.contains('pr-batch')) return;
+      const row = e.target.closest('.part-row');
+      const list = batchesFor(items, row.querySelector('.pr-part').value, row.querySelector('.pr-from').value);
+      document.getElementById('batchOptions').innerHTML = list.map(b => `<option value="${escapeAttr(b)}"></option>`).join('');
+    });
+    box.addEventListener('input', e => {
+      if(e.target.classList.contains('pr-batch')) delete e.target.dataset.auto;
     });
   });
   setParts('manualParts', []);

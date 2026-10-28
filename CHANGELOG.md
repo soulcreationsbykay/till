@@ -10,6 +10,16 @@ fixes.
 
 ---
 
+## v1.93.0 - 28 October 2026
+
+**The till remembers batch numbers.** In the Parts lines, typing a part now fills
+in both the usual supplier *and the last batch used for that part from that
+supplier*. For example, "100% acrylic yarn" fills in "Wool Warehouse · Lot 4821".
+Change the supplier and the batch follows it. Tapping the batch box lists every
+batch used before for that part, newest first, for going back to an older lot.
+Anything already typed is never overwritten. When you start a new lot, type over
+the batch once; the items after that pick up the new one.
+
 ## v1.92.0 - 28 October 2026
 
 **Parts lines: each part with its own supplier and batch.** Materials, Batch

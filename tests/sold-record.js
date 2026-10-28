@@ -24,7 +24,7 @@ const SRC = slice('  // WHERE AN ITEM SELLS (v1.56.0)', '  // WHERE AN ITEM SELL
 
 const ctx = { console, Date };
 vm.createContext(ctx);
-vm.runInContext(SRC + '\nthis.T = { planSoldClearout, soldRecordHtml, SOLD_CLEAR_DAYS, newComplaint, allComplaints, complaintsTable, traceItems, partsOf, partsNoteOf, partsColumns, usualSupplier, normParts };', ctx);
+vm.runInContext(SRC + '\nthis.T = { planSoldClearout, soldRecordHtml, SOLD_CLEAR_DAYS, newComplaint, allComplaints, complaintsTable, traceItems, partsOf, partsNoteOf, partsColumns, usualSupplier, normParts, batchesFor };', ctx);
 const T = ctx.T;
 
 let pass = 0, fail = 0;
@@ -173,6 +173,19 @@ console.log('\nParts lines (v1.92.0)');
   };
   check('the usual supplier is the latest one used for that part, any capitals', T.usualSupplier(items, 'Glass Beads') === 'Beads Direct');
   check('a part never bought before has no usual supplier', T.usualSupplier(items, 'Felt') === '');
+  const lots = {
+    'A': { addedAt: '2026-08-01', parts: [{ part: '100% acrylic yarn', from: 'Wool Warehouse', batch: 'Lot 4000' }] },
+    'B': { addedAt: '2026-10-01', parts: [{ part: '100% acrylic yarn', from: 'Wool Warehouse', batch: 'Lot 4821' }] },
+    'C': { addedAt: '2026-10-05', parts: [{ part: '100% Acrylic Yarn', from: 'Wool Warehouse', batch: 'lot 4821' }] },
+    'D': { addedAt: '2026-10-10', parts: [{ part: '100% acrylic yarn', from: 'Hobbycraft', batch: 'HC-9' }] },
+    'E': { addedAt: '2026-10-12', parts: [{ part: 'Glass beads', from: 'Wool Warehouse', batch: 'Order 7' }] },
+  };
+  check('batches for a part from a supplier, newest first, once each',
+    T.batchesFor(lots, '100% acrylic yarn', 'Wool Warehouse').join('|') === 'lot 4821|Lot 4000',
+    T.batchesFor(lots, '100% acrylic yarn', 'Wool Warehouse').join('|'));
+  check('with no supplier given, every batch of that part', T.batchesFor(lots, '100% acrylic yarn', '').join('|') === 'HC-9|lot 4821|Lot 4000');
+  check('another part\'s batches are never offered', T.batchesFor(lots, '100% acrylic yarn', 'Wool Warehouse').indexOf('Order 7') < 0);
+  check('a new part has none yet', T.batchesFor(lots, 'Felt', '').length === 0);
 }
 
 console.log('\nNothing to do');
