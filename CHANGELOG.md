@@ -10,6 +10,16 @@ fixes.
 
 ---
 
+## v1.88.0 - 28 October 2026
+
+**Export just the items you pick.** On the Stock tab, tap ☑, tick the items you
+want, then press **⤓ Export** in the bar and choose CSV or Excel. Only the ticked
+items go in the spreadsheet (with their own total). The full **Export stock
+take** in Settings still exports everything, and only that one counts for the
+weekly export reminder.
+
+---
+
 ## v1.87.0 - 28 October 2026
 
 **Show or hide the website parts from Settings.** A new **🌐 Website** card in

@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-aXUYaF45Kz9oFzRtV6ogYPGxqUcbSCPKzs2MJaXiVP4=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-JhJJUpCtg8G6e2Rp+5k3h0m1WirEP5J0w0A+VYaoFIc=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -1038,6 +1038,7 @@ if (window.top !== window.self) {
       <span id="bulkCount">0 selected</span>
       <button type="button" id="bulkAllBtn">All</button>
       <button type="button" id="bulkEditBtn" class="bulk-primary">✏ Edit</button>
+      <button type="button" id="bulkExportBtn">⤓ Export</button>
       <button type="button" id="bulkDeleteBtn" class="bulk-danger">🗑 Delete</button>
       <button type="button" id="bulkDoneBtn">Done</button>
     </div>
@@ -4856,9 +4857,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.87.0';
+  const APP_VERSION = '1.88.0';
   const BUILD_DATE  = '28 Oct 2026';
-  const BUILD_TIME  = '11:53';
+  const BUILD_TIME  = '13:55';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -9926,6 +9927,13 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     setSelectMode(false);
     showToast(bcs.length + ' item' + (bcs.length===1?'':'s') + ' updated', 'success');
   });
+  // Export just the ticked items (v1.88.0). Select mode stays on, so more can
+  // be ticked and exported again.
+  document.getElementById('bulkExportBtn').addEventListener('click', () => {
+    const bcs = Object.keys(bulkPicked);
+    if(!bcs.length){ showToast('Tap some items first to tick them', 'error'); return; }
+    exportStock(lastFiltered.filter(bc => bulkPicked[bc]).concat(bcs.filter(bc => lastFiltered.indexOf(bc) === -1)));
+  });
   // Delete every ticked item in one go. Names a few of them in the confirm box
   // so a mis-tap on "All" is obvious before anything is removed.
   document.getElementById('bulkDeleteBtn').addEventListener('click', () => {
@@ -12163,7 +12171,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // The stock take: what is on the shelf, what was counted, and what the
   // difference is worth. sessionDate stands in for anything added before the
   // count started.
-  function stockTable(){
+  // only (v1.88.0): a list of barcodes, for exporting just the ticked items;
+  // left out, it is the whole stock list as before.
+  function stockTable(only){
     // Label goes on the end so every column that was already here keeps the
     // position anything downstream expects.
     const cols = [
@@ -12173,7 +12183,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     ];
     const rows = [];
     let totalUnits = 0, totalValue = 0;
-    Object.keys(items).forEach(bc => {
+    (only || Object.keys(items)).filter(bc => items[bc]).forEach(bc => {
       const it = items[bc];
       const counted = Number(it.counted) || 0;
       const price = Number(it.price) || 0;
@@ -17094,11 +17104,14 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // One export routine shared by the button and the weekly reminder banner
   const EXPORT_STAMP_KEY  = 'stockTakeLastCsvExport';
   const EXPORT_SNOOZE_KEY = 'stockTakeCsvSnooze';
-  function exportStock(){
+  // only: the ticked barcodes from select mode. A part export is not a stock
+  // take, so it leaves the weekly reminder alone.
+  function exportStock(only){
     if(Object.keys(items).length === 0){ showToast('No items to export', 'error'); return; }
-    const t = stockTable();
-    const name = `stock-take-${new Date().toISOString().slice(0,10)}`;
-    askFormat('Export stock take', fmt => {
+    const t = stockTable(only);
+    const day = new Date().toISOString().slice(0,10);
+    const name = only ? `stock-selected-${day}` : `stock-take-${day}`;
+    askFormat(only ? 'Export ' + only.length + ' item' + (only.length===1?'':'s') : 'Export stock take', fmt => {
       if(fmt === 'xlsx'){
         downloadBlob(buildXlsx([{ name:'Stock take', cols: t.cols, rows: t.rows }]), name + '.xlsx');
         showToast('Stock spreadsheet exported', 'success');
@@ -17108,13 +17121,14 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
           { type: 'text/csv;charset=utf-8;' }), name + '.csv');
         showToast('CSV exported', 'success');
       }
+      if(only) return;
       // only once something has actually been saved - cancelling must not
       // reset the weekly reminder
       try{ localStorage.setItem(EXPORT_STAMP_KEY, new Date().toISOString()); }catch(e){}
       refreshExportBanner();
     });
   }
-  document.getElementById('exportBtn').addEventListener('click', exportStock);
+  document.getElementById('exportBtn').addEventListener('click', () => exportStock());
 
   // Weekly reminder: shows once the last export is over 7 days old.
   // Dismissing snoozes it until tomorrow. First ever run starts the clock
