@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-JhJJUpCtg8G6e2Rp+5k3h0m1WirEP5J0w0A+VYaoFIc=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-x4VtcA1+OJKZuhOqEo1UNhI/8xgMN5Wo0nwDwERR2BQ=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -1309,6 +1309,9 @@ if (window.top !== window.self) {
       <button class="btn btn-secondary" id="importItemsBtn" style="width:100%;margin-top:8px;">⤒ Import items (JSON)</button>
       <input type="file" id="importItemsInput" accept="application/json,.json" style="display:none;">
       <button class="btn btn-secondary" id="exportExtrasBtn" style="width:100%;margin-top:8px;">🖼 Export extra photos</button>
+      <!-- Sold items record (v1.89.0): sold-out items go into a file Kay keeps
+           for six years, photo and all, and then out of the till. -->
+      <button class="btn btn-secondary" id="soldRecordBtn" style="width:100%;margin-top:8px;">📜 Sold items record</button>
       <div class="storage-note" id="extrasNote"></div>
       <div class="storage-note" id="durableNote"></div>
     </div>
@@ -1965,6 +1968,29 @@ if (window.top !== window.self) {
     </p>
     <div id="labelSheetOpts"></div>
     <button class="btn btn-secondary" id="labelSheetClose">Close</button>
+  </div>
+</div>
+
+<!-- Sold items record (v1.89.0) -->
+<div class="modal-overlay" id="soldRecordModal" style="display:none;">
+  <div class="modal">
+    <h2>📜 Sold items record</h2>
+    <p style="font-size:13px;color:var(--muted);line-height:1.45;margin:6px 0 14px;">
+      Sold-out items go into a file you keep for six years, with their photo, description,
+      price and every sale. Then they come out of the till, so it stays quick and the photos
+      stop filling up Team sync. Only items sold out for over a month, and not still on Etsy,
+      the website or in a set.
+    </p>
+    <div id="soldRecordBody"></div>
+    <button class="btn btn-primary" id="soldRecordSave" style="width:100%;margin-top:10px;">⤓ Save the record</button>
+    <div id="soldRecordStep2" style="display:none;margin-top:14px;">
+      <div class="folder-hint" style="margin:0 0 8px;font-size:13px;line-height:1.45;">
+        Check the file has saved and opens (on the iPad: <b>Files → Downloads</b>), and keep a copy
+        somewhere safe such as Google Drive. Then remove these items from the till.
+      </div>
+      <button class="btn btn-danger" id="soldRecordClear" style="width:100%;">🧹 Remove them from the till</button>
+    </div>
+    <button class="btn btn-secondary" id="soldRecordClose" style="width:100%;margin-top:10px;">Close</button>
   </div>
 </div>
 
@@ -4857,7 +4883,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.88.0';
+  const APP_VERSION = '1.89.0';
   const BUILD_DATE  = '28 Oct 2026';
   const BUILD_TIME  = '13:55';
   const versionEl = document.getElementById('appVersion');
@@ -6712,6 +6738,117 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     return Object.keys(seen);
   }
   // WHERE AN ITEM SELLS: END
+
+  // SOLD ITEMS RECORD (v1.89.0)
+  //
+  // Trading Standards and HMRC both point at about six years of records, and
+  // a one-off handmade piece is only really identified by its photo. The till
+  // is the wrong place to keep six years of photographs: every item rides
+  // along on every sync, and an Etsy photo is up to 0.9 MB. So a sold-out item
+  // is written into a file Kay keeps - photo, code, name, description, label,
+  // price and every sale of it - and only after that is it removed from here.
+  // The sale lines themselves stay: they are small, and payouts and the
+  // reports read them.
+  //
+  // Which items may go: sold out, sold at least once, and the last sale (or
+  // refund) more than SOLD_CLEAR_DAYS ago, because a refund or a miscount
+  // usually turns up inside a month. Never something still offered on the
+  // website or on Etsy, never part of a set, and never an item whose Etsy
+  // photos cannot be reached to go in the file and be deleted.
+  const SOLD_CLEAR_DAYS = 30;
+
+  // opts: now (ms), days, etsyStates (listing -> state), inSet (bc -> 1),
+  // syncOn (Etsy photos live online, so they need Team sync).
+  function planSoldClearout(items, sales, opts){
+    const o = opts || {};
+    const now = o.now || Date.now();
+    const days = o.days != null ? o.days : SOLD_CLEAR_DAYS;
+    const cutoff = now - days * 864e5;
+    const inSet = o.inSet || {};
+    const linesOf = {};
+    (sales || []).forEach(l => {
+      if(!l || l.misc || !l.barcode) return;
+      (linesOf[l.barcode] = linesOf[l.barcode] || []).push(l);
+    });
+    const ready = [], kept = [];
+    Object.keys(items || {}).sort().forEach(bc => {
+      const it = items[bc];
+      if(!it) return;
+      // Still on the shelf, or never sold (not counted yet, say): not this
+      // list's business at all, so not listed as "kept" either.
+      if((Number(it.counted) || 0) > 0) return;
+      const lines = (linesOf[bc] || []).slice().sort((a, b) => String(a.at || '').localeCompare(String(b.at || '')));
+      if(!lines.some(l => l.kind !== 'refund' && Number(l.qty) > 0)) return;
+      const lastAt = String(lines[lines.length - 1].at || '');
+      const last = Date.parse(lastAt) || 0;
+      let why = '';
+      if(last > cutoff) why = 'sold in the last ' + days + ' days';
+      else if(inSet[bc] || it.set) why = 'part of a set';
+      else if(it.webQty != null && Number(it.webQty) > 0) why = 'still on the website';
+      else {
+        const st = etsyStageOf(it, o.etsyStates || {});
+        if(st === 'live' || st === 'draft') why = 'still on Etsy';
+        else if(st === 'unknown') why = 'on Etsy, not checked yet';
+        else if(Array.isArray(it.etsyPics) && it.etsyPics.length && !o.syncOn) why = 'its Etsy photos need Team sync';
+      }
+      if(why) kept.push({ bc: bc, why: why });
+      else ready.push({ bc: bc, lines: lines, lastAt: lastAt });
+    });
+    return { ready: ready, kept: kept };
+  }
+
+  // The file itself: one page, no outside links needed (the photos are in
+  // it), readable on the iPad or a PC and fine to print. entries:
+  // [{ bc, it, lines, photo }] where photo is a data: picture, an https link
+  // as a last resort, or ''.
+  function soldRecordHtml(entries, madeAt){
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]);
+    const gbp = n => '£' + (Number(n) || 0).toFixed(2);
+    const day = s => { const d = new Date(s); return isNaN(d) ? esc(s) : d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }); };
+    const made = new Date(madeAt || Date.now());
+    const keepTo = new Date(made); keepTo.setFullYear(keepTo.getFullYear() + 6);
+    const payWord = { cash:'Cash', card:'Card', web:'Website', etsy:'Etsy', other:'Other' };
+    const rows = (entries || []).map(e => {
+      const it = e.it || {};
+      const pic = /^(data:image\/|https:\/\/)/i.test(String(e.photo || ''))
+        ? '<img src="' + esc(e.photo) + '" alt="">' : '<div class="nopic">No photo</div>';
+      const facts = [
+        ['Code', e.bc], ['Price', gbp(it.price)], ['Folder', it.folder], ['Made by', it.maker],
+        ['Label', it.label], ['Etsy listing', it.etsyListingId], ['Added', it.addedAt ? day(it.addedAt) : '']
+      ].filter(f => f[1] !== undefined && f[1] !== null && String(f[1]) !== '')
+       .map(f => '<tr><th>' + f[0] + '</th><td>' + esc(f[1]) + '</td></tr>').join('');
+      const sold = (e.lines || []).map(l =>
+        '<tr><td>' + day(l.at) + '</td><td>' + (l.kind === 'refund' ? 'Refund' : 'Sold') + '</td><td>'
+        + esc(Math.abs(Number(l.qty) || 0)) + '</td><td>' + gbp(l.net) + '</td><td>'
+        + esc(payWord[l.pay] || l.pay || '') + '</td><td>' + esc(l.receiptNo || '') + '</td></tr>').join('');
+      const desc = it.webDesc ? '<div class="desc">' + esc(it.webDesc) + '</div>' : '';
+      return '<section class="item"><div class="pic">' + pic + '</div><div class="info">'
+        + '<h2>' + esc(it.name || e.bc) + '</h2><table class="facts">' + facts + '</table>' + desc
+        + '<table class="sales"><tr><th>Date</th><th></th><th>Qty</th><th>Amount</th><th>Paid by</th><th>Receipt</th></tr>'
+        + sold + '</table></div></section>';
+    }).join('\n');
+    const n = (entries || []).length;
+    return '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+      + '<meta name="viewport" content="width=device-width,initial-scale=1">'
+      + '<title>Sold items record ' + made.toISOString().slice(0, 10) + '</title><style>'
+      + 'body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#222;background:#fff;margin:0 auto;max-width:900px;padding:16px;}'
+      + 'h1{font-size:22px;margin:0 0 4px;}.lead{color:#555;font-size:14px;margin:0 0 18px;line-height:1.45;}'
+      + '.item{display:flex;gap:16px;border-top:1px solid #ddd;padding:16px 0;break-inside:avoid;page-break-inside:avoid;}'
+      + '.pic{flex:none;width:180px;}.pic img{width:180px;height:auto;border-radius:6px;display:block;}'
+      + '.nopic{width:180px;height:120px;border:1px dashed #bbb;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#888;font-size:13px;}'
+      + '.info{flex:1;min-width:0;}h2{font-size:17px;margin:0 0 6px;}'
+      + 'table{border-collapse:collapse;font-size:13px;margin:0 0 8px;}th,td{text-align:left;padding:2px 10px 2px 0;vertical-align:top;}'
+      + '.facts th{color:#666;font-weight:600;}.sales th{color:#666;border-bottom:1px solid #ddd;}'
+      + '.desc{white-space:pre-wrap;font-size:13px;color:#444;margin:0 0 8px;line-height:1.4;}'
+      + '@media (max-width:560px){.item{flex-direction:column;}.pic,.pic img,.nopic{width:100%;}}'
+      + '</style></head><body>'
+      + '<h1>Soul Creations By Kay: sold items record</h1>'
+      + '<p class="lead">' + n + ' item' + (n === 1 ? '' : 's') + ', made ' + day(made.toISOString())
+      + ' when they were cleared out of the till. Keep this file until at least <b>' + day(keepTo.toISOString())
+      + '</b> (six years) with the sales exports and supplier receipts.</p>\n'
+      + rows + '\n</body></html>';
+  }
+  // SOLD ITEMS RECORD: END
 
   // Not remembered between visits on purpose: a list that opens already
   // narrowed looks like stock has gone missing.
@@ -17092,6 +17229,159 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         renderList(document.getElementById('searchBox').value);
         renderTill();
         showToast('Item deleted', 'success');
+      }
+    );
+  });
+
+  // ---- Sold items record (v1.89.0) ----
+  // The rules are planSoldClearout / soldRecordHtml (SOLD ITEMS RECORD). This
+  // is the screen: work out the list, save the file, and only then offer to
+  // remove exactly the items that went into it.
+  let soldSaved = null;   // the barcodes in the file just saved, or null
+
+  function soldInSet(){
+    const m = {};
+    setRules().forEach(r => r.members.forEach(bc => { m[bc] = 1; }));
+    return m;
+  }
+  function soldPlanNow(){
+    return planSoldClearout(items, sales, {
+      etsyStates: EtsyStates.states(),
+      inSet: soldInSet(),
+      syncOn: typeof Sync !== 'undefined' && Sync.isConnected()
+    });
+  }
+
+  async function openSoldRecord(){
+    await photosReady;
+    soldSaved = null;
+    const plan = soldPlanNow();
+    const body = document.getElementById('soldRecordBody');
+    let h = '';
+    if(!plan.ready.length){
+      h += '<div class="empty-state" style="padding:14px;">Nothing ready to clear out yet.</div>';
+    } else {
+      h += '<div class="quick-sell-head">' + plan.ready.length + ' item' + (plan.ready.length === 1 ? '' : 's') + ' ready</div>'
+         + '<div style="max-height:180px;overflow-y:auto;font-size:13px;line-height:1.5;">'
+         + plan.ready.map(r => escapeHtml(r.bc) + ' · ' + escapeHtml((items[r.bc] && items[r.bc].name) || '')).join('<br>')
+         + '</div>';
+    }
+    if(plan.kept.length){
+      h += '<details style="margin-top:10px;font-size:13px;"><summary>' + plan.kept.length + ' sold out but kept for now</summary>'
+         + '<div style="max-height:150px;overflow-y:auto;line-height:1.5;margin-top:6px;">'
+         + plan.kept.map(k => escapeHtml((items[k.bc] && items[k.bc].name) || k.bc) + ' <span style="color:var(--muted);">(' + escapeHtml(k.why) + ')</span>').join('<br>')
+         + '</div></details>';
+    }
+    body.innerHTML = h;
+    const save = document.getElementById('soldRecordSave');
+    save.style.display = plan.ready.length ? '' : 'none';
+    save.disabled = false;
+    save.textContent = '⤓ Save the record (' + plan.ready.length + ' item' + (plan.ready.length === 1 ? '' : 's') + ')';
+    document.getElementById('soldRecordStep2').style.display = 'none';
+    document.getElementById('soldRecordModal').style.display = 'flex';
+  }
+
+  // A small copy of the item's picture for the file: its own photo, else its
+  // first extra, else its first Etsy photo. 480px is plenty to recognise a
+  // piece and keeps a year of them to a manageable file.
+  function soldShrink(src){
+    return new Promise(resolve => {
+      const im = new Image();
+      if(/^https:/i.test(src)) im.crossOrigin = 'anonymous';
+      im.onload = () => {
+        try{
+          const s = Math.min(1, 480 / Math.max(im.width, im.height));
+          const c = document.createElement('canvas');
+          c.width = Math.max(1, Math.round(im.width * s)); c.height = Math.max(1, Math.round(im.height * s));
+          const x = c.getContext('2d');
+          x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+          x.drawImage(im, 0, 0, c.width, c.height);
+          resolve(c.toDataURL('image/jpeg', 0.75));
+        }catch(e){ resolve(''); }   // a host that will not share the picture
+      };
+      im.onerror = () => resolve('');
+      im.src = src;
+    });
+  }
+  async function soldPhoto(bc, it){
+    const p = String(it.photo || '');
+    if(/^data:image\//.test(p)) return (await soldShrink(p)) || p;
+    if(/^https:\/\//.test(p)){
+      const own = ownPhotoSrc(p);
+      const got = (own && await soldShrink(own)) || await soldShrink(p);
+      return got || p;   // the link, if neither host would share the picture
+    }
+    const xf = extrasFor(bc)[0];
+    if(xf){
+      try{ const v = await PhotoDB.xget(extraKey(bc, xf)); if(v && v.data) return await soldShrink(v.data); }catch(e){}
+    }
+    const ef = etsyPicsOf(it)[0];
+    if(ef && Sync.isConnected()){
+      try{ const uri = await Sync.getEtsyPhoto(bc, ef); if(uri) return await soldShrink(uri); }catch(e){}
+    }
+    return '';
+  }
+
+  document.getElementById('soldRecordBtn').addEventListener('click', openSoldRecord);
+  document.getElementById('soldRecordClose').addEventListener('click', () => {
+    document.getElementById('soldRecordModal').style.display = 'none';
+  });
+
+  document.getElementById('soldRecordSave').addEventListener('click', async () => {
+    const save = document.getElementById('soldRecordSave');
+    const plan = soldPlanNow();
+    if(!plan.ready.length){ showToast('Nothing ready to clear out', 'error'); return; }
+    save.disabled = true;
+    const entries = [];
+    for(let i = 0; i < plan.ready.length; i++){
+      const r = plan.ready[i];
+      save.textContent = 'Adding photos… ' + (i + 1) + ' of ' + plan.ready.length;
+      const it = items[r.bc];
+      if(!it) continue;
+      entries.push({ bc: r.bc, it: it, lines: r.lines, photo: await soldPhoto(r.bc, it) });
+    }
+    const day = new Date().toISOString().slice(0, 10);
+    downloadBlob(new Blob([soldRecordHtml(entries)], { type: 'text/html' }), 'sold-items-record-' + day + '.html');
+    soldSaved = entries.map(e => e.bc);
+    save.textContent = '⤓ Save it again';
+    save.disabled = false;
+    document.getElementById('soldRecordStep2').style.display = '';
+    showToast('Record saved: ' + entries.length + ' item' + (entries.length === 1 ? '' : 's'), 'success');
+  });
+
+  document.getElementById('soldRecordClear').addEventListener('click', () => {
+    if(!soldSaved || !soldSaved.length){ showToast('Save the record first', 'error'); return; }
+    // Only what went into the file AND still qualifies: a refund or a change
+    // on the other till since the file was made keeps that item here.
+    const still = {};
+    soldPlanNow().ready.forEach(r => { still[r.bc] = 1; });
+    const bcs = soldSaved.filter(bc => still[bc] && items[bc]);
+    if(!bcs.length){ showToast('Nothing left to remove', 'error'); return; }
+    askConfirm(
+      'Remove ' + bcs.length + ' sold item' + (bcs.length === 1 ? '' : 's') + '?',
+      'They come off the stock list and out of Team sync, with all their photos. Their sales stay in the reports. '
+      + 'Only do this once the record file has saved and opens.',
+      'Remove ' + bcs.length,
+      async () => {
+        bcs.forEach(bc => {
+          const it = items[bc];
+          if(it) etsyPicsOf(it).forEach(fp => {
+            try{ Sync.deleteEtsyPhoto(bc, fp).catch(() => {}); }catch(e){}
+          });
+          delete items[bc];
+        });
+        saveItems();
+        // The extra photographs, one at a time: removeExtra reorders what is
+        // left after each, so two at once would trip over each other.
+        for(const bc of bcs){
+          for(const fp of extrasFor(bc)){ try{ await removeExtra(bc, fp); }catch(e){} }
+        }
+        soldSaved = null;
+        document.getElementById('soldRecordModal').style.display = 'none';
+        renderList(document.getElementById('searchBox').value);
+        renderTill();
+        try{ renderExtrasNote(); }catch(e){}
+        showToast(bcs.length + ' sold item' + (bcs.length === 1 ? '' : 's') + ' removed', 'success');
       }
     );
   });

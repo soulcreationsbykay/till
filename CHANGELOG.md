@@ -10,6 +10,28 @@ fixes.
 
 ---
 
+## v1.89.0 - 28 October 2026
+
+**Sold items record: keep six years of sold items outside the till.** Settings →
+Your data → **📜 Sold items record** lists the sold-out items that can come out of
+the till, then:
+
+1. **⤓ Save the record** makes one file (`sold-items-record-<date>.html`) with
+   each item's photo, code, name, description, label, price, folder and every
+   sale and refund of it. It opens on the iPad or a PC, prints, and needs no
+   internet. Keep it (Google Drive, OneDrive or a USB stick) for six years.
+2. **🧹 Remove them from the till** appears once the file is saved. It takes
+   those items off the stock list and out of Team sync, along with their photo,
+   extra photos and Etsy photos. Their sales stay in the reports and payouts.
+
+Only items that are sold out, sold more than 30 days ago (sale or refund), and
+not still on Etsy (live, draft or not yet checked), still offered on the
+website, or part of a set. An Etsy item's photos need Team sync, so with it off
+those wait. Anything that sold or was refunded on the other till after the file
+was made stays put.
+
+---
+
 ## v1.88.0 - 28 October 2026
 
 **Export just the items you pick.** On the Stock tab, tap ☑, tick the items you
