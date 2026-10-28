@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-uXAOdt0pzsLqzaX2s6Gu7Kod3EzXXbXAPfx00dBA1Q4=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-ezHjDwUEC2CmRNwdRNbumWXFlaaIYrJf+dHWB/T28ts=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -2183,6 +2183,8 @@ if (window.top !== window.self) {
         <button class="btn btn-primary" type="button" id="editEtsySend" style="width:100%;margin-top:10px;">Send to Etsy as a draft</button>
         <a class="btn btn-secondary" id="editEtsyOpen" href="#" target="_blank" rel="noopener noreferrer"
            style="display:none;width:100%;margin-top:10px;text-align:center;text-decoration:none;box-sizing:border-box;">Open the draft on Etsy</a>
+        <!-- v1.86.0: send changed words (title, description, tags) to the listing. -->
+        <button class="btn btn-primary" type="button" id="editEtsyUpdate" style="display:none;width:100%;margin-top:10px;">Update words on Etsy</button>
         <div class="folder-hint" id="editEtsySendHint"></div>
         <!-- v1.62.0: after the draft has been deleted on Etsy, so it can be sent again. -->
         <button class="btn btn-secondary" type="button" id="editEtsyForget" style="display:none;width:100%;margin-top:10px;">Forget this Etsy draft</button>
@@ -4846,9 +4848,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.85.0';
-  const BUILD_DATE  = '21 Oct 2026';
-  const BUILD_TIME  = '17:37';
+  const APP_VERSION = '1.86.0';
+  const BUILD_DATE  = '28 Oct 2026';
+  const BUILD_TIME  = '11:33';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -5591,6 +5593,32 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     });
     delete p.price; delete p.quantity;
     return p;
+  }
+  // Update on Etsy (v1.86.0): the words of a listing already on Etsy, sent
+  // again. Only the title, description and tags; the Etsy service leaves a
+  // blank description or no tags as Etsy has them. For a colour listing the
+  // words are made as Send made them, from every colour in that listing.
+  function etsyWordsPayload(it, bc, all){
+    const lid = String(it.etsyListingId || '');
+    const members = [bc].concat(Object.keys(all || {}).filter(function(b){
+      return b !== bc && all[b] && lid && String(all[b].etsyListingId || '') === lid;
+    }).sort());
+    let desc = String(it.webDesc || '').trim();
+    const of = function(b){ return b === bc ? it : all[b]; };
+    if(!desc) desc = members.map(function(b){ return String(of(b).webDesc || '').trim(); }).filter(Boolean)[0] || '';
+    const seen = {}, tags = [];
+    members.forEach(function(b){
+      etsyTagsOf(of(b)).forEach(function(t){
+        const k = t.toLowerCase();
+        if(!seen[k] && tags.length < ETSY_TAG_MAX){ seen[k] = 1; tags.push(t); }
+      });
+    });
+    return {
+      barcode: bc,
+      title: String(it.etsyTitle || variantSplit(it.name).group || it.name || '').trim(),
+      description: desc,
+      tags: tags,
+    };
   }
   // The Etsy checklist on Edit item (v1.76.0): each thing a listing needs or
   // is better for, ticked or not, so what is missing shows at a glance.
@@ -14450,6 +14478,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const hint = document.getElementById('editEtsySendHint');
     const forget = document.getElementById('editEtsyForget');
     forget.style.display = it.etsyListingId ? '' : 'none';
+    document.getElementById('editEtsyUpdate').style.display = it.etsyListingId ? '' : 'none';
     if(it.etsyListingId){
       send.style.display = 'none';
       open.style.display = '';
@@ -14464,7 +14493,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         : seen.result === 'deactivated' || (none && seen.state === 'inactive') ? 'None left here, so it was taken off Etsy (deactivated). Once you have more, the till will ask you to re-activate it on Etsy.'
         : none ? 'None left here. If this is still a draft on Etsy, do not publish it. If it is live, it comes off Etsy at the next stock check (within a few minutes, while a till is open).'
         : ('On Etsy as a draft' + (it.etsyDraftAt ? ' since ' + new Date(it.etsyDraftAt).toLocaleDateString('en-GB', { day:'numeric', month:'short' }) : '')
-          + '. Check it there and press Publish when it looks right. Changes to the stock here reach Etsy by themselves; changes to the words, price and photos are not sent yet.'));
+          + '. Check it there and press Publish when it looks right. Changes to the stock here reach Etsy by themselves. After changing the title, description or tags, press Update words on Etsy; price and photo changes are made on Etsy itself.'));
       return;
     }
     open.style.display = 'none';
@@ -14496,6 +14525,30 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       'The item is saved first, then sent to Etsy with its real photos. It arrives as a draft: nobody can see or buy it until you publish it on Etsy.',
       'Save and send', () => sendEtsyDraft(bc));
   });
+
+  document.getElementById('editEtsyUpdate').addEventListener('click', () => {
+    const bc = currentEditBarcode;
+    askConfirm('Update the words on Etsy?',
+      'The item is saved first, then its Etsy title, description and tags are sent to the listing. Price, photos, colours and postage on Etsy are not changed. A blank description or no tags leaves Etsy\'s as they are.',
+      'Save and update', () => updateEtsyWords(bc));
+  });
+
+  async function updateEtsyWords(bc){
+    document.getElementById('saveEditItem').click();
+    if(document.getElementById('editItemModal').style.display !== 'none') return;
+    const it = items[bc];
+    if(!it || !it.etsyListingId) return;
+    showToast('Updating Etsy…', 'success');
+    try{
+      const r = await EtsyLink.call('/staff/listings/words', { method:'POST', body: JSON.stringify(etsyWordsPayload(it, bc, items)) });
+      const sent = (r && r.sent) || ['title'];
+      showToast('Etsy updated: ' + sent.join(', ').replace(/, ([^,]*)$/, ' and $1')
+        + (r && r.state === 'active' ? ' (on the live listing)' : ''), 'success');
+    }catch(e){
+      showToast(e.code === 'email-unverified' ? 'Verify the till\'s sign-in email first (Settings → Etsy)' : (e.message || 'Could not update Etsy'), 'error');
+    }
+    openEditModal(bc);
+  }
 
   // Forget this Etsy draft (v1.62.0). For a draft Kay has deleted on Etsy:
   // the till lets go of it so Send works again. The Etsy service first asks

@@ -25,7 +25,7 @@ const SRC = HTML.slice(VA, VB) + HTML.slice(a, b);
 
 const ctx = { console };
 vm.createContext(ctx);
-vm.runInContext(SRC + '\nthis.T = { ETSY_PHOTO_MAX, etsyPicsOf, etsyPhotoDocId, etsyStatus, applyEtsyChoice, etsyAddPic, etsyRemovePic, etsyMovePic, etsyTodo, cleanEtsyTitle, parseEtsyTags, etsyTagsOf, ETSY_TITLE_MAX, ETSY_TAG_MAX, ETSY_TAG_LEN, isEarring, etsyReturnsFor, etsyDeliveryFor, etsyDraftPayload, searchEtsyCategories, etsyFolderLevels, etsyCategoryFor, etsyWords, suggestEtsyCategories, etsyColourGroup, etsyGroupPayload, etsyStockList, etsyChecklist };', ctx);
+vm.runInContext(SRC + '\nthis.T = { ETSY_PHOTO_MAX, etsyPicsOf, etsyPhotoDocId, etsyStatus, applyEtsyChoice, etsyAddPic, etsyRemovePic, etsyMovePic, etsyTodo, cleanEtsyTitle, parseEtsyTags, etsyTagsOf, ETSY_TITLE_MAX, ETSY_TAG_MAX, ETSY_TAG_LEN, isEarring, etsyReturnsFor, etsyDeliveryFor, etsyDraftPayload, searchEtsyCategories, etsyFolderLevels, etsyCategoryFor, etsyWords, suggestEtsyCategories, etsyColourGroup, etsyGroupPayload, etsyStockList, etsyChecklist, etsyWordsPayload };', ctx);
 const T = ctx.T;
 
 let pass = 0, fail = 0;
@@ -347,6 +347,24 @@ console.log('\nThe checklist on Edit item');
     && !/3 to 5/.test(T.etsyChecklist({ pics: 3 })[0].text));
   check('a title with no tags is still only a tip', T.etsyChecklist(Object.assign({}, full, { tags: [] }))[6].state === 'tip');
   check('no postage says it goes as a parcel', /Small parcel/.test(T.etsyChecklist({})[5].text));
+}
+
+console.log('\nUpdate words on Etsy');
+{
+  const one = T.etsyWordsPayload({ name: 'Spider toy', etsyTitle: ' Crochet spider ', webDesc: 'New words', etsyTags: ['crochet'], etsyListingId: 9 }, 'KA-9', {});
+  check('an ordinary item sends its Etsy title, description and tags', one.barcode === 'KA-9' && one.title === 'Crochet spider'
+    && one.description === 'New words' && one.tags.join() === 'crochet', JSON.stringify(one));
+  check('no Etsy title falls back to the name', T.etsyWordsPayload({ name: 'Spider toy' }, 'KA-9', {}).title === 'Spider toy');
+  check('never price, stock or photos', Object.keys(one).sort().join() === 'barcode,description,tags,title');
+  const all = {
+    'KA-1': { name: 'Tarot holder — Purple', etsyListingId: 77, etsyTags: ['tarot'] },
+    'KA-2': { name: 'Tarot holder — Green', etsyListingId: 77, webDesc: 'Green words', etsyTags: ['tarot', 'crochet'] },
+    'KA-3': { name: 'Tarot holder — Red', etsyListingId: 88, webDesc: 'Other listing', etsyTags: ['red'] },
+  };
+  const g = T.etsyWordsPayload(all['KA-1'], 'KA-1', all);
+  check('a colour listing takes the group name as its title', g.title === 'Tarot holder', g.title);
+  check('and a description from a colour in the SAME listing only', g.description === 'Green words', g.description);
+  check('and every colour in it gives its tags, once each', g.tags.join() === 'tarot,crochet', g.tags.join());
 }
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

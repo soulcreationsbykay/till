@@ -10,6 +10,25 @@ fixes.
 
 ---
 
+## v1.86.0 - 28 October 2026
+
+**Update words on Etsy.** An item already on Etsy (as a draft or live) now has an
+**Update words on Etsy** button in its Etsy section on Edit item. Change the Etsy
+title, the description or the tags in the till, press it, and the till saves the
+item and sends those words to the Etsy listing. Before, the words only went once,
+when the draft was made.
+
+- Only the title, description and tags are sent. Price, photos, colours, postage
+  and category on Etsy are not changed: change those on Etsy itself.
+- A blank description or no tags in the till leaves Etsy's as they are, so an
+  empty box never wipes what is on Etsy.
+- For a colour listing, any colour's button updates the one listing, with its
+  words made the same way Send made them.
+- If the listing was deleted on Etsy, the till says so and points to Forget.
+- Needs `kay-etsy` with the `/staff/listings/words` route deployed.
+
+---
+
 ## v1.85.0 - 23 October 2026
 
 **Bulk Edit can set the label.** Tick items on the Stock list, tap **✏ Edit**, and
