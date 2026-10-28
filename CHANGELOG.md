@@ -10,6 +10,17 @@ fixes.
 
 ---
 
+## v1.87.0 - 28 October 2026
+
+**Show or hide the website parts from Settings.** A new **🌐 Website** card in
+Settings has a **Show the website parts** tick. Tick it to see everything that
+was hidden while the website is not public (the website box and description on
+Add and Edit item, extra website photos, the 🌐 badges and filters, Stall dates,
+Website orders); untick it to hide them again. Nothing about any item changes
+either way, and it is remembered on this device only.
+
+---
+
 ## v1.86.0 - 28 October 2026
 
 **Update words on Etsy.** An item already on Etsy (as a draft or live) now has an

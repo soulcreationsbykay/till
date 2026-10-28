@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-ezHjDwUEC2CmRNwdRNbumWXFlaaIYrJf+dHWB/T28ts=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-aXUYaF45Kz9oFzRtV6ogYPGxqUcbSCPKzs2MJaXiVP4=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -1383,6 +1383,14 @@ if (window.top !== window.self) {
       <input type="password" id="aiKeyInput" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Paste the key here">
       <button class="btn btn-primary" id="aiKeySaveBtn" style="width:100%;margin-top:8px;">Check and save key</button>
       <div class="storage-note" id="aiKeyNote" style="text-align:left;"></div>
+    </div>
+    <!-- v1.87.0: the website's boxes and cards, shown or hidden from here. -->
+    <div class="card">
+      <div class="quick-sell-head">🌐 Website</div>
+      <label style="display:flex;gap:8px;align-items:flex-start;font-weight:600;">
+        <input type="checkbox" id="showWebsiteChk" style="width:auto;margin-top:3px;">
+        <span>Show the website parts<br><span class="folder-hint" style="display:block;margin:2px 0 0;font-weight:400;">The website is not public yet, so its parts are hidden: the website box and description on Add and Edit item, extra website photos, the 🌐 badges and filters, Stall dates and Website orders. Tick to see them, untick to hide them again. Nothing about any item changes either way. This device only.</span></span>
+      </label>
     </div>
     <!-- Stall dates for the website (29 Sept 2026). Shown on the front page under
          "Where to find us"; shop-worker reads them from the team workspace, so
@@ -4848,9 +4856,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.86.0';
+  const APP_VERSION = '1.87.0';
   const BUILD_DATE  = '28 Oct 2026';
-  const BUILD_TIME  = '11:33';
+  const BUILD_TIME  = '11:53';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -4871,7 +4879,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // deleted and nothing about an item changes: an item still carries its
   // website tick, and shop-worker still publishes to the (hidden) site. Set
   // this to true when the website goes live (plan step d7).
-  const WEBSITE = false;
+  // v1.87.0: Settings → Website can show them on this device without that.
+  const WEBSITE_KEY = 'showWebsite';
+  let WEBSITE = false;
+  try{ WEBSITE = localStorage.getItem(WEBSITE_KEY) === '1'; }catch(e){}
   document.documentElement.classList.toggle('no-website', !WEBSITE);
 
   let items = loadItems();
@@ -14659,6 +14670,22 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if(tab) tab.addEventListener('click', () => {
       renderEtsyCats();
       if(etsyCats == null && Sync.isConnected()) loadEtsyCats(true);
+    });
+  })();
+
+  // ---- Show the website parts (v1.87.0) ----
+  (function initShowWebsite(){
+    const chk = document.getElementById('showWebsiteChk');
+    if(!chk) return;
+    chk.checked = WEBSITE;
+    chk.addEventListener('change', () => {
+      WEBSITE = chk.checked;
+      try{ localStorage.setItem(WEBSITE_KEY, WEBSITE ? '1' : '0'); }catch(e){}
+      document.documentElement.classList.toggle('no-website', !WEBSITE);
+      // A website-only filter would leave the list filtered by a hidden chip.
+      if(!WEBSITE && channelFilter !== 'all' && channelFilter !== 'etsy') channelFilter = 'all';
+      renderList(document.getElementById('searchBox').value);
+      showToast(WEBSITE ? 'Website parts shown on this device' : 'Website parts hidden', 'success');
     });
   })();
 
