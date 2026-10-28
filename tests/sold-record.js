@@ -19,11 +19,12 @@ function slice(start, end){
 }
 const SRC = slice('  // WHERE AN ITEM SELLS (v1.56.0)', '  // WHERE AN ITEM SELLS: END')
           + slice('  // SOLD ITEMS RECORD (v1.89.0)', '  // SOLD ITEMS RECORD: END')
+          + slice('  // PARTS (v1.92.0)', '  // PARTS: END')
           + slice('  // COMPLAINTS (v1.90.0)', '  // COMPLAINTS: END');
 
 const ctx = { console, Date };
 vm.createContext(ctx);
-vm.runInContext(SRC + '\nthis.T = { planSoldClearout, soldRecordHtml, SOLD_CLEAR_DAYS, newComplaint, allComplaints, complaintsTable, traceItems };', ctx);
+vm.runInContext(SRC + '\nthis.T = { planSoldClearout, soldRecordHtml, SOLD_CLEAR_DAYS, newComplaint, allComplaints, complaintsTable, traceItems, partsOf, partsNoteOf, partsColumns, usualSupplier, normParts };', ctx);
 const T = ctx.T;
 
 let pass = 0, fail = 0;
@@ -136,7 +137,42 @@ console.log('\nTrace a part or batch');
   check('one letter finds nothing yet', T.traceItems(items, 'a').length === 0);
   check('nothing matching, nothing found', T.traceItems(items, 'cotton').length === 0);
   check('a supplier finds what was made from its parts', T.traceItems(items, 'beads direct').map(h => h.bc).join() === 'KA-061');
-  check('and says who it was', T.traceItems(items, 'beads direct')[0].boughtFrom === 'Beads Direct');
+  check('and says what matched', T.traceItems(items, 'beads direct')[0].lines.join() === 'Batch numbers: clasps order 48213; Bought from: Beads Direct',
+    T.traceItems(items, 'beads direct')[0].lines.join());
+  const lined = {
+    'KA-070': { name: 'Keyring', counted: 0, parts: [{ part: 'Glass beads', from: 'Beads Direct', batch: 'Order 48213' }, { part: 'Alloy clasp', from: 'Clasp Co', batch: 'Order 50112' }] },
+    'KA-071': { name: 'Spinner', counted: 3, parts: [{ part: '100% acrylic yarn', from: 'Wool Warehouse', batch: 'Lot 4821' }] },
+  };
+  const t = T.traceItems(lined, '48213');
+  check('a batch finds only the line it is on', t.length === 1 && t[0].lines.join() === 'Glass beads · Beads Direct · Order 48213', JSON.stringify(t));
+  check('a supplier finds every item with a part from them', T.traceItems(lined, 'wool warehouse').map(h => h.bc).join() === 'KA-071');
+}
+
+console.log('\nParts lines (v1.92.0)');
+{
+  const lined = { name: 'Keyring', parts: [
+    { part: 'Glass beads', from: 'Beads Direct', batch: 'Order 48213' },
+    { part: 'Alloy clasp', from: '', batch: 'Order 50112' },
+    { part: ' ', from: ' ', batch: ' ' } ] };
+  const c = T.partsColumns(lined);
+  check('Materials is the plain list of parts, for the label', c.materials === 'Glass beads, Alloy clasp', c.materials);
+  check('each batch says which part it is', c.batch === 'Glass beads: Order 48213; Alloy clasp: Order 50112', c.batch);
+  check('each supplier says which part it is', c.from === 'Glass beads: Beads Direct', c.from);
+  check('empty lines are dropped', T.partsOf(lined).length === 2);
+  const old = { materials: 'Mixed fibres, Alloy clasp', batch: 'lot 4821', boughtFrom: 'Wool Warehouse' };
+  check('an item from v1.90 reads as one line per part', JSON.stringify(T.partsOf(old).map(r => r.part)) === '["Mixed fibres","Alloy clasp"]');
+  check('its batch and supplier wording are kept as a note', T.partsNoteOf(old) === 'Batch numbers: lot 4821; Bought from: Wool Warehouse', T.partsNoteOf(old));
+  const oc = T.partsColumns(old);
+  check('and its export columns are exactly what they were', oc.materials === 'Mixed fibres, Alloy clasp' && oc.batch === 'lot 4821' && oc.from === 'Wool Warehouse');
+  const moved = { parts: [{ part: 'Mixed fibres' }], partsNote: 'Bought from: Wool Warehouse' };
+  check('once saved, a note left over still reaches the export', T.partsColumns(moved).batch === 'Note: Bought from: Wool Warehouse', T.partsColumns(moved).batch);
+  const items = {
+    'A': { addedAt: '2026-01-01', parts: [{ part: 'Glass beads', from: 'Old Bead Shop' }] },
+    'B': { addedAt: '2026-09-01', parts: [{ part: 'glass beads', from: 'Beads Direct' }] },
+    'C': { addedAt: '2026-10-01', parts: [{ part: 'Glass beads', from: '' }] },
+  };
+  check('the usual supplier is the latest one used for that part, any capitals', T.usualSupplier(items, 'Glass Beads') === 'Beads Direct');
+  check('a part never bought before has no usual supplier', T.usualSupplier(items, 'Felt') === '');
 }
 
 console.log('\nNothing to do');
@@ -160,6 +196,9 @@ console.log('\nThe file');
   check('code, price, folder and label are there',
     ['KA-037', '£10.00', 'Kay/Brooches', 'Small tag'].every(s => html.indexOf(s) > -1));
   check('who the parts came from is there', html.indexOf('Bought from') > -1 && html.indexOf('Wool Warehouse') > -1);
+  check('the parts lines are a table of their own',
+    T.soldRecordHtml([{ bc: 'KA-070', it: { name: 'K', parts: [{ part: 'Glass beads', from: 'Beads Direct', batch: 'Order 48213' }] }, lines: [] }], NOW)
+      .indexOf('<td>Glass beads</td><td>Beads Direct</td><td>Order 48213</td>') > -1);
   check('the batch numbers are there', html.indexOf('Batch numbers') > -1 && html.indexOf('lot 4821') > -1);
   check('the materials are there', html.indexOf('Materials') > -1 && html.indexOf('Mixed fibres yarn, alloy clasp') > -1);
   check('the description is kept', html.indexOf('Line one\nLine two') > -1);

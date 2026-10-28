@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-jXKs9ZjEk2DGM/UrwdTyljayOy+XnBycRtr/55yOMcI=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-kPMWLLNtqQCMQeUzUkJUx7MD9zHnEq7yx8CAFalADsg=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -165,6 +165,16 @@ if (window.top !== window.self) {
   }
   .folder-children{border-left:2px solid var(--line);margin-left:9px;padding-left:8px;}
   .folder-hint{font-size:11px;color:var(--muted);margin:-6px 0 12px;}
+
+  /* Parts lines (v1.92.0): one card per part, stacked, so they fit a phone. */
+  .part-row{position:relative;border:1px solid var(--line);border-radius:10px;padding:8px 40px 8px 8px;margin:6px 0;background:var(--panel);}
+  .part-row input{margin:0;}
+  .part-row .pr-two{display:flex;gap:6px;margin-top:6px;}
+  .part-row .pr-two input{flex:1;min-width:0;}
+  @media (max-width:560px){ .part-row .pr-two{flex-direction:column;} }
+  .part-row .pr-del{position:absolute;top:8px;right:4px;width:32px;height:32px;border:none;background:transparent;color:var(--muted);font-size:16px;cursor:pointer;}
+  .pr-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
+  .pr-actions .btn,.pr-actions select{flex:1;min-width:140px;margin:0;}
 
   /* Tap-to-pick list of the folders already in use, under a folder box */
   .folder-picks{
@@ -1160,17 +1170,9 @@ if (window.top !== window.self) {
       <button type="button" class="folder-toggle" id="addLabelToggle" style="display:none;"></button>
       <div class="folder-picks" id="addLabelPicks" style="display:none;"></div>
       <div class="folder-hint">Just for you — which label this one needs when you come to print. It is never sent to the website; it comes out in the stock export.</div>
-      <label for="manualMaterials">Materials (optional)</label>
-      <input type="text" id="manualMaterials" placeholder="e.g. 100% acrylic yarn, alloy clasp" autocomplete="off">
-      <div class="folder-picks" id="manualMaterialPicks"></div>
-      <div class="folder-hint">Every part it's made from, split by commas. Tap a part below to add it or take it off. For yarn, thread or fabric say the fibre (not sure? Mixed fibres). It comes out in the stock export, after Label.</div>
-      <label for="manualBatch">Batch numbers (optional)</label>
-      <input type="text" id="manualBatch" placeholder="e.g. yarn lot 4821, clasps order 48213" autocomplete="off">
-      <div class="folder-hint">Which batch, lot or order each part came from, so a problem can be traced back. Not for the label: it comes out in the stock export after Materials.</div>
-      <label for="manualBoughtFrom">Bought from (optional)</label>
-      <input type="text" id="manualBoughtFrom" placeholder="e.g. Wool Warehouse, Beads Direct" autocomplete="off">
-      <div class="folder-picks" id="manualBoughtFromPicks"></div>
-      <div class="folder-hint">Who you bought the parts from, split by commas. Tap one you have used before to add it. It comes out in the stock export after Batch Numbers.</div>
+      <label>Parts (optional)</label>
+      <div class="parts-ed" id="manualParts"></div>
+      <div class="folder-hint">One line per part: what it is, who you bought it from, and its batch or order number. For yarn, thread or fabric give the fibre (not sure? Mixed fibres). In the stock export the parts come out as Materials after Label, ready for the label, then Batch Numbers and Bought From.</div>
       <!-- The website photo: hidden while Etsy is ticked (v1.57.1). -->
       <div class="etsy-hide">
       <label>Photo (optional)</label>
@@ -1316,7 +1318,7 @@ if (window.top !== window.self) {
       <div class="quick-sell-head">🔎 Trace a part, batch or supplier</div>
       <input type="text" id="traceSearch" placeholder="e.g. lot 4821, alloy clasp or Wool Warehouse" autocomplete="off">
       <div id="traceResults" style="font-size:13px;line-height:1.45;margin-top:8px;"></div>
-      <div class="folder-hint">Finds every item still in the till made with that part, batch or supplier, sold or not, from its Materials, Batch numbers and Bought from. Items already cleared out are in your sold items record files.</div>
+      <div class="folder-hint">Finds every item still in the till made with that part, batch or supplier, sold or not, from its parts lines. Items already cleared out are in your sold items record files.</div>
     </div>
 
     <div class="card">
@@ -1600,6 +1602,9 @@ if (window.top !== window.self) {
 <datalist id="dealTagOptions"></datalist>
 <!-- Every label wording already used, so the same one is typed the same way twice. -->
 <datalist id="labelOptions"></datalist>
+<!-- Parts and suppliers already used (v1.92.0), offered back in the parts lines. -->
+<datalist id="partOptions"></datalist>
+<datalist id="supplierOptions"></datalist>
 
 <div id="toast" class="toast"></div>
 
@@ -1832,14 +1837,8 @@ if (window.top !== window.self) {
     <input type="text" id="newItemLabel" list="labelOptions" placeholder="e.g. Small swing tag" autocomplete="off">
     <button type="button" class="folder-toggle" id="newLabelToggle" style="display:none;"></button>
     <div class="folder-picks" id="newLabelPicks" style="display:none;"></div>
-    <label for="newItemMaterials">Materials (optional)</label>
-    <input type="text" id="newItemMaterials" placeholder="e.g. 100% acrylic yarn, alloy clasp" autocomplete="off">
-    <div class="folder-picks" id="newItemMaterialPicks"></div>
-    <label for="newItemBatch">Batch numbers (optional)</label>
-    <input type="text" id="newItemBatch" placeholder="e.g. yarn lot 4821, clasps order 48213" autocomplete="off">
-    <label for="newItemBoughtFrom">Bought from (optional)</label>
-    <input type="text" id="newItemBoughtFrom" placeholder="e.g. Wool Warehouse, Beads Direct" autocomplete="off">
-    <div class="folder-picks" id="newItemBoughtFromPicks"></div>
+    <label>Parts (optional)</label>
+    <div class="parts-ed" id="newItemParts"></div>
     <label>Photo (optional)</label>
     <button class="btn-generate photo-btn" type="button" data-pick="newPhotoInput">📷 Add photo</button>
     <input type="file" id="newPhotoInput" accept="image/*" style="display:none;">
@@ -1911,17 +1910,10 @@ if (window.top !== window.self) {
     <button type="button" class="folder-toggle" id="bulkLabelToggle" style="display:none;"></button>
     <div class="folder-picks" id="bulkLabelPicks" style="display:none;"></div>
     <div class="folder-hint">Type just - (or tap No label) to take the label off these items.</div>
-    <label for="bulkMaterialsInput">Materials</label>
-    <input type="text" id="bulkMaterialsInput" placeholder="Leave blank to keep current" autocomplete="off">
-    <div class="folder-picks" id="bulkMaterialPicks"></div>
-    <div class="folder-hint">Every part, split by commas. This replaces what these items have now. Type just - to take it off them.</div>
-    <label for="bulkBatchInput">Batch numbers</label>
-    <input type="text" id="bulkBatchInput" placeholder="Leave blank to keep current" autocomplete="off">
-    <div class="folder-hint">e.g. yarn lot 4821. Handy when a whole batch was made from the same yarn. Type just - to take it off them.</div>
-    <label for="bulkBoughtFrom">Bought from</label>
-    <input type="text" id="bulkBoughtFrom" placeholder="Leave blank to keep current" autocomplete="off">
-    <div class="folder-picks" id="bulkBoughtFromPicks"></div>
-    <div class="folder-hint">Who the parts came from, split by commas. This replaces what these items have now. Type just - to take it off them.</div>
+    <label>Parts</label>
+    <div class="parts-ed" id="bulkParts"></div>
+    <label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="bulkPartsClear" style="width:auto;margin:0;"> Take the parts off these items</label>
+    <div class="folder-hint">Leave the lines empty to keep what these items have. Anything filled in replaces their parts, e.g. tick 12 spinners and give them all "100% acrylic yarn · Wool Warehouse · Lot 4821".</div>
 
     <!-- Mix-and-match deal. Ticking the members and setting the terms is ONE
          action on purpose: the numbers are repeated on every item, and a deal
@@ -2291,23 +2283,20 @@ if (window.top !== window.self) {
          is the everyday boxes, the Etsy part and Save. It opens by itself for
          an item that has a label or is part of a set. -->
     <details class="more-box" id="editMore">
-      <summary>More: label, materials, batch, bought from, complaints, sets, QR code, delete</summary>
+      <summary>More: label, parts, complaints, sets, QR code, delete</summary>
     <label>Label needed (optional)</label>
     <input type="text" id="editItemLabel" list="labelOptions" placeholder="e.g. Small swing tag" autocomplete="off">
     <button type="button" class="folder-toggle" id="editLabelToggle" style="display:none;"></button>
     <div class="folder-picks" id="editLabelPicks" style="display:none;"></div>
     <div class="folder-hint">Never sent to the website — it comes out in the stock export.</div>
-    <label for="editItemMaterials">Materials (optional)</label>
-    <input type="text" id="editItemMaterials" placeholder="e.g. 100% acrylic yarn, alloy clasp" autocomplete="off">
-    <div class="folder-picks" id="editItemMaterialPicks"></div>
-    <div class="folder-hint">Every part it's made from, split by commas. Tap a part below to add it or take it off. For yarn, thread or fabric say the fibre (not sure? Mixed fibres). It comes out in the stock export, after Label.</div>
-    <label for="editItemBatch">Batch numbers (optional)</label>
-    <input type="text" id="editItemBatch" placeholder="e.g. yarn lot 4821, clasps order 48213" autocomplete="off">
-    <div class="folder-hint">Which batch, lot or order each part came from, so a problem can be traced back. Not for the label: it comes out in the stock export after Materials.</div>
-    <label for="editItemBoughtFrom">Bought from (optional)</label>
-    <input type="text" id="editItemBoughtFrom" placeholder="e.g. Wool Warehouse, Beads Direct" autocomplete="off">
-    <div class="folder-picks" id="editItemBoughtFromPicks"></div>
-    <div class="folder-hint">Who you bought the parts from, split by commas. Tap one you have used before to add it. It comes out in the stock export after Batch Numbers.</div>
+    <label>Parts (optional)</label>
+    <div class="parts-ed" id="editItemParts"></div>
+    <div class="folder-hint">One line per part: what it is, who you bought it from, and its batch or order number. For yarn, thread or fabric give the fibre (not sure? Mixed fibres). In the stock export the parts come out as Materials after Label, ready for the label, then Batch Numbers and Bought From.</div>
+    <div id="editPartsNoteBox" style="display:none;">
+      <label for="editPartsNote">Notes from before</label>
+      <textarea id="editPartsNote" class="desc-ta" rows="2"></textarea>
+      <div class="folder-hint">Batch numbers and suppliers typed before the parts lines existed. Move them into the right lines above, then clear this box.</div>
+    </div>
 
     <!-- Safety complaints (v1.90.0): the register the safety rules ask for,
          kept on the item so it syncs and travels with it. -->
@@ -4966,7 +4955,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.91.0';
+  const APP_VERSION = '1.92.0';
   const BUILD_DATE  = '28 Oct 2026';
   const BUILD_TIME  = '13:55';
   const versionEl = document.getElementById('appVersion');
@@ -6899,7 +6888,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         ? '<img src="' + esc(e.photo) + '" alt="">' : '<div class="nopic">No photo</div>';
       const facts = [
         ['Code', e.bc], ['Price', gbp(it.price)], ['Folder', it.folder], ['Made by', it.maker],
-        ['Label', it.label], ['Materials', it.materials], ['Batch numbers', it.batch], ['Bought from', it.boughtFrom], ['Etsy listing', it.etsyListingId], ['Added', it.addedAt ? day(it.addedAt) : '']
+        ['Label', it.label], ['Materials', partsColumns(it).materials], ['Notes', partsNoteOf(it)], ['Etsy listing', it.etsyListingId], ['Added', it.addedAt ? day(it.addedAt) : '']
       ].filter(f => f[1] !== undefined && f[1] !== null && String(f[1]) !== '')
        .map(f => '<tr><th>' + f[0] + '</th><td>' + esc(f[1]) + '</td></tr>').join('');
       const sold = (e.lines || []).map(l =>
@@ -6907,8 +6896,13 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         + esc(Math.abs(Number(l.qty) || 0)) + '</td><td>' + gbp(l.net) + '</td><td>'
         + esc(payWord[l.pay] || l.pay || '') + '</td><td>' + esc(l.receiptNo || '') + '</td></tr>').join('');
       const desc = it.webDesc ? '<div class="desc">' + esc(it.webDesc) + '</div>' : '';
+      const pr = Array.isArray(it.parts) ? normParts(it.parts) : [];
+      const partsTbl = pr.length
+        ? '<table class="sales"><tr><th>Part</th><th>Bought from</th><th>Batch / order</th></tr>'
+          + pr.map(r => '<tr><td>' + esc(r.part) + '</td><td>' + esc(r.from) + '</td><td>' + esc(r.batch) + '</td></tr>').join('') + '</table>'
+        : '';
       return '<section class="item"><div class="pic">' + pic + '</div><div class="info">'
-        + '<h2>' + esc(it.name || e.bc) + '</h2><table class="facts">' + facts + '</table>' + desc
+        + '<h2>' + esc(it.name || e.bc) + '</h2><table class="facts">' + facts + '</table>' + partsTbl + desc
         + '<table class="sales"><tr><th>Date</th><th></th><th>Qty</th><th>Amount</th><th>Paid by</th><th>Receipt</th></tr>'
         + sold + '</table></div></section>';
     }).join('\n');
@@ -6934,6 +6928,66 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       + rows + '\n</body></html>';
   }
   // SOLD ITEMS RECORD: END
+
+  // PARTS (v1.92.0)
+  // What an item is made of, one line per part, each with who it was bought
+  // from and its batch or order number:
+  //   it.parts = [{ part, from, batch }]
+  // Items filled in under v1.90-1.91 have three loose fields instead -
+  // it.materials, it.batch, it.boughtFrom - and are read the same way until
+  // they are next saved; it.partsNote then keeps that old wording.
+  function materialParts(s){
+    return String(s || '').split(',').map(p => p.trim()).filter(p => p && p !== '-');
+  }
+  function normParts(rows){
+    return (Array.isArray(rows) ? rows : []).map(r => ({
+      part: String((r && r.part) || '').trim(),
+      from: String((r && r.from) || '').trim(),
+      batch: String((r && r.batch) || '').trim()
+    })).filter(r => r.part || r.from || r.batch);
+  }
+  function partsOf(it){
+    if(!it) return [];
+    if(Array.isArray(it.parts)) return normParts(it.parts);
+    return materialParts(it.materials).map(p => ({ part: p, from: '', batch: '' }));
+  }
+  // Wording that has no line of its own yet.
+  function partsNoteOf(it){
+    if(!it) return '';
+    if(Array.isArray(it.parts)) return String(it.partsNote || '').trim();
+    return [it.batch ? 'Batch numbers: ' + String(it.batch).trim() : '',
+            it.boughtFrom ? 'Bought from: ' + String(it.boughtFrom).trim() : ''].filter(Boolean).join('; ');
+  }
+  // The three stock export columns. Materials is the plain list for the
+  // label; the other two say which part each one belongs to.
+  function partsColumns(it){
+    const rows = partsOf(it);
+    const materials = rows.map(r => r.part).filter(Boolean).join(', ');
+    if(it && !Array.isArray(it.parts))
+      return { materials: materials, batch: String(it.batch || '').trim(), from: String(it.boughtFrom || '').trim() };
+    const tag = (r, v) => (r.part ? r.part + ': ' : '') + v;
+    const batch = rows.filter(r => r.batch).map(r => tag(r, r.batch));
+    const note = partsNoteOf(it);
+    if(note) batch.push('Note: ' + note);
+    return { materials: materials, batch: batch.join('; '), from: rows.filter(r => r.from).map(r => tag(r, r.from)).join('; ') };
+  }
+  // Who a part was last bought from, going by when the item was added.
+  function usualSupplier(items, part){
+    const want = String(part || '').trim().toLowerCase();
+    let best = '', bestAt = '';
+    if(!want) return '';
+    Object.keys(items || {}).forEach(bc => {
+      const it = items[bc];
+      if(!it || !Array.isArray(it.parts)) return;
+      normParts(it.parts).forEach(r => {
+        if(!r.from || r.part.toLowerCase() !== want) return;
+        const at = String(it.addedAt || '');
+        if(!best || at >= bestAt){ best = r.from; bestAt = at; }
+      });
+    });
+    return best;
+  }
+  // PARTS: END
 
   // COMPLAINTS (v1.90.0)
   // The register of safety complaints the product safety rules ask a maker to
@@ -6967,16 +7021,24 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       rows: (list || []).map(c => [day(c.date), c.bc, c.name, c.what, c.done])
     };
   }
-  // Every item whose Materials, Batch numbers or Bought from mention what was
-  // typed, any capitals, for tracing a faulty part, a recalled batch or a supplier.
+  // Every item with a part, supplier or batch matching what was typed, any
+  // capitals, and the lines that matched - for tracing a faulty part, a
+  // recalled batch or a supplier.
   function traceItems(items, q){
     const want = String(q || '').trim().toLowerCase();
     if(want.length < 2) return [];
-    return Object.keys(items || {}).filter(bc => {
+    const hit = v => String(v || '').toLowerCase().indexOf(want) > -1;
+    const out = [];
+    Object.keys(items || {}).sort().forEach(bc => {
       const it = items[bc];
-      return it && [it.materials, it.batch, it.boughtFrom].map(v => String(v || '')).join('\n').toLowerCase().indexOf(want) > -1;
-    }).sort().map(bc => ({ bc: bc, name: items[bc].name || '', materials: items[bc].materials || '',
-      batch: items[bc].batch || '', boughtFrom: items[bc].boughtFrom || '', left: Number(items[bc].counted) || 0 }));
+      if(!it) return;
+      const lines = partsOf(it).filter(r => hit(r.part) || hit(r.from) || hit(r.batch))
+        .map(r => [r.part, r.from, r.batch].filter(Boolean).join(' · '));
+      const note = partsNoteOf(it);
+      if(note && hit(note)) lines.push(note);
+      if(lines.length) out.push({ bc: bc, name: it.name || '', left: Number(it.counted) || 0, lines: lines });
+    });
+    return out;
   }
   // COMPLAINTS: END
 
@@ -7431,66 +7493,94 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     // before is what stops "small tag" and "Small Tag" both existing.
     const ld = document.getElementById('labelOptions');
     if(ld) ld.innerHTML = allLabelsUsed().map(p => `<option value="${escapeAttr(p)}"></option>`).join('');
-    Object.keys(materialBoxes()).forEach(renderMaterialPicks);
+    const po = document.getElementById('partOptions');
+    if(po) po.innerHTML = partsOffered().map(p => `<option value="${escapeAttr(p)}"></option>`).join('');
+    const so = document.getElementById('supplierOptions');
+    if(so) so.innerHTML = suppliersOffered().map(p => `<option value="${escapeAttr(p)}"></option>`).join('');
   }
 
-  // Materials (v1.90.0): every part an item is made from, one line split by
-  // commas - "100% acrylic yarn, alloy clasp" - for the label and for tracing
-  // a part back if it ever goes wrong. Fibre wording first, because the law
-  // wants it on anything that is mostly yarn, thread or fabric.
+  // Parts already used, the usual ones first, once each whatever its capitals.
   // Functions, not constants: the stock list is drawn (and these with it)
   // before the script has reached this far.
-  // Bought from (v1.90.0) works the same way: who the parts came from, one
-  // line split by commas, offering back every supplier already typed.
-  function materialBoxes(){
-    return {
-      manualMaterials:    { box:'manualMaterialPicks',    field:'materials' },
-      newItemMaterials:   { box:'newItemMaterialPicks',   field:'materials' },
-      editItemMaterials:  { box:'editItemMaterialPicks',  field:'materials' },
-      bulkMaterialsInput: { box:'bulkMaterialPicks',      field:'materials' },
-      manualBoughtFrom:   { box:'manualBoughtFromPicks',  field:'boughtFrom' },
-      newItemBoughtFrom:  { box:'newItemBoughtFromPicks', field:'boughtFrom' },
-      editItemBoughtFrom: { box:'editItemBoughtFromPicks', field:'boughtFrom' },
-      bulkBoughtFrom:     { box:'bulkBoughtFromPicks',    field:'boughtFrom' }
-    };
-  }
-  function materialParts(s){
-    return String(s || '').split(',').map(p => p.trim()).filter(p => p && p !== '-');
-  }
-  // The usual parts (materials only), then every one already used, once each
-  // whatever its capitals.
-  function materialPartsOffered(field){
+  function partsOffered(){
     const seen = {}, out = [], used = [];
-    const add = v => { const k = v.toLowerCase(); if(!seen[k]){ seen[k] = 1; out.push(v); } };
-    if(field === 'materials') ['100% acrylic yarn', '100% cotton yarn', 'Mixed fibres', 'Glass beads', 'Alloy clasp', 'Polyester stuffing'].forEach(add);
-    Object.keys(items).forEach(bc => { if(items[bc]) used.push(...materialParts(items[bc][field])); });
-    used.sort((a, b) => a.localeCompare(b)).forEach(add);
+    const add = v => { const k = v.toLowerCase(); if(v && !seen[k]){ seen[k] = 1; out.push(v); } };
+    ['100% acrylic yarn', '100% cotton yarn', 'Mixed fibres', 'Glass beads', 'Alloy clasp', 'Polyester stuffing'].forEach(add);
+    Object.keys(items).forEach(bc => { partsOf(items[bc]).forEach(r => used.push(r.part)); });
+    used.sort((x, y) => x.localeCompare(y)).forEach(add);
     return out;
   }
-  function renderMaterialPicks(inputId){
-    const cfg = materialBoxes()[inputId];
-    const input = document.getElementById(inputId), box = cfg && document.getElementById(cfg.box);
-    if(!input || !box) return;
-    const have = {};
-    materialParts(input.value).forEach(p => { have[p.toLowerCase()] = 1; });
-    box.innerHTML = materialPartsOffered(cfg.field).map(p =>
-      `<div class="folder-pick${have[p.toLowerCase()] ? ' on' : ''}" data-part="${escapeAttr(p)}">${escapeHtml(p)}</div>`).join('');
-  }
-  // Tapping a part adds it to the end of the box, or takes it out if it is there.
-  Object.keys(materialBoxes()).forEach(inputId => {
-    const input = document.getElementById(inputId), box = document.getElementById(materialBoxes()[inputId].box);
-    if(!input || !box) return;
-    box.addEventListener('click', e => {
-      const pick = e.target.closest('.folder-pick');
-      if(!pick) return;
-      const part = pick.dataset.part, k = part.toLowerCase();
-      const parts = materialParts(input.value);
-      const kept = parts.filter(p => p.toLowerCase() !== k);
-      input.value = (kept.length < parts.length ? kept : parts.concat(part)).join(', ');
-      renderMaterialPicks(inputId);
+  function suppliersOffered(){
+    const seen = {}, out = [], used = [];
+    Object.keys(items).forEach(bc => {
+      const it = items[bc];
+      partsOf(it).forEach(r => used.push(r.from));
+      if(it && !Array.isArray(it.parts)) used.push(...materialParts(it.boughtFrom));
     });
-    input.addEventListener('input', () => renderMaterialPicks(inputId));
+    used.sort((x, y) => x.localeCompare(y)).forEach(v => { const k = v.toLowerCase(); if(v && !seen[k]){ seen[k] = 1; out.push(v); } });
+    return out;
+  }
+
+  // ---- Parts editor (v1.92.0) ----
+  // One card per part in a .parts-ed box: drawn by setParts, read back by
+  // readParts. exceptBc is the item being edited, left out of "Copy parts from".
+  function partsEditorRow(r){
+    return '<div class="part-row">'
+      + '<input type="text" class="pr-part" list="partOptions" placeholder="Part, e.g. 100% acrylic yarn" autocomplete="off" value="' + escapeAttr(r.part) + '">'
+      + '<div class="pr-two"><input type="text" class="pr-from" list="supplierOptions" placeholder="Bought from" autocomplete="off" value="' + escapeAttr(r.from) + '">'
+      + '<input type="text" class="pr-batch" placeholder="Batch / order no." autocomplete="off" value="' + escapeAttr(r.batch) + '"></div>'
+      + '<button type="button" class="pr-del" title="Take this part off">✕</button></div>';
+  }
+  function setParts(id, rows, exceptBc){
+    const box = document.getElementById(id);
+    if(!box) return;
+    const list = normParts(rows);
+    const copyFrom = Object.keys(items).filter(bc => bc !== exceptBc && items[bc] && Array.isArray(items[bc].parts) && items[bc].parts.length)
+      .sort((x, y) => String(items[x].name || '').localeCompare(String(items[y].name || '')));
+    box.dataset.except = exceptBc || '';
+    box.innerHTML = '<div class="pr-rows">' + (list.length ? list : [{ part:'', from:'', batch:'' }]).map(partsEditorRow).join('') + '</div>'
+      + '<div class="pr-actions"><button type="button" class="btn btn-secondary pr-add">＋ Add a part</button>'
+      + (copyFrom.length ? '<select class="pr-copy"><option value="">📋 Copy parts from…</option>'
+          + copyFrom.map(bc => '<option value="' + escapeAttr(bc) + '">' + escapeHtml((items[bc].name || bc) + ' (' + bc + ')') + '</option>').join('')
+          + '</select>' : '')
+      + '</div>';
+  }
+  function readParts(id){
+    const box = document.getElementById(id);
+    if(!box) return [];
+    return normParts([...box.querySelectorAll('.part-row')].map(row => ({
+      part: row.querySelector('.pr-part').value,
+      from: row.querySelector('.pr-from').value,
+      batch: row.querySelector('.pr-batch').value
+    })));
+  }
+  // Delegated, so redrawing a box never loses them.
+  ['manualParts', 'newItemParts', 'editItemParts', 'bulkParts'].forEach(id => {
+    const box = document.getElementById(id);
+    if(!box) return;
+    box.addEventListener('click', e => {
+      if(e.target.closest('.pr-add')){
+        box.querySelector('.pr-rows').insertAdjacentHTML('beforeend', partsEditorRow({ part:'', from:'', batch:'' }));
+        const parts = box.querySelectorAll('.pr-part');
+        parts[parts.length - 1].focus();
+      } else if(e.target.closest('.pr-del')){
+        const row = e.target.closest('.part-row');
+        if(box.querySelectorAll('.part-row').length > 1) row.remove();
+        else row.querySelectorAll('input').forEach(i => { i.value = ''; });
+      }
+    });
+    box.addEventListener('change', e => {
+      if(e.target.classList.contains('pr-part')){
+        // Whoever this part was last bought from, unless one is typed already.
+        const from = e.target.closest('.part-row').querySelector('.pr-from');
+        if(!from.value.trim()) from.value = usualSupplier(items, e.target.value);
+      } else if(e.target.classList.contains('pr-copy')){
+        const src = items[e.target.value];
+        if(src) setParts(id, partsOf(src), box.dataset.except);
+      }
+    });
   });
+  setParts('manualParts', []);
 
   function allLabelsUsed(){
     const set = {};
@@ -10133,11 +10223,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     document.getElementById('bulkDealTag').value = '';
     document.getElementById('bulkLabelInput').value = '';
     resetLabelPicks('bulk');
-    document.getElementById('bulkMaterialsInput').value = '';
-    document.getElementById('bulkBatchInput').value = '';
-    document.getElementById('bulkBoughtFrom').value = '';
-    renderMaterialPicks('bulkBoughtFrom');
-    renderMaterialPicks('bulkMaterialsInput');
+    setParts('bulkParts', []);
+    document.getElementById('bulkPartsClear').checked = false;
     // Two, not blank. Nearly every offer is "any 2 for", and a box that opens
     // empty under a label saying "Buy how many" is how the first real attempt
     // at this was refused.
@@ -10209,9 +10296,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const dp = round2(Number(document.getElementById('bulkDealPrice').value) || 0);
     const dx = document.getElementById('bulkDealExpires').value;
     const lb = document.getElementById('bulkLabelInput').value.trim();
-    const mt = document.getElementById('bulkMaterialsInput').value.trim();
-    const bn = document.getElementById('bulkBatchInput').value.trim();
-    const bf = document.getElementById('bulkBoughtFrom').value.trim();
+    const pw = readParts('bulkParts');
+    const pclear = document.getElementById('bulkPartsClear').checked;
 
     // A deal is set in ONE action across every member, which is what keeps the
     // repeated numbers agreeing with each other. Half a deal is refused here
@@ -10234,7 +10320,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
                   + ' — they should know before this goes on the shelf.\n\nSet the deal?')) return;
     }
 
-    if(!f && !m && !w && !ps && !dt && !lb && !mt && !bn && !bf){ showToast('Fill in a folder, a made-by, the website setting, the postage size, a label, the materials, a batch number, a supplier or a deal first', 'error'); return; }
+    if(!f && !m && !w && !ps && !dt && !lb && !pw.length && !pclear){ showToast('Fill in a folder, a made-by, the website setting, the postage size, a label, the parts or a deal first', 'error'); return; }
     const bcs = Object.keys(bulkPicked);
     bcs.forEach(bc => {
       if(!items[bc]) return;
@@ -10246,12 +10332,15 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       else if(postSize(ps)) items[bc].post = postSize(ps);
       if(lb === '-') delete items[bc].label;
       else if(lb) items[bc].label = lb;
-      if(mt === '-') delete items[bc].materials;
-      else if(mt) items[bc].materials = materialParts(mt).join(', ');
-      if(bn === '-') delete items[bc].batch;
-      else if(bn) items[bc].batch = bn;
-      if(bf === '-') delete items[bc].boughtFrom;
-      else if(bf) items[bc].boughtFrom = materialParts(bf).join(', ');
+      if(pclear){
+        ['parts', 'partsNote', 'materials', 'batch', 'boughtFrom'].forEach(k => { delete items[bc][k]; });
+      } else if(pw.length){
+        // The old wording is kept as a note rather than lost with the old fields.
+        const note = partsNoteOf(items[bc]);
+        items[bc].parts = pw.map(r => Object.assign({}, r));
+        if(note) items[bc].partsNote = note;
+        ['materials', 'batch', 'boughtFrom'].forEach(k => { delete items[bc][k]; });
+      }
       if(dt === '-'){
         delete items[bc].dealTag; delete items[bc].dealPick;
         delete items[bc].dealPrice; delete items[bc].dealExpires;
@@ -12532,7 +12621,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       totalValue += lineValue;
       rows.push([bc, it.name, itemFolder(it), it.maker || '', moneyCell(price),
                  it.qty, counted, counted - it.qty, moneyCell(lineValue),
-                 fmtDate(it.addedAt || sessionDate), it.label || '', it.materials || '', it.batch || '', it.boughtFrom || '']);
+                 fmtDate(it.addedAt || sessionDate), it.label || '', partsColumns(it).materials, partsColumns(it).batch, partsColumns(it).from]);
     });
     // Totals row so the spreadsheet is useful without adding formulas by hand
     rows.push(['TOTAL','','','','','', totalUnits, '', moneyCell(totalValue), '', '', '', '', '']);
@@ -15301,7 +15390,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       document.getElementById('tab-till').style.display = target==='till' ? 'block':'none';
       document.getElementById('tab-sold').style.display = target==='sold' ? 'block':'none';
       document.getElementById('tab-add').style.display  = target==='add'  ? 'block':'none';
-      if(target === 'add'){ resetFolderPicks('add'); resetLabelPicks('add'); }
+      if(target === 'add'){ resetFolderPicks('add'); resetLabelPicks('add'); if(!readParts('manualParts').length) setParts('manualParts', []); }
       document.getElementById('tab-settings').style.display = target==='settings' ? 'block':'none';
       document.getElementById('tab-records').style.display = target==='records' ? 'block':'none';
       if(target === 'records') renderRecords();
@@ -16265,12 +16354,11 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const label = String(f.label || '').trim();
     if(label) it.label = label;
     // Every part it is made of, for the label. Also shop business, blank left off.
-    const materials = String(f.materials || '').split(',').map(p => p.trim()).filter(Boolean).join(', ');
-    if(materials) it.materials = materials;
-    const batch = String(f.batch || '').trim();
-    if(batch) it.batch = batch;
-    const boughtFrom = String(f.boughtFrom || '').split(',').map(p => p.trim()).filter(Boolean).join(', ');
-    if(boughtFrom) it.boughtFrom = boughtFrom;
+    // What it is made of, one line per part (v1.92.0). Shop business too.
+    const parts = (Array.isArray(f.parts) ? f.parts : []).map(r => ({
+      part: String((r && r.part) || '').trim(), from: String((r && r.from) || '').trim(), batch: String((r && r.batch) || '').trim()
+    })).filter(r => r.part || r.from || r.batch);
+    if(parts.length) it.parts = parts;
     // Kept for Etsy is never on the website as well (v1.55.0), so an Etsy tick
     // wins over a website one. Both need the description and postage size:
     // Etsy lists the description and posts it like a website order.
@@ -16369,9 +16457,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       name, qty, maker, price, folder,
       photo: manualPhoto.value,
       label: document.getElementById('manualLabel').value,
-      materials: document.getElementById('manualMaterials').value,
-      batch: document.getElementById('manualBatch').value,
-      boughtFrom: document.getElementById('manualBoughtFrom').value,
+      parts: readParts('manualParts'),
       web: document.getElementById('manualWebOn').checked,
       etsy: document.getElementById('manualEtsyOn').checked,
       etsyTitle: etsyText.title,
@@ -16385,7 +16471,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const forEtsy = !!items[bc].etsy;
     clearAddEtsy();
     manualPhoto.clear();
-    ['manualBarcode','manualName','manualQty','manualMaker','manualPrice','manualFolder','manualLabel','manualMaterials','manualBatch','manualBoughtFrom','manualWebDesc','manualPost','manualEtsyTitle','manualEtsyTags'].forEach(id => document.getElementById(id).value='');
+    ['manualBarcode','manualName','manualQty','manualMaker','manualPrice','manualFolder','manualLabel','manualWebDesc','manualPost','manualEtsyTitle','manualEtsyTags'].forEach(id => document.getElementById(id).value='');
+    setParts('manualParts', []);
     renderEtsyTextHints('manual');
     // Back to ticked, which is the default for a reason - see the form.
     document.getElementById('manualWebOn').checked = true;
@@ -17010,11 +17097,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     document.getElementById('newItemMaker').value = '';
     document.getElementById('newItemPrice').value = '';
     document.getElementById('newItemLabel').value = '';
-    document.getElementById('newItemMaterials').value = '';
-    document.getElementById('newItemBatch').value = '';
-    document.getElementById('newItemBoughtFrom').value = '';
-    renderMaterialPicks('newItemBoughtFrom');
-    renderMaterialPicks('newItemMaterials');
+    setParts('newItemParts', []);
     resetFolderPicks('scan');
     resetLabelPicks('scan');
     newPhoto.clear();
@@ -17039,12 +17122,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const label = document.getElementById('newItemLabel').value.trim();
     items[bc] = { name, qty, maker, price, folder, photo: newPhoto.value, counted: 1, addedAt: new Date().toISOString() };
     if(label) items[bc].label = label;
-    const materials = materialParts(document.getElementById('newItemMaterials').value).join(', ');
-    if(materials) items[bc].materials = materials;
-    const batch = document.getElementById('newItemBatch').value.trim();
-    if(batch) items[bc].batch = batch;
-    const boughtFrom = materialParts(document.getElementById('newItemBoughtFrom').value).join(', ');
-    if(boughtFrom) items[bc].boughtFrom = boughtFrom;
+    const parts = readParts('newItemParts');
+    if(parts.length) items[bc].parts = parts;
     saveItems();
     document.getElementById('newItemModal').style.display = 'none';
     renderList(document.getElementById('searchBox').value);
@@ -17164,11 +17243,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     document.getElementById('editItemPrice').value = (it.price !== undefined && it.price !== null) ? it.price : '';
     document.getElementById('editItemLabel').value = it.label || '';
     resetLabelPicks('edit');
-    document.getElementById('editItemMaterials').value = it.materials || '';
-    renderMaterialPicks('editItemMaterials');
-    document.getElementById('editItemBatch').value = it.batch || '';
-    document.getElementById('editItemBoughtFrom').value = it.boughtFrom || '';
-    renderMaterialPicks('editItemBoughtFrom');
+    setParts('editItemParts', partsOf(it), barcode);
+    const partsNote = partsNoteOf(it);
+    document.getElementById('editPartsNote').value = partsNote;
+    document.getElementById('editPartsNoteBox').style.display = partsNote ? '' : 'none';
     resetComplaintForm();
     renderEditComplaints(it);
     editPhoto.set(it.photo || '');
@@ -17219,7 +17297,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     setTimeout(() => {
       const more = document.getElementById('editMore');
       const cur = items[currentEditBarcode];
-      if(more) more.open = !!(cur && (String(cur.label || '').trim() || String(cur.materials || '').trim() || String(cur.batch || '').trim() || String(cur.boughtFrom || '').trim() || (Array.isArray(cur.complaints) && cur.complaints.length) || document.getElementById('editSetWith').value));
+      if(more) more.open = !!(cur && (String(cur.label || '').trim() || partsOf(cur).length || partsNoteOf(cur) || (Array.isArray(cur.complaints) && cur.complaints.length) || document.getElementById('editSetWith').value));
     }, 0);
     // Before the website state is drawn: it decides whether the description
     // and postage boxes show.
@@ -17330,12 +17408,13 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     // the record rather than stored empty.
     const labelWanted = document.getElementById('editItemLabel').value.trim();
     if(labelWanted) it.label = labelWanted; else delete it.label;
-    const materialsWanted = materialParts(document.getElementById('editItemMaterials').value).join(', ');
-    if(materialsWanted) it.materials = materialsWanted; else delete it.materials;
-    const batchWanted = document.getElementById('editItemBatch').value.trim();
-    if(batchWanted) it.batch = batchWanted; else delete it.batch;
-    const boughtFromWanted = materialParts(document.getElementById('editItemBoughtFrom').value).join(', ');
-    if(boughtFromWanted) it.boughtFrom = boughtFromWanted; else delete it.boughtFrom;
+    // The parts lines replace v1.90-1.91's three loose fields for good; any
+    // wording left over stays in the note until it is moved into a line.
+    const partsWanted = readParts('editItemParts');
+    const noteWanted = document.getElementById('editPartsNote').value.trim();
+    if(partsWanted.length || noteWanted) it.parts = partsWanted; else delete it.parts;
+    if(noteWanted) it.partsNote = noteWanted; else delete it.partsNote;
+    delete it.materials; delete it.batch; delete it.boughtFrom;
     // Pressing Remove photo is the one thing that is allowed to destroy a
     // stored photo, so say so explicitly on the record. Without this marker
     // reconcilePhotos() cannot tell a removal from a photo that simply has not
@@ -17611,9 +17690,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       ? '<b>' + hits.length + ' item' + (hits.length === 1 ? '' : 's') + '</b>'
         + hits.map(h => '<div style="border-top:1px solid var(--line);padding:6px 0;">' + escapeHtml(h.bc) + ' · ' + escapeHtml(h.name)
           + ' <span style="color:var(--muted);">(' + (h.left ? h.left + ' in stock' : 'sold out') + ')</span>'
-          + (h.materials ? '<br><span style="color:var(--muted);">Materials: ' + escapeHtml(h.materials) + '</span>' : '')
-          + (h.batch ? '<br><span style="color:var(--muted);">Batch: ' + escapeHtml(h.batch) + '</span>' : '')
-          + (h.boughtFrom ? '<br><span style="color:var(--muted);">Bought from: ' + escapeHtml(h.boughtFrom) + '</span>' : '') + '</div>').join('')
+          + h.lines.map(l => '<br><span style="color:var(--muted);">' + escapeHtml(l) + '</span>').join('') + '</div>').join('')
       : '<span style="color:var(--muted);">Nothing in the till uses that.</span>';
   }
   function renderRecords(){
@@ -17955,6 +18032,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       if(typeof raw.materials === 'string' && raw.materials.trim()) it.materials = raw.materials.trim();
       if(typeof raw.batch === 'string' && raw.batch.trim()) it.batch = raw.batch.trim();
       if(typeof raw.boughtFrom === 'string' && raw.boughtFrom.trim()) it.boughtFrom = raw.boughtFrom.trim();
+      if(Array.isArray(raw.parts)){ const p = normParts(raw.parts); if(p.length) it.parts = p; }
+      if(typeof raw.partsNote === 'string' && raw.partsNote.trim()) it.partsNote = raw.partsNote.trim();
       if(typeof raw.webDesc === 'string' && raw.webDesc.trim()) it.webDesc = raw.webDesc;
       // A mix-and-match deal travels as four flat fields, all or nothing:
       // a tag with no terms cannot fire, and terms with no tag belong to

@@ -23,7 +23,10 @@ if (a < 0 || b < 0) { console.error('could not locate the spreadsheet export blo
 // v1.67.0: the Expenses section names each kind from the expenses block.
 const ea = HTML.indexOf('  // ---- expenses ----'), eb = HTML.indexOf('  // ---- end expenses ----');
 if (ea < 0 || eb < 0) { console.error('could not locate the expenses block'); process.exit(2); }
-const SRC = HTML.slice(ea, eb) + HTML.slice(a, b);
+// v1.92.0: the stock export reads each item's parts lines.
+const pa = HTML.indexOf('  // PARTS (v1.92.0)'), pb = HTML.indexOf('  // PARTS: END');
+if (pa < 0 || pb < 0) { console.error('could not locate the parts block'); process.exit(2); }
+const SRC = HTML.slice(pa, pb) + HTML.slice(ea, eb) + HTML.slice(a, b);
 
 // The page's own bits that the export leans on. sales and items are the real
 // shape the app stores; the rest are the one-line helpers it calls.

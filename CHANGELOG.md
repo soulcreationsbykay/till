@@ -10,6 +10,35 @@ fixes.
 
 ---
 
+## v1.92.0 - 28 October 2026
+
+**Parts lines: each part with its own supplier and batch.** Materials, Batch
+numbers and Bought from are now one **Parts** section, one line per part:
+
+| Part | Bought from | Batch / order |
+|---|---|---|
+| 100% acrylic yarn | Wool Warehouse | Lot 4821 |
+| Glass beads | Beads Direct | Order 48213 |
+
+- **＋ Add a part** adds a line and ✕ removes one. The Part and Bought from boxes
+  suggest what you've used before.
+- Type a part and **Bought from fills itself in** with whoever you last bought
+  that part from. You can change it.
+- **📋 Copy parts from…** copies every line from another item, ready to change.
+- In Add item, the new-item box after a scan, Edit item (under More) and bulk
+  Edit. In bulk Edit, lines replace the ticked items' parts, and **Take the parts
+  off these items** clears them.
+
+The stock export keeps its columns in the same places. **Materials** is still the
+plain list for the label. **Batch Numbers** and **Bought From** now say which part
+each one belongs to, e.g. "100% acrylic yarn: Lot 4821; Glass beads: Order 48213".
+Records → Trace shows the exact line that matched, and the Sold items record shows
+the parts table.
+
+Items filled in under v1.90-1.91 read as one line per part. Their old batch and
+supplier wording shows under **Notes from before** in Edit item, to move into the
+right lines. Until then, the export is exactly as it was.
+
 ## v1.91.0 - 28 October 2026
 
 **Bought from: who the parts came from.** A **Bought from** box after Batch
