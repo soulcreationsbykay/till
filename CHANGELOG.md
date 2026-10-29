@@ -10,6 +10,21 @@ fixes.
 
 ---
 
+## v1.96.0 - 29 October 2026
+
+**Duplicate an item.** Edit item has a **📄 Duplicate (new code)** button under
+Save. It opens Add item already filled in from that item, with the item code
+left empty. Copied across: name, folder, quantity, maker, price, label, every
+parts line (supplier, batch and purchase date), Stall only / For Etsy, the
+description, postage size, Etsy title and tags, and the photo.
+- Give it a new code (type one or ✨ Generate), change the name if it is another
+  colour, and press Add item. The usual check still refuses a code already used.
+- Not copied, because they belong to the original piece: its sales, its Etsy
+  listing and Etsy photos, extra website photos, safety complaints and sets.
+  An Etsy copy opens at its Etsy photos after adding, like any new Etsy item.
+- It copies the item as last saved, so save any changes first.
+- Shown to anyone allowed to use the Add tab.
+
 ## v1.95.0 - 29 October 2026
 
 **Purchase date on each part.** Every Parts line now has a **Bought on** date

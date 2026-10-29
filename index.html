@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-WPiitXgs7lIem5OC4Kmj/SVeLabLGbvfng6xrX0lKcI=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-YN2Do6P/1zjttDJhKXhIkLf+EZkvvrvYhU9l9rFgNsk=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -2357,6 +2357,8 @@ if (window.top !== window.self) {
     <button class="btn btn-danger" id="deleteItemBtn" style="width:100%;margin-top:8px;">Delete this item</button>
     </details>
     <button class="btn btn-primary" id="saveEditItem" style="width:100%;margin-top:10px;">Save</button>
+    <!-- v1.96.0: a copy of this item on Add item, everything but the code. -->
+    <button class="btn btn-secondary" id="duplicateItemBtn" type="button" style="width:100%;margin-top:8px;">📄 Duplicate (new code)</button>
   </div>
 </div>
 
@@ -4963,7 +4965,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.95.0';
+  const APP_VERSION = '1.96.0';
   const BUILD_DATE  = '29 Oct 2026';
   const BUILD_TIME  = '11:45';
   const versionEl = document.getElementById('appVersion');
@@ -17369,6 +17371,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     currentEditBarcode = barcode;
     const it = items[barcode];
     document.getElementById('editItemBarcode').textContent = barcode;
+    document.getElementById('duplicateItemBtn').style.display = roleAllows(currentRole(), 'add') ? '' : 'none';
     document.getElementById('editItemName').value = it.name;
     document.getElementById('editItemFolder').value = itemFolder(it);
     document.getElementById('editItemQty').value = it.qty;
@@ -17655,6 +17658,58 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       }
     );
   }
+  // ---- Duplicate (v1.96.0) ----
+  // The item as last saved, copied into Add item with the code left empty,
+  // so the next of a run or another colour is a new code (and maybe a new
+  // name) away. Only what Add item can set comes across: sales, the Etsy
+  // listing and its photos, extra photos, complaints and sets stay with the
+  // original, because they are about that one piece.
+  document.getElementById('duplicateItemBtn').addEventListener('click', async () => {
+    const bc = currentEditBarcode, it = items[bc];
+    if(!it) return;
+    document.getElementById('editItemModal').style.display = 'none';
+    document.querySelector('.tab[data-tab="add"]').click();
+    const put = (id, v) => { document.getElementById(id).value = (v === undefined || v === null) ? '' : v; };
+    put('manualBarcode', '');
+    manualCodeLetter = '';
+    document.getElementById('manualBarcodePreview').style.display = 'none';
+    put('manualName', it.name);
+    put('manualFolder', itemFolder(it));
+    put('manualQty', it.qty);
+    put('manualMaker', it.maker);
+    put('manualPrice', it.price);
+    put('manualLabel', it.label);
+    setParts('manualParts', partsOf(it));
+    const etsy = !!it.etsy, web = !etsy && !!it.web;
+    document.getElementById('manualEtsyOn').checked = etsy;
+    document.getElementById('manualWebOn').checked = web;
+    document.getElementById('manualWebMore').style.display = (web || etsy) ? '' : 'none';
+    resetDescSame('add');
+    resetAiBox('add');
+    put('manualWebDesc', it.webDesc);
+    put('manualPost', postSize(it.post));
+    put('manualEtsyTitle', it.etsyTitle);
+    put('manualEtsyTags', Array.isArray(it.etsyTags) ? it.etsyTags.join(', ') : '');
+    clearAddEtsy();
+    placeEtsyLayout('manual');
+    renderAddKind();
+    renderEtsyTextHints('manual');
+    resetFolderPicks('add');
+    resetLabelPicks('add');
+    manualPhoto.set(it.photo || '');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showToast('Copied “' + (it.name || bc) + '”. Give it a new code, then Add item', 'success');
+    // A photo still in IndexedDB comes across once it is back.
+    if(!it.photo && it.hasPhoto && photoStoreOK){
+      try{
+        await photosReady;
+        const p = it.photo || await PhotoDB.get(bc);
+        // Only onto this copy: not if it has been added, or another copied, meanwhile.
+        if(p && !manualPhoto.value && document.getElementById('manualName').value === String(it.name || '')) manualPhoto.set(p);
+      }catch(e){}
+    }
+  });
+
   document.getElementById('deleteItemBtn').addEventListener('click', () => {
     const it = items[currentEditBarcode];
     const bc = currentEditBarcode;
