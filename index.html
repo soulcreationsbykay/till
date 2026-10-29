@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-zjLp3ubfB/vAEVIg/DSi46L6TO8VSrsm9iyeiVYKjNQ=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-0lir5XMmvIYrgQIRKW3GrkYxkxw8kxELzmQ5PwKmAeM=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -2514,6 +2514,10 @@ if (window.top !== window.self) {
     <div class="btn-row" id="receiptRefundRow" style="margin-top:8px;display:none;">
       <button class="btn btn-danger" id="receiptRefundBtn">↩ Refund…</button>
     </div>
+    <!-- v1.94.0: for a sale rung up as a test, with no money taken. -->
+    <div class="btn-row" id="receiptRemoveRow" style="margin-top:8px;display:none;">
+      <button class="btn btn-secondary" id="receiptRemoveBtn">🗑 Remove test sale</button>
+    </div>
     <button class="btn btn-primary" id="receiptDoneBtn" style="margin-top:8px;">Done</button>
   </div>
 </div>
@@ -4957,9 +4961,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.93.0';
-  const BUILD_DATE  = '28 Oct 2026';
-  const BUILD_TIME  = '13:55';
+  const APP_VERSION = '1.94.0';
+  const BUILD_DATE  = '29 Oct 2026';
+  const BUILD_TIME  = '11:45';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -11862,6 +11866,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const refundRow = document.getElementById('receiptRefundRow');
     refundRow.style.display =
       (g.kind!=='refund' && refundableLines(g).some(r => r.left > 0)) ? 'flex' : 'none';
+    document.getElementById('receiptRemoveRow').style.display =
+      canRemoveTestSale(g) ? 'flex' : 'none';
 
     // Say plainly what still has to happen, and where. The app cannot do this
     // part, so the least it can do is not leave someone guessing.
@@ -15363,38 +15369,80 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       plan.okLabel,
       () => {
         if(plan.mode === 'refund'){ openRefundFor(g.id); return; }
-        const ids = {};
-        g.lines.forEach(l => { ids[l.id || (String(l.barcode||'')+'|'+String(l.at||''))] = 1; });
-        sales = sales.filter(s => {
-          const key = s.id || (String(s.barcode||'')+'|'+String(s.at||''));
-          if(!ids[key]) return true;
-          // reverse the stock movement: sales go back on the shelf,
-          // undone refunds come back off it
-          if(items[s.barcode]){
-            items[s.barcode].counted = Math.max(0, (Number(items[s.barcode].counted)||0) + lineQty(s));
-          }
-          return false;
-        });
-        // A web sale that has just been unrung leaves nobody a reason to go and
-        // take anything off the shelf, so the standing alert goes with it. Done
-        // here rather than through webSoldClear, which announces "Off the
-        // floor" — true when someone has fetched the thing, a lie when the sale
-        // itself has gone. Marked done as well as dropped, or the next sync
-        // snapshot would hand the same job straight back.
-        if(g.pay === 'web' && webSold){
-          webSold.pending = webSold.pending.filter(j => j.txn !== g.id);
-          webSold.done[g.id] = Date.now();
-          saveWebSold();
-          renderWebSoldBanner();
-          renderWebSoldList();
-        }
-        saveItems();
-        saveSales();
-        renderList(document.getElementById('searchBox').value);
-        renderSold();
+        deleteTxnLines(g.lines, g);
         showToast(isRefund ? 'Refund undone' : 'Sale undone', 'success');
       }
     );
+  });
+
+  // Takes the given sale lines out of the records and reverses their stock
+  // movement. Shared by Undo and Remove test sale. Sync sees the lines go and
+  // writes a delete marker for each, so every till loses them, not just this one.
+  function deleteTxnLines(lines, g){
+    const ids = {};
+    lines.forEach(l => { ids[l.id || (String(l.barcode||'')+'|'+String(l.at||''))] = 1; });
+    sales = sales.filter(s => {
+      const key = s.id || (String(s.barcode||'')+'|'+String(s.at||''));
+      if(!ids[key]) return true;
+      // reverse the stock movement: sales go back on the shelf,
+      // undone refunds come back off it
+      if(items[s.barcode]){
+        items[s.barcode].counted = Math.max(0, (Number(items[s.barcode].counted)||0) + lineQty(s));
+      }
+      return false;
+    });
+    // A web sale that has just been unrung leaves nobody a reason to go and
+    // take anything off the shelf, so the standing alert goes with it. Done
+    // here rather than through webSoldClear, which announces "Off the
+    // floor" — true when someone has fetched the thing, a lie when the sale
+    // itself has gone. Marked done as well as dropped, or the next sync
+    // snapshot would hand the same job straight back.
+    if(g && g.pay === 'web' && webSold){
+      webSold.pending = webSold.pending.filter(j => j.txn !== g.id);
+      webSold.done[g.id] = Date.now();
+      saveWebSold();
+      renderWebSoldBanner();
+      renderWebSoldList();
+    }
+    saveItems();
+    saveSales();
+    renderList(document.getElementById('searchBox').value);
+    renderSold();
+  }
+
+  /* ---- Remove test sale (v1.94.0) -----------------------------------------
+     For a sale rung up to try the till or the reader, where no money changed
+     hands. Unlike Undo it reaches ANY sale, not just the last, so it is kept
+     narrow on purpose (see the v1.32.0 note by Undo on why a wide delete went):
+     one sale at a time, from its own receipt, administrators only, and never a
+     website or Etsy sale, which come from real orders that would only bring
+     them back. Any refund raised against the sale goes with it, or the refund
+     would be left pointing at nothing. */
+  function canRemoveTestSale(g){
+    return !!g && g.kind !== 'refund'
+      && ['cash','card','other'].indexOf(g.pay) >= 0
+      && currentRole() === 'admin';
+  }
+  document.getElementById('receiptRemoveBtn').addEventListener('click', () => {
+    const g = findTxn(receiptTxnId);
+    if(!canRemoveTestSale(g)) return;
+    const lineIds = {};
+    g.lines.forEach(l => { if(l.id) lineIds[l.id] = 1; });
+    const refunds = sales.filter(s => s.kind === 'refund' && s.refundOfLine && lineIds[s.refundOfLine]);
+    const what = g.lines.length === 1 ? `"${g.lines[0].name}"` : `${g.lines.length} items`;
+    let message = `${what} (${money(txnTotal(g))}${g.receiptNo ? ', receipt ' + fmtReceiptNo(g.receiptNo) : ''}) `
+                + 'will be deleted from the sales records on every till, and the stock put back. '
+                + 'Only do this for a test where no money was taken.';
+    if(g.pay === 'card'){
+      message += ' This was rung up as a card sale. If the reader really took money, use Refund '
+               + 'instead, or the customer is left charged with nothing on the till to show it.';
+    }
+    if(refunds.length) message += ' Its refund will be removed as well.';
+    askConfirm('Remove this test sale?', message, 'Remove', () => {
+      document.getElementById('receiptModal').style.display = 'none';
+      deleteTxnLines(g.lines.concat(refunds), g);
+      showToast('Test sale removed', 'success');
+    });
   });
 
   document.getElementById('exportSalesBtn').addEventListener('click', () => {

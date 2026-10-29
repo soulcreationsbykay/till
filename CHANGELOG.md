@@ -10,6 +10,20 @@ fixes.
 
 ---
 
+## v1.94.0 - 29 October 2026
+
+**Remove test sale.** Tap a sale in the Sales tab, and its receipt now has a
+**🗑 Remove test sale** button. Use it for a sale rung up to try the till or the
+card reader, where no money changed hands. It deletes that one sale from the
+records on every till and puts the stock back. Any refund raised against it goes
+too. Unlike Undo last sale, it works on any sale, not just the most recent.
+
+- You confirm first. The box names the item, the amount and the receipt number.
+  For a card sale it warns you to use Refund instead if the reader really took money.
+- Administrators only. Cash, card and "other" sales only: website and Etsy sales
+  come from real orders, so they don't get the button.
+- Undo last sale works exactly as before. It now shares the same removal code.
+
 ## v1.93.0 - 28 October 2026
 
 **The till remembers batch numbers.** In the Parts lines, typing a part now fills
