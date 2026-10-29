@@ -24,7 +24,7 @@ const SRC = slice('  // WHERE AN ITEM SELLS (v1.56.0)', '  // WHERE AN ITEM SELL
 
 const ctx = { console, Date };
 vm.createContext(ctx);
-vm.runInContext(SRC + '\nthis.T = { planSoldClearout, soldRecordHtml, SOLD_CLEAR_DAYS, newComplaint, allComplaints, complaintsTable, traceItems, partsOf, partsNoteOf, partsColumns, usualSupplier, normParts, batchesFor };', ctx);
+vm.runInContext(SRC + '\nthis.T = { planSoldClearout, soldRecordHtml, SOLD_CLEAR_DAYS, newComplaint, allComplaints, complaintsTable, traceItems, partsOf, partsNoteOf, partsColumns, usualSupplier, normParts, batchesFor, boughtFor };', ctx);
 const T = ctx.T;
 
 let pass = 0, fail = 0;
@@ -188,6 +188,37 @@ console.log('\nParts lines (v1.92.0)');
   check('a new part has none yet', T.batchesFor(lots, 'Felt', '').length === 0);
 }
 
+console.log('\nPurchase dates (v1.95.0)');
+{
+  const it = { name: 'Keyring', parts: [
+    { part: 'Glass beads', from: 'Beads Direct', batch: 'Order 48213', bought: '2026-09-14' },
+    { part: 'Alloy clasp', from: 'Clasp Co', batch: '', bought: 'last week' },
+    { part: '', from: '', batch: '', bought: '2026-10-01' } ] };
+  const p = T.normParts(it.parts);
+  check('a purchase date is kept on its line', p[0].bought === '2026-09-14');
+  check('words that are not a date are dropped', !('bought' in p[1]), JSON.stringify(p[1]));
+  check('a line with only a date is kept', p.length === 3);
+  check('a line with no date has no field, so older lines are stored as before',
+    JSON.stringify(T.normParts([{ part: 'Felt', from: 'X', batch: '1' }])) === '[{"part":"Felt","from":"X","batch":"1"}]');
+  const c = T.partsColumns(it);
+  check('the Bought On column says which part, the UK way', c.bought === 'Glass beads: 14/09/2026; 01/10/2026', c.bought);
+  check('an item from v1.90 has an empty Bought On', T.partsColumns({ materials: 'Felt' }).bought === '');
+  const items = {
+    'A': { addedAt: '2026-09-01', parts: [{ part: '100% acrylic yarn', from: 'Wool Warehouse', batch: 'Lot 4821', bought: '2026-08-28' }] },
+    'B': { addedAt: '2026-10-01', parts: [{ part: '100% Acrylic Yarn', from: 'Wool Warehouse', batch: 'lot 4821' }] },
+    'C': { addedAt: '2026-10-05', parts: [{ part: '100% acrylic yarn', from: 'Wool Warehouse', batch: 'Lot 5000', bought: '2026-10-03' }] },
+  };
+  check('a batch bought before fills in its date, any capitals', T.boughtFor(items, '100% acrylic yarn', 'wool warehouse', 'LOT 4821') === '2026-08-28');
+  check('each batch keeps its own date', T.boughtFor(items, '100% acrylic yarn', 'Wool Warehouse', 'Lot 5000') === '2026-10-03');
+  check('from another supplier, no date', T.boughtFor(items, '100% acrylic yarn', 'Hobbycraft', 'Lot 4821') === '');
+  check('no batch, no date', T.boughtFor(items, '100% acrylic yarn', 'Wool Warehouse', '') === '');
+  const t = T.traceItems({ 'KA-1': { name: 'K', counted: 1, parts: it.parts } }, '14/09/2026');
+  check('a purchase date finds its item and shows on the line',
+    t.length === 1 && t[0].lines.join() === 'Glass beads · Beads Direct · Order 48213 · bought 14/09/2026', JSON.stringify(t));
+  check('the sold items record has a Bought on column',
+    T.soldRecordHtml([{ bc: 'KA-1', it: it, lines: [] }], NOW).indexOf('<td>Order 48213</td><td>14/09/2026</td>') > -1);
+}
+
 console.log('\nNothing to do');
 {
   check('no items, no crash', T.planSoldClearout({}, [], { now: NOW }).ready.length === 0);
@@ -211,7 +242,7 @@ console.log('\nThe file');
   check('who the parts came from is there', html.indexOf('Bought from') > -1 && html.indexOf('Wool Warehouse') > -1);
   check('the parts lines are a table of their own',
     T.soldRecordHtml([{ bc: 'KA-070', it: { name: 'K', parts: [{ part: 'Glass beads', from: 'Beads Direct', batch: 'Order 48213' }] }, lines: [] }], NOW)
-      .indexOf('<td>Glass beads</td><td>Beads Direct</td><td>Order 48213</td>') > -1);
+      .indexOf('<td>Glass beads</td><td>Beads Direct</td><td>Order 48213</td><td></td>') > -1);
   check('the batch numbers are there', html.indexOf('Batch numbers') > -1 && html.indexOf('lot 4821') > -1);
   check('the materials are there', html.indexOf('Materials') > -1 && html.indexOf('Mixed fibres yarn, alloy clasp') > -1);
   check('the description is kept', html.indexOf('Line one\nLine two') > -1);

@@ -10,6 +10,21 @@ fixes.
 
 ---
 
+## v1.95.0 - 29 October 2026
+
+**Purchase date on each part.** Every Parts line now has a **Bought on** date
+next to who it was bought from (the supplier) and the batch or order number.
+- The till fills it in like the batch: type a part and, if that batch from that
+  supplier was dated before, its date comes up too. Start a new batch and the
+  filled-in date clears so you can pick the new one. A date you pick yourself is
+  never overwritten.
+- The stock export has a new **Bought On** column after Bought From, saying which
+  part each date is for (e.g. "100% acrylic yarn: 20/09/2026"). Every other
+  column stays where it was.
+- The Sold items record shows it in the parts table, and the Records tab's trace
+  search finds a purchase date (type it as 20/09/2026).
+- Lines saved before this have no date; nothing about them changes.
+
 ## v1.94.0 - 29 October 2026
 
 **Remove test sale.** Tap a sale in the Sales tab, and its receipt now has a
