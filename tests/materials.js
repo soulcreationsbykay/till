@@ -50,8 +50,10 @@ let threw = '';
 try { T.cleanLot({ id: 'Labc123', code: 'M-001', part: '' }, 1); } catch (e) { threw = e.message; }
 check('no part is refused with a message', /part/.test(threw), threw);
 threw = '';
-try { T.cleanLot({ id: 'Labc123', code: 'M-001', part: 'Clasp', docs: 'drive.google.com/x' }, 1); } catch (e) { threw = e.message; }
-check('a link without https:// is refused, not dropped quietly', /https/.test(threw), threw);
+try { T.cleanLot({ id: 'Labc123', code: 'M-001', part: 'Clasp', docs: 'http://drive.google.com/x' }, 1); } catch (e) { threw = e.message; }
+check('an http:// link is refused with a message', /https/.test(threw), threw);
+const pc = T.cleanLot({ id: 'Labc123', code: 'M-001', part: 'Clasp', docs: ' C:\\Users\\Kay\\Safety papers\\M-001 ' }, 1);
+check('a computer folder is kept as words, never as a link', !('docs' in pc) && pc.papersAt === 'C:\\Users\\Kay\\Safety papers\\M-001', JSON.stringify(pc));
 
 console.log('\nTwo tills');
 const m = T.mergeLots([{ id: 'L1', code: 'M-001', part: 'old', updatedAt: 1 }], [{ id: 'L1', code: 'M-001', part: 'new', updatedAt: 2 }, { id: 'L2', code: 'M-002', part: 'x', updatedAt: 1 }]);

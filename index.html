@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-cRx9V6NWqVbwI1z9HjQwddce3PdrvWApDAjCQqOw8sU=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-aVJN3pVZlJpXCj+3A/+YeP2PhlW8rdg7uEpYW6RhzmA=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -1323,7 +1323,7 @@ if (window.top !== window.self) {
          outside the till. Shown only when ticked in Settings. -->
     <div class="card matbook-only" id="matBookCard">
       <div class="quick-sell-head">📒 Materials book</div>
-      <div class="folder-hint" style="margin:0 0 8px;">Write each purchase of a part down once. Put its code (M-001) on the bag, and link to where you keep its safety papers, such as a Google Drive folder. Then pick it on an item's parts instead of typing it out.</div>
+      <div class="folder-hint" style="margin:0 0 8px;">Write each purchase of a part down once. Put its code (M-001) on the bag, and note where its safety papers are kept: a folder on the computer or a link to your online drive. Then pick it on an item's parts instead of typing it out.</div>
       <input type="text" id="matSearch" placeholder="Find a purchase: code, part, supplier or batch" autocomplete="off">
       <div id="matList" style="font-size:13px;line-height:1.45;margin-top:8px;"></div>
       <label id="matFormTitle" for="matPart" style="margin-top:12px;">Add a purchase</label>
@@ -1334,7 +1334,8 @@ if (window.top !== window.self) {
       </div>
       <label for="matBought" style="margin-top:8px;">Bought on</label>
       <input type="date" id="matBought">
-      <input type="url" id="matDocs" placeholder="Link to its safety papers (https://…)" autocomplete="off" autocapitalize="none" spellcheck="false" style="margin-top:8px;">
+      <input type="text" id="matDocs" placeholder="Where its safety papers are: a folder or a https:// link" autocomplete="off" autocapitalize="none" spellcheck="false" style="margin-top:8px;">
+      <div class="folder-hint" style="margin:4px 0 0;">A folder on the computer, e.g. <b>Safety papers\Bead Shop\M-001 Glass beads</b>, or a web link to your online drive. Naming the folder after the code makes it easy to find.</div>
       <input type="text" id="matNote" placeholder="Note, e.g. supplier says nickel-free" autocomplete="off" style="margin-top:8px;">
       <button class="btn btn-secondary" id="matSave" type="button" style="width:100%;margin-top:8px;">＋ Add to the book</button>
       <div class="btn-row" style="margin-top:8px;">
@@ -5002,9 +5003,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.97.0';
+  const APP_VERSION = '1.97.1';
   const BUILD_DATE  = '29 Oct 2026';
-  const BUILD_TIME  = '16:07';
+  const BUILD_TIME  = '16:22';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -7017,7 +7018,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // Each purchase of a part written down once, with a short code (M-001) to
   // write on the bag and a link to where its safety papers are kept (a Google
   // Drive folder, say - the papers themselves never come into the till).
-  //   { id, code, part, from, batch, bought, docs, note, updatedAt, deleted? }
+  //   { id, code, part, from, batch, bought, docs, papersAt, note, updatedAt, deleted? }
+  // docs is a web link to the papers; papersAt (v1.97.1) is where they are
+  // kept when that is a folder on the computer, which a web page cannot open,
+  // so it is shown as words to copy. A purchase has one or the other.
   // A part line that came from the book carries the purchase's id as `lot` AND
   // a copy of its part, supplier, batch and date, so the item reads the same
   // with the book switched off. Synced one document each in `materials`.
@@ -7038,15 +7042,19 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const t = (v, n) => String(v || '').replace(/\s+/g, ' ').trim().slice(0, n);
     const part = t(raw.part, 100);
     if(!part) throw new Error('Say what the part is.');
+    // One box: a web address becomes a link, anything else is a folder.
     const typedDocs = String(raw.docs || '').trim();
-    const docs = docsLink(typedDocs);
-    if(typedDocs && !docs) throw new Error('The documents link must be a web address starting https://');
+    const looksWeb = /^https?:/i.test(typedDocs);
+    const docs = looksWeb ? docsLink(typedDocs) : '';
+    if(looksWeb && !docs) throw new Error('A web link must start https:// (or type the folder where the papers are kept).');
+    const papersAt = looksWeb ? '' : typedDocs.replace(/[\u0000-\u001f]/g, '').slice(0, 300);
     const id = String(raw.id || ''), code = String(raw.code || '');
     if(!LOT_ID_RE.test(id) || !LOT_CODE_RE.test(code)) throw new Error('Something went wrong: no code.');
     const o = { id: id, code: code, part: part, from: t(raw.from, 100), batch: t(raw.batch, 100), updatedAt: Number(now) || 0 };
     const bought = partDate(raw.bought);
     if(bought) o.bought = bought;
     if(docs) o.docs = docs;
+    if(papersAt) o.papersAt = papersAt;
     const note = t(raw.note, 300);
     if(note) o.note = note;
     return o;
@@ -18089,8 +18097,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
           return '<div style="border-top:1px solid var(--line);padding:8px 0;"><b>' + escapeHtml(l.code) + '</b> · ' + escapeHtml(l.part)
             + '<br><span style="color:var(--muted);">' + escapeHtml([l.from, l.batch ? 'batch ' + l.batch : '', l.bought ? 'bought ' + ukDay(l.bought) : ''].filter(Boolean).join(' · ') || 'No supplier or batch yet') + '</span>'
             + (l.note ? '<br><span style="color:var(--muted);">' + escapeHtml(l.note) + '</span>' : '')
+            + (l.papersAt ? '<br><span style="color:var(--muted);word-break:break-all;">📁 Papers: ' + escapeHtml(l.papersAt) + '</span>' : '')
             + '<div class="btn-row" style="margin-top:6px;">'
             + (l.docs ? '<a class="btn btn-secondary" href="' + escapeAttr(l.docs) + '" target="_blank" rel="noopener noreferrer">📎 Safety papers</a>' : '')
+            + (l.papersAt ? '<button type="button" class="btn btn-secondary" data-mat-copy="' + escapeAttr(l.papersAt) + '">📋 Copy folder</button>' : '')
             + '<button type="button" class="btn btn-secondary" data-mat-trace="' + escapeAttr(l.code) + '">' + (used ? 'In ' + used + ' item' + (used === 1 ? '' : 's') : 'Not on any item') + '</button>'
             + '<button type="button" class="btn btn-secondary" data-mat-edit="' + escapeAttr(l.id) + '">✏ Change</button></div></div>';
         }).join('') + '</div>';
@@ -18113,7 +18123,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     document.getElementById('matFrom').value = l.from || '';
     document.getElementById('matBatch').value = l.batch || '';
     document.getElementById('matBought').value = l.bought || '';
-    document.getElementById('matDocs').value = l.docs || '';
+    document.getElementById('matDocs').value = l.docs || l.papersAt || '';
     document.getElementById('matNote').value = l.note || '';
     document.getElementById('matFormTitle').textContent = 'Change ' + l.code;
     document.getElementById('matSave').textContent = 'Save changes';
@@ -18165,6 +18175,16 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     });
   });
   document.getElementById('matList').addEventListener('click', e => {
+    // A computer folder cannot be opened from the till, so it is copied, ready
+    // to paste into File Explorer's address bar.
+    const cp = e.target.closest('[data-mat-copy]');
+    if(cp){
+      const v = cp.dataset.matCopy;
+      Promise.resolve().then(() => navigator.clipboard.writeText(v))
+        .then(() => showToast('Folder copied: paste it into File Explorer', 'success'))
+        .catch(() => showToast('Could not copy. The folder is: ' + v, 'error'));
+      return;
+    }
     const ed = e.target.closest('[data-mat-edit]');
     if(ed){ startMatEdit(ed.dataset.matEdit); return; }
     const tr = e.target.closest('[data-mat-trace]');
@@ -18177,7 +18197,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   });
   document.getElementById('matExport').addEventListener('click', () => {
     const cols = [{ h:'Code' }, { h:'Part' }, { h:'Bought from' }, { h:'Batch' }, { h:'Bought on' }, { h:'Safety papers' }, { h:'Note' }, { h:'Used in' }];
-    const rows = MatBook.live().map(l => [l.code, l.part, l.from, l.batch, ukDay(l.bought), l.docs || '', l.note || '', lotUsedIn(items, l.id).join(', ')]);
+    const rows = MatBook.live().map(l => [l.code, l.part, l.from, l.batch, ukDay(l.bought), l.docs || l.papersAt || '', l.note || '', lotUsedIn(items, l.id).join(', ')]);
     const name = 'materials-book-' + new Date().toISOString().slice(0, 10);
     askFormat('Export the Materials book', fmt => {
       if(fmt === 'xlsx') downloadBlob(buildXlsx([{ name:'Materials book', cols: cols, rows: rows }]), name + '.xlsx');

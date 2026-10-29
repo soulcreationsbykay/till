@@ -10,6 +10,21 @@ fixes.
 
 ---
 
+## v1.97.1 - 29 October 2026
+
+**Materials book: keep the safety papers in a folder on the computer.** The box on a
+purchase is now **Where its safety papers are**. Type either:
+- a folder on the computer, for example `Safety papers\Bead Shop\M-001 Glass beads`
+  (back it up to your online drive as usual). The till shows it under the purchase with
+  a **📋 Copy folder** button: paste it into File Explorer's address bar to open it. A
+  web page cannot open a folder on the computer itself, so it is never a link.
+- or a web link starting https://, which opens as before with **📎 Safety papers**.
+
+An http:// link is still refused. The export's Safety papers column holds whichever
+was typed.
+
+---
+
 ## v1.97.0 - 29 October 2026
 
 **Materials book, switched off unless you tick it.** Settings → 📒 Materials book →
