@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-YN2Do6P/1zjttDJhKXhIkLf+EZkvvrvYhU9l9rFgNsk=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-zYOND4LORNIQ3gIIvtXEmVMlqHJ8Cw5i2sgjyERaxrM=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -175,6 +175,8 @@ if (window.top !== window.self) {
   .part-row .pr-on{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13px;color:var(--muted);}
   .part-row .pr-on input{flex:1;min-width:0;}
   .part-row .pr-del{position:absolute;top:8px;right:4px;width:32px;height:32px;border:none;background:transparent;color:var(--muted);font-size:16px;cursor:pointer;}
+  .part-row .pr-lot{width:100%;margin:0 0 6px;}
+  .no-matbook .matbook-only { display:none !important; }
   .pr-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
   .pr-actions .btn,.pr-actions select{flex:1;min-width:140px;margin:0;}
 
@@ -1316,6 +1318,33 @@ if (window.top !== window.self) {
   <!-- Records (v1.90.0): traceability in one place - which items used a part
        or batch, the safety complaints log, and the sold items record. -->
   <div id="tab-records" style="display:none;">
+    <!-- Materials book (v1.97.0): each purchase of a part written down once,
+         with a code for the bag and a link to its safety papers, which stay
+         outside the till. Shown only when ticked in Settings. -->
+    <div class="card matbook-only" id="matBookCard">
+      <div class="quick-sell-head">📒 Materials book</div>
+      <div class="folder-hint" style="margin:0 0 8px;">Write each purchase of a part down once. Put its code (M-001) on the bag, and link to where you keep its safety papers, such as a Google Drive folder. Then pick it on an item's parts instead of typing it out.</div>
+      <input type="text" id="matSearch" placeholder="Find a purchase: code, part, supplier or batch" autocomplete="off">
+      <div id="matList" style="font-size:13px;line-height:1.45;margin-top:8px;"></div>
+      <label id="matFormTitle" for="matPart" style="margin-top:12px;">Add a purchase</label>
+      <input type="text" id="matPart" list="partOptions" placeholder="Part, e.g. 100% acrylic yarn" autocomplete="off">
+      <div class="btn-row" style="margin-top:8px;">
+        <input type="text" id="matFrom" list="supplierOptions" placeholder="Bought from" autocomplete="off" style="flex:1;min-width:0;margin:0;">
+        <input type="text" id="matBatch" placeholder="Batch / order no." autocomplete="off" style="flex:1;min-width:0;margin:0;">
+      </div>
+      <label for="matBought" style="margin-top:8px;">Bought on</label>
+      <input type="date" id="matBought">
+      <input type="url" id="matDocs" placeholder="Link to its safety papers (https://…)" autocomplete="off" autocapitalize="none" spellcheck="false" style="margin-top:8px;">
+      <input type="text" id="matNote" placeholder="Note, e.g. supplier says nickel-free" autocomplete="off" style="margin-top:8px;">
+      <button class="btn btn-secondary" id="matSave" type="button" style="width:100%;margin-top:8px;">＋ Add to the book</button>
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="btn btn-secondary" id="matCancel" type="button" style="display:none;">Cancel</button>
+        <button class="btn btn-danger" id="matDelete" type="button" style="display:none;">Delete</button>
+      </div>
+      <button class="btn btn-primary" id="matExport" style="width:100%;margin-top:10px;">⤓ Export the book</button>
+      <div class="folder-hint">Synced to every till with Team sync. Items keep their own part words too, so they read the same if the book is switched off. Export the book now and then and keep it with your sold items records.</div>
+    </div>
+
     <div class="card">
       <div class="quick-sell-head">🔎 Trace a part, batch or supplier</div>
       <input type="text" id="traceSearch" placeholder="e.g. lot 4821, alloy clasp or Wool Warehouse" autocomplete="off">
@@ -1439,6 +1468,14 @@ if (window.top !== window.self) {
       <label style="display:flex;gap:8px;align-items:flex-start;font-weight:600;">
         <input type="checkbox" id="showWebsiteChk" style="width:auto;margin-top:3px;">
         <span>Show the website parts<br><span class="folder-hint" style="display:block;margin:2px 0 0;font-weight:400;">The website is not public yet, so its parts are hidden: the website box and description on Add and Edit item, extra website photos, the 🌐 badges and filters, Stall dates and Website orders. Tick to see them, untick to hide them again. Nothing about any item changes either way. This device only.</span></span>
+      </label>
+    </div>
+    <!-- v1.97.0: trying out the Materials book, switched on or off from here. -->
+    <div class="card">
+      <div class="quick-sell-head">📒 Materials book</div>
+      <label style="display:flex;gap:8px;align-items:flex-start;font-weight:600;">
+        <input type="checkbox" id="useMatBookChk" style="width:auto;margin-top:3px;">
+        <span>Use the Materials book<br><span class="folder-hint" style="display:block;margin:2px 0 0;font-weight:400;">Adds a Materials book to Records, where each purchase of a part is written down once with a link to its safety papers, and lets an item's parts be picked from it. Untick to go back to typing parts as before: nothing about any item changes either way. This device only.</span></span>
       </label>
     </div>
     <!-- Stall dates for the website (29 Sept 2026). Shown on the front page under
@@ -4965,9 +5002,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.96.0';
+  const APP_VERSION = '1.97.0';
   const BUILD_DATE  = '29 Oct 2026';
-  const BUILD_TIME  = '11:45';
+  const BUILD_TIME  = '16:03';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -6968,8 +7005,79 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       };
       const bought = partDate(r && r.bought);
       if(bought) o.bought = bought;
+      // v1.97.0: the Materials book purchase this line was filled in from.
+      // The line keeps its own words too, so it never needs the book.
+      const lot = String((r && r.lot) || '');
+      if(LOT_ID_RE.test(lot)) o.lot = lot;
       return o;
     }).filter(r => r.part || r.from || r.batch || r.bought);
+  }
+
+  // MATERIALS BOOK (v1.97.0)
+  // Each purchase of a part written down once, with a short code (M-001) to
+  // write on the bag and a link to where its safety papers are kept (a Google
+  // Drive folder, say - the papers themselves never come into the till).
+  //   { id, code, part, from, batch, bought, docs, note, updatedAt, deleted? }
+  // A part line that came from the book carries the purchase's id as `lot` AND
+  // a copy of its part, supplier, batch and date, so the item reads the same
+  // with the book switched off. Synced one document each in `materials`.
+  const LOT_ID_RE = /^[A-Za-z0-9_-]{4,40}$/;
+  const LOT_CODE_RE = /^M-(\d{1,5})$/;
+  function nextLotCode(list){
+    let n = 0;
+    (list || []).forEach(l => { const m = LOT_CODE_RE.exec(String((l && l.code) || '')); if(m) n = Math.max(n, Number(m[1])); });
+    return 'M-' + String(n + 1).padStart(3, '0');
+  }
+  // Only a plain https:// address, so a link can never run anything.
+  function docsLink(s){
+    const v = String(s || '').trim();
+    return /^https:\/\/[^\s<>"'`]+$/i.test(v) && v.length <= 500 ? v : '';
+  }
+  // A purchase from the form, checked. Throws an Error with a message for Kay.
+  function cleanLot(raw, now){
+    const t = (v, n) => String(v || '').replace(/\s+/g, ' ').trim().slice(0, n);
+    const part = t(raw.part, 100);
+    if(!part) throw new Error('Say what the part is.');
+    const typedDocs = String(raw.docs || '').trim();
+    const docs = docsLink(typedDocs);
+    if(typedDocs && !docs) throw new Error('The documents link must be a web address starting https://');
+    const id = String(raw.id || ''), code = String(raw.code || '');
+    if(!LOT_ID_RE.test(id) || !LOT_CODE_RE.test(code)) throw new Error('Something went wrong: no code.');
+    const o = { id: id, code: code, part: part, from: t(raw.from, 100), batch: t(raw.batch, 100), updatedAt: Number(now) || 0 };
+    const bought = partDate(raw.bought);
+    if(bought) o.bought = bought;
+    if(docs) o.docs = docs;
+    const note = t(raw.note, 300);
+    if(note) o.note = note;
+    return o;
+  }
+  // Another till's copy against this one's: the later change wins, per
+  // purchase. Newest code first.
+  function mergeLots(local, remote){
+    const byId = {};
+    (local || []).forEach(l => { if(l && l.id) byId[l.id] = l; });
+    let changed = false;
+    (remote || []).forEach(r => {
+      if(!r || !r.id) return;
+      const l = byId[r.id];
+      if(!l || (Number(r.updatedAt) || 0) > (Number(l.updatedAt) || 0)){ byId[r.id] = r; changed = true; }
+    });
+    const num = l => { const m = LOT_CODE_RE.exec(String(l.code || '')); return m ? Number(m[1]) : 0; };
+    const list = Object.keys(byId).map(k => byId[k]).sort((a, b) => num(b) - num(a) || String(a.id).localeCompare(String(b.id)));
+    return { list: list, changed: changed };
+  }
+  // The part line a purchase fills in.
+  function lotLine(l){
+    const o = { part: l.part || '', from: l.from || '', batch: l.batch || '', lot: l.id };
+    if(l.bought) o.bought = l.bought;
+    return o;
+  }
+  function lotTitle(l){
+    return [l.code, l.part, l.from, l.batch, l.bought ? ukDay(l.bought) : ''].filter(Boolean).join(' · ');
+  }
+  // The items with a part line from this purchase.
+  function lotUsedIn(items, id){
+    return Object.keys(items || {}).filter(bc => partsOf(items[bc]).some(r => r.lot === id)).sort();
   }
   function partsOf(it){
     if(!it) return [];
@@ -7085,16 +7193,19 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // Every item with a part, supplier or batch matching what was typed, any
   // capitals, and the lines that matched - for tracing a faulty part, a
   // recalled batch or a supplier.
-  function traceItems(items, q){
+  // codeOf (v1.97.0, optional) turns a line's Materials book id into its code,
+  // so "M-012" finds what was made from that purchase.
+  function traceItems(items, q, codeOf){
     const want = String(q || '').trim().toLowerCase();
     if(want.length < 2) return [];
     const hit = v => String(v || '').toLowerCase().indexOf(want) > -1;
+    const code = r => (r.lot && codeOf) ? (codeOf(r.lot) || '') : '';
     const out = [];
     Object.keys(items || {}).sort().forEach(bc => {
       const it = items[bc];
       if(!it) return;
-      const lines = partsOf(it).filter(r => hit(r.part) || hit(r.from) || hit(r.batch) || hit(ukDay(r.bought)))
-        .map(r => [r.part, r.from, r.batch, r.bought ? 'bought ' + ukDay(r.bought) : ''].filter(Boolean).join(' · '));
+      const lines = partsOf(it).filter(r => hit(r.part) || hit(r.from) || hit(r.batch) || hit(ukDay(r.bought)) || hit(code(r)))
+        .map(r => [code(r), r.part, r.from, r.batch, r.bought ? 'bought ' + ukDay(r.bought) : ''].filter(Boolean).join(' · '));
       const note = partsNoteOf(it);
       if(note && hit(note)) lines.push(note);
       if(lines.length) out.push({ bc: bc, name: it.name || '', left: Number(it.counted) || 0, lines: lines });
@@ -7102,6 +7213,63 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     return out;
   }
   // COMPLAINTS: END
+
+  // ---- Materials book: the switch and the store (v1.97.0) ----
+  // Off unless ticked in Settings, per device. Off hides the Records card and
+  // the "From the Materials book" pick on part lines; nothing else changes,
+  // and every item still carries its own part words either way.
+  const MATBOOK_KEY = 'useMaterialsBook';
+  let MATBOOK = false;
+  try{ MATBOOK = localStorage.getItem(MATBOOK_KEY) === '1'; }catch(e){}
+  document.documentElement.classList.toggle('no-matbook', !MATBOOK);
+  const MatBook = (function(){
+    const KEY = 'stockTakeMaterials';
+    const PUSHED_KEY = 'stockTakeMaterialsPushed';   // id -> the updatedAt the workspace has
+    let list = load();
+    let onChange = () => {};
+    function load(){ try{ const v = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(v) ? v : []; }catch(e){ return []; } }
+    function save(){
+      try{ localStorage.setItem(KEY, JSON.stringify(list)); return true; }
+      catch(e){ showToast('Storage full on this device', 'error'); return false; }
+    }
+    function pushedMap(){ try{ return JSON.parse(localStorage.getItem(PUSHED_KEY) || '{}') || {}; }catch(e){ return {}; } }
+    function markPushed(l){
+      const p = pushedMap(); p[l.id] = l.updatedAt;
+      try{ localStorage.setItem(PUSHED_KEY, JSON.stringify(p)); }catch(x){}
+    }
+    // The same as expenses: anything the workspace has not acknowledged goes up.
+    function pushPending(){
+      if(typeof Sync === 'undefined' || !Sync.isConnected()) return;
+      const p = pushedMap();
+      list.forEach(l => { if(p[l.id] !== l.updatedAt){ Sync.putMaterial(l).then(() => markPushed(l)).catch(() => {}); } });
+    }
+    function applyRemote(remote){
+      const m = mergeLots(list, remote);
+      if(m.changed){ list = m.list; save(); onChange(); }
+      remote.forEach(r => { const l = list.find(x => x.id === r.id); if(l && l.updatedAt === r.updatedAt) markPushed(l); });
+      pushPending();
+    }
+    // A backup being restored: merged, never replacing newer changes.
+    function restore(incoming){
+      if(!Array.isArray(incoming)) return 0;
+      list = mergeLots(list, incoming).list; save(); pushPending(); onChange();
+      return incoming.length;
+    }
+    function put(rec){
+      list = mergeLots(list.filter(x => x.id !== rec.id).concat([rec]), []).list;
+      if(!save()) return false;
+      pushPending(); onChange();
+      return true;
+    }
+    function byId(id){ return list.find(l => l.id === id) || null; }
+    return {
+      all: () => list.slice(), live: () => list.filter(l => !l.deleted), byId: byId,
+      codeOf: id => { const l = byId(id); return l ? l.code : ''; },
+      nextCode: () => nextLotCode(list),   // deleted ones count, so a code is never used twice
+      put: put, applyRemote: applyRemote, restore: restore, pushPending: pushPending,
+      setOnChange: f => { onChange = f; }
+    };
+  })();
 
   // Not remembered between visits on purpose: a list that opens already
   // narrowed looks like stock has gone missing.
@@ -7585,8 +7753,15 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // ---- Parts editor (v1.92.0) ----
   // One card per part in a .parts-ed box: drawn by setParts, read back by
   // readParts. exceptBc is the item being edited, left out of "Copy parts from".
+  // v1.97.0: the row keeps its Materials book id in data-lot, so editing an
+  // item with the book switched off does not lose it.
   function partsEditorRow(r){
-    return '<div class="part-row">'
+    const lots = MatBook.live();
+    const lotPick = '<select class="pr-lot matbook-only">'
+      + '<option value="">' + (lots.length ? '📒 From the Materials book…' : '📒 Materials book is empty: add purchases in Records') + '</option>'
+      + lots.map(l => '<option value="' + escapeAttr(l.id) + '"' + (l.id === r.lot ? ' selected' : '') + '>' + escapeHtml(lotTitle(l)) + '</option>').join('')
+      + '</select>';
+    return '<div class="part-row" data-lot="' + escapeAttr(r.lot || '') + '">' + lotPick
       + '<input type="text" class="pr-part" list="partOptions" placeholder="Part, e.g. 100% acrylic yarn" autocomplete="off" value="' + escapeAttr(r.part) + '">'
       + '<div class="pr-two"><input type="text" class="pr-from" list="supplierOptions" placeholder="Bought from" autocomplete="off" value="' + escapeAttr(r.from) + '">'
       + '<input type="text" class="pr-batch" list="batchOptions" placeholder="Batch / order no." autocomplete="off" value="' + escapeAttr(r.batch) + '"></div>'
@@ -7614,7 +7789,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       part: row.querySelector('.pr-part').value,
       from: row.querySelector('.pr-from').value,
       batch: row.querySelector('.pr-batch').value,
-      bought: row.querySelector('.pr-bought').value
+      bought: row.querySelector('.pr-bought').value,
+      lot: row.dataset.lot
     })));
   }
   // Delegated, so redrawing a box never loses them.
@@ -7629,13 +7805,26 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       } else if(e.target.closest('.pr-del')){
         const row = e.target.closest('.part-row');
         if(box.querySelectorAll('.part-row').length > 1) row.remove();
-        else row.querySelectorAll('input').forEach(i => { i.value = ''; });
+        else { row.querySelectorAll('input, select').forEach(i => { i.value = ''; }); row.dataset.lot = ''; }
       }
     });
     box.addEventListener('change', e => {
       const row = e.target.closest('.part-row');
       const cls = e.target.classList;
-      if(cls.contains('pr-part') || cls.contains('pr-from') || cls.contains('pr-batch')){
+      if(cls.contains('pr-lot')){
+        // A purchase from the book fills the whole line; the blank choice only
+        // unlinks it and leaves the words as they are.
+        const l = MatBook.byId(e.target.value);
+        row.dataset.lot = l ? l.id : '';
+        if(l){
+          const ln = lotLine(l);
+          row.querySelector('.pr-part').value = ln.part;
+          row.querySelector('.pr-from').value = ln.from;
+          row.querySelector('.pr-batch').value = ln.batch;
+          row.querySelector('.pr-bought').value = ln.bought || '';
+          row.querySelectorAll('.pr-batch, .pr-bought').forEach(i => { delete i.dataset.auto; });
+        }
+      } else if(cls.contains('pr-part') || cls.contains('pr-from') || cls.contains('pr-batch')){
         // Whoever this part was last bought from, and the batch last used from
         // them, unless something is typed already. A batch the till filled in
         // (data-auto) follows a change of part or supplier; a typed one stays.
@@ -16493,8 +16682,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const parts = (Array.isArray(f.parts) ? f.parts : []).map(r => ({
       part: String((r && r.part) || '').trim(), from: String((r && r.from) || '').trim(), batch: String((r && r.batch) || '').trim(),
       bought: /^\d{4}-\d{2}-\d{2}$/.test(String((r && r.bought) || '').trim()) ? String(r.bought).trim() : ''
+      // v1.97.0: the Materials book purchase it was picked from, if any.
+      , lot: /^[A-Za-z0-9_-]{4,40}$/.test(String((r && r.lot) || '')) ? String(r.lot) : ''
     })).filter(r => r.part || r.from || r.batch || r.bought);
-    parts.forEach(r => { if(!r.bought) delete r.bought; });
+    parts.forEach(r => { if(!r.bought) delete r.bought; if(!r.lot) delete r.lot; });
     if(parts.length) it.parts = parts;
     // Kept for Etsy is never on the website as well (v1.55.0), so an Etsy tick
     // wins over a website one. Both need the description and postage size:
@@ -17873,7 +18064,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   }
   function renderTrace(){
     const q = document.getElementById('traceSearch').value;
-    const hits = traceItems(items, q);
+    const hits = traceItems(items, q, MatBook.codeOf);
     const box = document.getElementById('traceResults');
     if(String(q).trim().length < 2){ box.innerHTML = ''; return; }
     box.innerHTML = hits.length
@@ -17883,9 +18074,149 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
           + h.lines.map(l => '<br><span style="color:var(--muted);">' + escapeHtml(l) + '</span>').join('') + '</div>').join('')
       : '<span style="color:var(--muted);">Nothing in the till uses that.</span>';
   }
+  // ---- Materials book (v1.97.0) ----
+  let matEditing = null;   // the id being changed, or null for a new purchase
+  function renderMatBook(){
+    const want = document.getElementById('matSearch').value.trim().toLowerCase();
+    const all = MatBook.live();
+    const shown = want ? all.filter(l => [l.code, l.part, l.from, l.batch, l.note, ukDay(l.bought)].some(v => String(v || '').toLowerCase().indexOf(want) > -1)) : all;
+    const box = document.getElementById('matList');
+    box.innerHTML = !all.length
+      ? '<div class="empty-state" style="padding:14px;">Nothing in the book yet. Add your first purchase below.</div>'
+      : !shown.length ? '<span style="color:var(--muted);">No purchase matches that.</span>'
+      : '<div style="max-height:360px;overflow-y:auto;">' + shown.map(l => {
+          const used = lotUsedIn(items, l.id).length;
+          return '<div style="border-top:1px solid var(--line);padding:8px 0;"><b>' + escapeHtml(l.code) + '</b> · ' + escapeHtml(l.part)
+            + '<br><span style="color:var(--muted);">' + escapeHtml([l.from, l.batch ? 'batch ' + l.batch : '', l.bought ? 'bought ' + ukDay(l.bought) : ''].filter(Boolean).join(' · ') || 'No supplier or batch yet') + '</span>'
+            + (l.note ? '<br><span style="color:var(--muted);">' + escapeHtml(l.note) + '</span>' : '')
+            + '<div class="btn-row" style="margin-top:6px;">'
+            + (l.docs ? '<a class="btn btn-secondary" href="' + escapeAttr(l.docs) + '" target="_blank" rel="noopener noreferrer">📎 Safety papers</a>' : '')
+            + '<button type="button" class="btn btn-secondary" data-mat-trace="' + escapeAttr(l.code) + '">' + (used ? 'In ' + used + ' item' + (used === 1 ? '' : 's') : 'Not on any item') + '</button>'
+            + '<button type="button" class="btn btn-secondary" data-mat-edit="' + escapeAttr(l.id) + '">✏ Change</button></div></div>';
+        }).join('') + '</div>';
+    document.getElementById('matExport').style.display = all.length ? '' : 'none';
+  }
+  function resetMatForm(){
+    matEditing = null;
+    ['matPart', 'matFrom', 'matBatch', 'matDocs', 'matNote'].forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('matBought').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('matFormTitle').textContent = 'Add a purchase (' + MatBook.nextCode() + ')';
+    document.getElementById('matSave').textContent = '＋ Add to the book';
+    document.getElementById('matCancel').style.display = 'none';
+    document.getElementById('matDelete').style.display = 'none';
+  }
+  function startMatEdit(id){
+    const l = MatBook.byId(id);
+    if(!l || l.deleted) return;
+    matEditing = id;
+    document.getElementById('matPart').value = l.part || '';
+    document.getElementById('matFrom').value = l.from || '';
+    document.getElementById('matBatch').value = l.batch || '';
+    document.getElementById('matBought').value = l.bought || '';
+    document.getElementById('matDocs').value = l.docs || '';
+    document.getElementById('matNote').value = l.note || '';
+    document.getElementById('matFormTitle').textContent = 'Change ' + l.code;
+    document.getElementById('matSave').textContent = 'Save changes';
+    document.getElementById('matCancel').style.display = '';
+    document.getElementById('matDelete').style.display = '';
+    document.getElementById('matFormTitle').scrollIntoView({ block:'start' });
+  }
+  // A changed purchase also changes the words on the items made from it, so
+  // a typo fixed in the book is fixed everywhere.
+  function refreshLotLines(l){
+    let n = 0;
+    lotUsedIn(items, l.id).forEach(bc => {
+      const it = items[bc];
+      it.parts = partsOf(it).map(r => r.lot === l.id ? lotLine(l) : r);
+      n++;
+    });
+    if(n) saveItems();
+    return n;
+  }
+  document.getElementById('matSearch').addEventListener('input', renderMatBook);
+  document.getElementById('matSave').addEventListener('click', () => {
+    const was = matEditing ? MatBook.byId(matEditing) : null;
+    let rec;
+    try{
+      rec = cleanLot({
+        id: was ? was.id : uid('L'), code: was ? was.code : MatBook.nextCode(),
+        part: document.getElementById('matPart').value, from: document.getElementById('matFrom').value,
+        batch: document.getElementById('matBatch').value, bought: document.getElementById('matBought').value,
+        docs: document.getElementById('matDocs').value, note: document.getElementById('matNote').value
+      }, Date.now());
+    }catch(err){ showToast(err.message, 'error'); return; }
+    if(!MatBook.put(rec)) return;
+    const n = was ? refreshLotLines(rec) : 0;
+    showToast(was ? rec.code + ' changed' + (n ? ', and on ' + n + ' item' + (n === 1 ? '' : 's') : '') : rec.code + ' added: write it on the bag', 'success');
+    resetMatForm();
+    renderMatBook();
+  });
+  document.getElementById('matCancel').addEventListener('click', resetMatForm);
+  document.getElementById('matDelete').addEventListener('click', () => {
+    const l = matEditing ? MatBook.byId(matEditing) : null;
+    if(!l) return;
+    const used = lotUsedIn(items, l.id).length;
+    askConfirm('Delete ' + l.code + '?', l.part + (l.from ? ' from ' + l.from : '') + ' comes out of the book on every till. '
+      + (used ? 'The ' + used + ' item' + (used === 1 ? '' : 's') + ' made from it keep their part words. ' : '')
+      + 'Its safety papers stay wherever you keep them.', 'Delete', () => {
+      MatBook.put(Object.assign({}, l, { deleted: true, updatedAt: Date.now() }));
+      showToast(l.code + ' deleted', 'success');
+      resetMatForm(); renderMatBook();
+    });
+  });
+  document.getElementById('matList').addEventListener('click', e => {
+    const ed = e.target.closest('[data-mat-edit]');
+    if(ed){ startMatEdit(ed.dataset.matEdit); return; }
+    const tr = e.target.closest('[data-mat-trace]');
+    if(tr){
+      const s = document.getElementById('traceSearch');
+      s.value = tr.dataset.matTrace;
+      renderTrace();
+      s.scrollIntoView({ block:'start' });
+    }
+  });
+  document.getElementById('matExport').addEventListener('click', () => {
+    const cols = [{ h:'Code' }, { h:'Part' }, { h:'Bought from' }, { h:'Batch' }, { h:'Bought on' }, { h:'Safety papers' }, { h:'Note' }, { h:'Used in' }];
+    const rows = MatBook.live().map(l => [l.code, l.part, l.from, l.batch, ukDay(l.bought), l.docs || '', l.note || '', lotUsedIn(items, l.id).join(', ')]);
+    const name = 'materials-book-' + new Date().toISOString().slice(0, 10);
+    askFormat('Export the Materials book', fmt => {
+      if(fmt === 'xlsx') downloadBlob(buildXlsx([{ name:'Materials book', cols: cols, rows: rows }]), name + '.xlsx');
+      else downloadBlob(new Blob(['﻿' + tableToCsv(cols, rows)], { type:'text/csv;charset=utf-8;' }), name + '.csv');
+      showToast('Materials book exported', 'success');
+    });
+  });
+  // Another till's change: redraw the book, and the trace that names its codes.
+  // Any open part lines get the new list too, keeping what each has picked.
+  function refreshLotPicks(){
+    document.querySelectorAll('.part-row').forEach(row => {
+      const old = row.querySelector('.pr-lot');
+      if(!old) return;
+      const tmp = document.createElement('div');
+      tmp.innerHTML = partsEditorRow({ part:'', from:'', batch:'', lot: row.dataset.lot });
+      old.replaceWith(tmp.querySelector('.pr-lot'));
+    });
+  }
+  MatBook.setOnChange(() => {
+    refreshLotPicks();
+    if(activeTab === 'records'){ renderMatBook(); renderTrace(); }
+  });
+  (function initMatBookSwitch(){
+    const chk = document.getElementById('useMatBookChk');
+    if(!chk) return;
+    chk.checked = MATBOOK;
+    chk.addEventListener('change', () => {
+      MATBOOK = chk.checked;
+      try{ localStorage.setItem(MATBOOK_KEY, MATBOOK ? '1' : '0'); }catch(e){}
+      document.documentElement.classList.toggle('no-matbook', !MATBOOK);
+      showToast(MATBOOK ? 'Materials book on: see Records' : 'Materials book hidden. Parts are typed as before', 'success');
+    });
+  })();
+
   function renderRecords(){
     renderComplaintsLog();
     renderTrace();
+    renderMatBook();
+    if(!matEditing) resetMatForm();
     document.getElementById('complaintItemOptions').innerHTML = Object.keys(items).sort()
       .map(bc => `<option value="${escapeAttr(bc + ' · ' + (items[bc].name || ''))}"></option>`).join('');
     if(!document.getElementById('recComplaintDate').value)
@@ -18583,6 +18914,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       sales: sales,
       // v1.67.0: the expenses, figures only; receipt photos stay in the workspace.
       expenses: Expenses.all(),
+      materials: MatBook.all(),
       photos: photosIncluded,  // so a restore can say what the file actually holds
       // The Settings page. shopName / shopFooter / receiptSeq above are the
       // three that were already carried and stay where they are, so a v1.43.0
@@ -18702,6 +19034,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
           saveSales();
           // Expenses are merged, not replaced: a change made since the backup wins.
           if(Array.isArray(data.expenses)){ try{ Expenses.restore(data.expenses); }catch(e){} }
+          if(Array.isArray(data.materials)){ try{ MatBook.restore(data.materials); }catch(e){} }
 
           if(data.sessionDate){
             sessionDate = data.sessionDate;
@@ -19139,6 +19472,14 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
           try{ Expenses.applyRemote(remote); }catch(e){}
         }, onSnapErr));
       }catch(e){}
+      // Materials book (v1.97.0): the same way as expenses, and as guarded.
+      try{
+        listeners.push(wsCol('materials').onSnapshot(function(snap){
+          var remote = [];
+          snap.docChanges().forEach(function(ch){ var d = ch.doc.data(); if(d && d.data) remote.push(d.data); });
+          try{ MatBook.applyRemote(remote); }catch(e){}
+        }, onSnapErr));
+      }catch(e){}
       listeners.push(metaDoc.onSnapshot(function(doc){
         if(doc.exists && applyRemoteMeta(doc.data())){ saveTimes(); renderSession(); renderList(); renderSold(); }
       }, onSnapErr));
@@ -19530,11 +19871,18 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     function deleteExpensePhoto(id){
       return wsCol('expensePhotos').doc(docSafe(id)).delete();
     }
+    // Materials book (v1.97.0): one document per purchase in `materials`,
+    // which the workspace rule already covers. A deleted one stays as
+    // deleted:true so another till cannot bring it back.
+    function putMaterial(l){
+      return wsCol('materials').doc(docSafe(l.id)).set({ data: l, updatedAt: Number(l.updatedAt) || Date.now(), by: clientId });
+    }
 
     return {
       connect:connect, disconnect:disconnect, syncNow:syncNow,
       putEtsyPhoto:putEtsyPhoto, getEtsyPhoto:getEtsyPhoto, deleteEtsyPhoto:deleteEtsyPhoto,
       putExpense:putExpense, putExpensePhoto:putExpensePhoto, getExpensePhoto:getExpensePhoto, deleteExpensePhoto:deleteExpensePhoto,
+      putMaterial:putMaterial,
       saveSettings:saveSettings, onLocalItems:onLocalItems, onLocalSales:onLocalSales,
       onLocalStalls:function(rec){ if(connected){ try{ pushStalls(rec); }catch(e){} } },
       setStatus:setStatus, isOn:isOn, getCfg:getCfg, getTeam:getTeam, getPin:getPin, getEmail:getEmail,

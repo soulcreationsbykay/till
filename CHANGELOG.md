@@ -10,6 +10,28 @@ fixes.
 
 ---
 
+## v1.97.0 - 29 October 2026 (on trial, branch till-materials-book)
+
+**Materials book, switched off unless you tick it.** Settings → 📒 Materials book →
+**Use the Materials book** (this device only).
+- Records gets a **📒 Materials book** card. Write each purchase of a part down once:
+  part, bought from, batch or order number, date, a note, and a **link to its safety
+  papers** (for example a Google Drive folder). Each one gets a code, M-001, M-002…,
+  to write on the bag. Codes are never reused, even after a delete.
+- On Add, Edit and bulk Edit, each part line has **📒 From the Materials book…**:
+  pick a purchase and the line fills itself in.
+- Changing a purchase in the book changes the words on every item made from it.
+- **In N items** on a purchase shows which items used it. Trace also finds a code.
+- **⤓ Export the book** as a spreadsheet, with the items each purchase went into.
+- Synced to every till with Team sync (its own `materials` collection), and kept in
+  the backup file.
+- **Going back:** untick the box and parts are typed exactly as before. Every part
+  line still holds its own part, supplier, batch and date, so items, labels, the stock
+  export and the sold items record read the same with the book on or off. The papers
+  themselves are never stored in the till.
+
+---
+
 ## v1.96.0 - 29 October 2026
 
 **Duplicate an item.** Edit item has a **📄 Duplicate (new code)** button under
