@@ -10,7 +10,7 @@ fixes.
 
 ---
 
-## v1.97.0 - 29 October 2026 (on trial, branch till-materials-book)
+## v1.97.0 - 29 October 2026
 
 **Materials book, switched off unless you tick it.** Settings → 📒 Materials book →
 **Use the Materials book** (this device only).
