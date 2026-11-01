@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-7SXiq88Ddsc3PqiZVzjwBAMX1W+hVIgAT7ULOn8JTAk=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-yW/MIAAcfPJzgyInNz22d1VhRwoOc1RSopC3yhJj4co=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -177,6 +177,14 @@ if (window.top !== window.self) {
   .part-row .pr-del{position:absolute;top:8px;right:4px;width:32px;height:32px;border:none;background:transparent;color:var(--muted);font-size:16px;cursor:pointer;}
   .part-row .pr-lot{width:100%;margin:0 0 6px;}
   .no-matbook .matbook-only { display:none !important; }
+  /* Materials book: changing one purchase shows only that purchase (v1.98.1). */
+  .mat-field{margin-top:8px;}
+  #matBookCard .mat-edit-only{display:none;}
+  #matBookCard.mat-editing .mat-edit-only{display:block;}
+  #matBookCard.mat-editing .mat-add-only,
+  #matBookCard.mat-editing .mat-list-only,
+  #tab-records.mat-editing > .card:not(#matBookCard){display:none !important;}
+  #matBookCard.mat-editing #matForm{border:2px solid var(--moss);border-radius:var(--radius);padding:12px;margin-top:8px;}
   .pr-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
   .pr-actions .btn,.pr-actions select{flex:1;min-width:140px;margin:0;}
 
@@ -1323,28 +1331,45 @@ if (window.top !== window.self) {
          outside the till. Shown only when ticked in Settings. -->
     <div class="card matbook-only" id="matBookCard">
       <div class="quick-sell-head">📒 Materials book</div>
-      <div class="folder-hint" style="margin:0 0 8px;">Write each purchase of a part down once. Put its code (M-001) on the bag, and note where its safety papers are kept: a folder on the computer or a link to your online drive. Then pick it on an item's parts instead of typing it out.</div>
-      <input type="text" id="matSearch" placeholder="Find a purchase: code, part, supplier or batch" autocomplete="off">
-      <div id="matList" style="font-size:13px;line-height:1.45;margin-top:8px;"></div>
-      <label id="matFormTitle" for="matPart" style="margin-top:12px;">Add a purchase</label>
-      <input type="text" id="matPart" list="partOptions" placeholder="Part, e.g. 100% acrylic yarn" autocomplete="off">
-      <div class="btn-row" style="margin-top:8px;">
-        <input type="text" id="matFrom" list="supplierOptions" placeholder="Supplier name" autocomplete="off" style="flex:1;min-width:0;margin:0;">
-        <input type="text" id="matBatch" placeholder="Batch / order no." autocomplete="off" style="flex:1;min-width:0;margin:0;">
+      <div class="folder-hint mat-list-only" style="margin:0 0 8px;">Write each purchase of a part down once. Put its code (M-001) on the bag, and note where its safety papers are kept: a folder on the computer or a link to your online drive. Then pick it on an item's parts instead of typing it out.</div>
+      <input type="text" id="matSearch" class="mat-list-only" placeholder="Find a purchase: code, part, supplier or batch" autocomplete="off">
+      <div id="matList" class="mat-list-only" style="font-size:13px;line-height:1.45;margin-top:8px;"></div>
+      <!-- The form (v1.98.1). Every box is named above it, because a filled-in
+           box has lost its placeholder. While a purchase is being changed the
+           card gets .mat-editing: the list and the rest of Records are hidden
+           and the form is outlined, so only that purchase is on the screen. -->
+      <div id="matForm">
+        <div id="matEditHead" class="mat-edit-only">
+          <div style="font-size:12px;font-weight:600;color:var(--muted);">✏ Changing</div>
+          <div id="matEditWhat" style="font-size:17px;font-weight:700;"></div>
+          <div class="folder-hint" style="margin:2px 0 0;">Change any box, then Save changes. The items made from it are updated too.</div>
+        </div>
+        <label id="matFormTitle" for="matPart" class="mat-add-only" style="margin-top:12px;font-size:14px;color:var(--ink);">Add a purchase</label>
+        <label for="matPart" class="mat-field">Part</label>
+        <input type="text" id="matPart" list="partOptions" placeholder="e.g. 100% acrylic yarn" autocomplete="off">
+        <div class="btn-row" style="margin-top:8px;">
+          <div style="flex:1;min-width:0;"><label for="matFrom" class="mat-field">Supplier name</label>
+            <input type="text" id="matFrom" list="supplierOptions" placeholder="e.g. Bead Shop" autocomplete="off" style="margin:0;"></div>
+          <div style="flex:1;min-width:0;"><label for="matBatch" class="mat-field">Batch / order no.</label>
+            <input type="text" id="matBatch" placeholder="e.g. 4821" autocomplete="off" style="margin:0;"></div>
+        </div>
+        <label for="matSite" class="mat-field" style="margin-top:8px;">Supplier website</label>
+        <input type="url" id="matSite" placeholder="e.g. beadshop.co.uk" autocomplete="off" autocapitalize="none" spellcheck="false">
+        <label for="matBought" class="mat-field" style="margin-top:8px;">Bought on</label>
+        <input type="date" id="matBought">
+        <label for="matDocs" class="mat-field" style="margin-top:8px;">Where its safety papers are</label>
+        <input type="text" id="matDocs" placeholder="A folder or a https:// link" autocomplete="off" autocapitalize="none" spellcheck="false">
+        <div class="folder-hint" style="margin:4px 0 0;">A folder on the computer, e.g. <b>Safety papers\Bead Shop\M-001 Glass beads</b>, or a web link to your online drive. Naming the folder after the code makes it easy to find.<span class="mat-pick-only" style="display:none;"> On the computer, click the box to choose the folder (or make a New folder) instead of typing it.</span></div>
+        <label for="matNote" class="mat-field" style="margin-top:8px;">Note</label>
+        <input type="text" id="matNote" placeholder="e.g. supplier says nickel-free" autocomplete="off">
+        <button class="btn btn-secondary" id="matSave" type="button" style="width:100%;margin-top:10px;">＋ Add to the book</button>
+        <div class="btn-row" style="margin-top:8px;">
+          <button class="btn btn-secondary" id="matCancel" type="button" style="display:none;">Cancel, back to the book</button>
+          <button class="btn btn-danger" id="matDelete" type="button" style="display:none;">Delete</button>
+        </div>
       </div>
-      <input type="url" id="matSite" placeholder="Supplier website, e.g. beadshop.co.uk" autocomplete="off" autocapitalize="none" spellcheck="false" style="margin-top:8px;">
-      <label for="matBought" style="margin-top:8px;">Bought on</label>
-      <input type="date" id="matBought">
-      <input type="text" id="matDocs" placeholder="Where its safety papers are: a folder or a https:// link" autocomplete="off" autocapitalize="none" spellcheck="false" style="margin-top:8px;">
-      <div class="folder-hint" style="margin:4px 0 0;">A folder on the computer, e.g. <b>Safety papers\Bead Shop\M-001 Glass beads</b>, or a web link to your online drive. Naming the folder after the code makes it easy to find.<span class="mat-pick-only" style="display:none;"> On the computer, click the box to choose the folder (or make a New folder) instead of typing it.</span></div>
-      <input type="text" id="matNote" placeholder="Note, e.g. supplier says nickel-free" autocomplete="off" style="margin-top:8px;">
-      <button class="btn btn-secondary" id="matSave" type="button" style="width:100%;margin-top:8px;">＋ Add to the book</button>
-      <div class="btn-row" style="margin-top:8px;">
-        <button class="btn btn-secondary" id="matCancel" type="button" style="display:none;">Cancel</button>
-        <button class="btn btn-danger" id="matDelete" type="button" style="display:none;">Delete</button>
-      </div>
-      <button class="btn btn-primary" id="matExport" style="width:100%;margin-top:10px;">⤓ Export the book</button>
-      <div class="folder-hint">Synced to every till with Team sync. Items keep their own part words too, so they read the same if the book is switched off. Export the book now and then and keep it with your sold items records.</div>
+      <button class="btn btn-primary mat-list-only" id="matExport" style="width:100%;margin-top:10px;">⤓ Export the book</button>
+      <div class="folder-hint mat-list-only">Synced to every till with Team sync. Items keep their own part words too, so they read the same if the book is switched off. Export the book now and then and keep it with your sold items records.</div>
     </div>
 
     <div class="card">
@@ -5004,9 +5029,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.98.0';
+  const APP_VERSION = '1.98.1';
   const BUILD_DATE  = '1 Nov 2026';
-  const BUILD_TIME  = '14:36';
+  const BUILD_TIME  = '14:41';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -18115,7 +18140,18 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         }).join('') + '</div>';
     document.getElementById('matExport').style.display = all.length ? '' : 'none';
   }
+  // Changing a purchase hides the list and the rest of Records (see the
+  // .mat-editing CSS); coming back puts the book where it was.
+  function showMatEditing(on){
+    document.getElementById('matBookCard').classList.toggle('mat-editing', on);
+    document.getElementById('tab-records').classList.toggle('mat-editing', on);
+    // Below the sticky header, which would otherwise cover the heading.
+    const head = document.querySelector('header');
+    const top = document.getElementById('matBookCard').getBoundingClientRect().top + window.scrollY - (head ? head.offsetHeight : 0) - 8;
+    window.scrollTo({ top: Math.max(0, top) });
+  }
   function resetMatForm(){
+    if(matEditing) showMatEditing(false);
     matEditing = null;
     ['matPart', 'matFrom', 'matSite', 'matBatch', 'matDocs', 'matNote'].forEach(id => { document.getElementById(id).value = ''; });
     document.getElementById('matBought').value = new Date().toISOString().slice(0, 10);
@@ -18135,11 +18171,11 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     document.getElementById('matBought').value = l.bought || '';
     document.getElementById('matDocs').value = l.docs || l.papersAt || '';
     document.getElementById('matNote').value = l.note || '';
-    document.getElementById('matFormTitle').textContent = 'Change ' + l.code;
-    document.getElementById('matSave').textContent = 'Save changes';
+    document.getElementById('matEditWhat').textContent = l.code + ' · ' + (l.part || '');
+    document.getElementById('matSave').textContent = 'Save changes to ' + l.code;
     document.getElementById('matCancel').style.display = '';
     document.getElementById('matDelete').style.display = '';
-    document.getElementById('matFormTitle').scrollIntoView({ block:'start' });
+    showMatEditing(true);
   }
   // A changed purchase also changes the words on the items made from it, so
   // a typo fixed in the book is fixed everywhere.

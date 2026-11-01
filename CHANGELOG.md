@@ -10,6 +10,17 @@ fixes.
 
 ---
 
+## v1.98.1 - 1 November 2026
+
+**Materials book: changing a purchase is clearer.** Pressing **✏ Change** now hides the
+list of purchases and the rest of Records, and shows only that purchase in an outlined
+box headed **✏ Changing M-001 · Glass beads**. Every box has its name above it (Part,
+Supplier name, Batch, Supplier website, Bought on, papers, Note), so a filled-in box
+still says what it is. The button reads **Save changes to M-001**, and **Cancel, back to
+the book** (or saving) brings the list back.
+
+---
+
 ## v1.98.0 - 1 November 2026
 
 **Materials book: supplier name and website, and choose the papers folder.**
