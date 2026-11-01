@@ -10,6 +10,16 @@ fixes.
 
 ---
 
+## v1.98.5 - 1 November 2026
+
+**Materials book: simpler safety papers box.** The folder picker and the **📁 Main Safety
+papers folder on this computer** box are taken out, as a browser can never give the till
+a folder's whole address. The papers box is a plain box again: type the folder, or copy
+it from File Explorer's address bar and paste it in, or paste a https:// link. What the
+picker left on the computer is cleared. Purchases keep what they already have.
+
+---
+
 ## v1.98.4 - 1 November 2026
 
 **Materials book: Copy folder taken out.** It could not reliably give File Explorer the
