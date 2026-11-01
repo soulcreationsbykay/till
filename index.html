@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-oNBvhaYWWTIk+sQ80hDZlQ/5wOb0EimsDrKLEWXfHbc=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-OW6I0GHN3qlNowSA0f8hevX+BMabiER+C9HhRVta9bY=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -201,6 +201,8 @@ if (window.top !== window.self) {
   .mat-used{flex:0 0 auto;font-size:12px;color:var(--muted);}
   .mat-links{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
   .mat-links .btn{margin:0;flex:1;min-width:140px;}
+  #tab-records:not(.trace-only) #traceBack{display:none;}
+  #tab-records.trace-only > .card:not(#traceCard){display:none !important;}
   .pr-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
   .pr-actions .btn,.pr-actions select{flex:1;min-width:140px;margin:0;}
 
@@ -1397,7 +1399,10 @@ if (window.top !== window.self) {
       </details>
     </div>
 
-    <div class="card">
+    <div class="card" id="traceCard">
+      <!-- v1.100.1: from a purchase's "Show the items made from it" the tab
+           shows only this card, with a way back to that purchase. -->
+      <button class="btn btn-secondary" id="traceBack" type="button" style="width:100%;margin:0 0 10px;">‹ Back to the purchase</button>
       <div class="quick-sell-head">🔎 Trace a part, batch or supplier</div>
       <input type="text" id="traceSearch" placeholder="e.g. lot 4821, alloy clasp or Wool Warehouse" autocomplete="off">
       <div id="traceResults" style="font-size:13px;line-height:1.45;margin-top:8px;"></div>
@@ -5054,9 +5059,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.100.0';
+  const APP_VERSION = '1.100.1';
   const BUILD_DATE  = '1 Nov 2026';
-  const BUILD_TIME  = '20:18';
+  const BUILD_TIME  = '20:24';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -18276,15 +18281,28 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const ed = e.target.closest('[data-mat-edit]');
     if(ed) startMatEdit(ed.dataset.matEdit);
   });
-  // From an opened purchase: back to the book, then the items made from it.
+  // From an opened purchase: only the Trace card, showing the items made
+  // from it (v1.100.1); its Back button reopens that purchase.
+  let traceFrom = null;
   document.getElementById('matEditLinks').addEventListener('click', e => {
     const tr = e.target.closest('[data-mat-trace]');
     if(!tr) return;
+    traceFrom = matEditing;
     resetMatForm();
     const s = document.getElementById('traceSearch');
     s.value = tr.dataset.matTrace;
     renderTrace();
-    s.scrollIntoView({ block:'start' });
+    document.getElementById('traceBack').textContent = '‹ Back to ' + tr.dataset.matTrace;
+    document.getElementById('tab-records').classList.add('trace-only');
+    window.scrollTo({ top: 0 });
+  });
+  document.getElementById('traceBack').addEventListener('click', () => {
+    document.getElementById('tab-records').classList.remove('trace-only');
+    document.getElementById('traceSearch').value = '';
+    renderTrace();
+    const id = traceFrom;
+    traceFrom = null;
+    if(id && MatBook.byId(id) && !MatBook.byId(id).deleted) startMatEdit(id);
   });
   document.getElementById('matExport').addEventListener('click', () => {
     const cols = [{ h:'Code' }, { h:'Part' }, { h:'Purchased from' }, { h:'Supplier name' }, { h:'Supplier website' }, { h:'Batch' }, { h:'Bought on' }, { h:'Safety papers' }, { h:'Note' }, { h:'Used in' }];

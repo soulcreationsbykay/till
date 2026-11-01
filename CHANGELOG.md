@@ -10,6 +10,14 @@ fixes.
 
 ---
 
+## v1.100.1 - 1 November 2026
+
+**Materials book: Show the items made from it.** Tapping it on an opened purchase now
+shows only the "Trace a part, batch or supplier" card with those items, and a "‹ Back
+to M-xxx" button at its top that reopens that purchase.
+
+---
+
 ## v1.100.0 - 1 November 2026
 
 **Materials book: tidier, built for hundreds of purchases.** The book is now one short
