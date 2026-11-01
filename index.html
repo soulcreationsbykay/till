@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-U4K2EdDCwxP3UMQrcsrfJXXT3pQo1sPjMsmD8Zxo0Jo=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-oNBvhaYWWTIk+sQ80hDZlQ/5wOb0EimsDrKLEWXfHbc=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -177,14 +177,30 @@ if (window.top !== window.self) {
   .part-row .pr-del{position:absolute;top:8px;right:4px;width:32px;height:32px;border:none;background:transparent;color:var(--muted);font-size:16px;cursor:pointer;}
   .part-row .pr-lot{width:100%;margin:0 0 6px;}
   .no-matbook .matbook-only { display:none !important; }
-  /* Materials book: changing one purchase shows only that purchase (v1.98.1). */
+  /* Materials book: changing one purchase shows only that purchase (v1.98.1).
+     v1.100.0: the form stays shut until Add or a purchase is tapped, and the
+     list is one short line per purchase, so hundreds fit. */
   .mat-field{margin-top:8px;}
-  #matBookCard .mat-edit-only{display:none;}
-  #matBookCard.mat-editing .mat-edit-only{display:block;}
-  #matBookCard.mat-editing .mat-add-only,
+  #matBookCard:not(.mat-editing) #matForm{display:none;}
   #matBookCard.mat-editing .mat-list-only,
   #tab-records.mat-editing > .card:not(#matBookCard){display:none !important;}
   #matBookCard.mat-editing #matForm{border:2px solid var(--moss);border-radius:var(--radius);padding:12px;margin-top:8px;}
+  .mat-top{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .mat-top .quick-sell-head{flex:1;margin:0;}
+  .mat-top .btn{margin:0;flex:0 0 auto;width:auto;padding-left:16px;padding-right:16px;}
+  .mat-count{font-size:12px;color:var(--muted);margin:6px 0 2px;}
+  .mat-rows{max-height:60vh;overflow-y:auto;border:1px solid var(--line);border-radius:10px;}
+  .mat-row{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:none;border-top:1px solid var(--line);background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;}
+  .mat-row:first-child{border-top:none;}
+  .mat-row:hover,.mat-row:focus-visible{background:var(--line);}
+  .mat-code{flex:0 0 auto;font-size:12px;font-weight:700;padding:2px 6px;border-radius:6px;border:1px solid var(--moss);color:var(--moss);}
+  .mat-what{flex:1;min-width:0;}
+  .mat-what b,.mat-what span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mat-what b{font-size:14px;font-weight:600;}
+  .mat-what span{font-size:12px;color:var(--muted);}
+  .mat-used{flex:0 0 auto;font-size:12px;color:var(--muted);}
+  .mat-links{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+  .mat-links .btn{margin:0;flex:1;min-width:140px;}
   .pr-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
   .pr-actions .btn,.pr-actions select{flex:1;min-width:140px;margin:0;}
 
@@ -1330,21 +1346,24 @@ if (window.top !== window.self) {
          with a code for the bag and a link to its safety papers, which stay
          outside the till. Shown only when ticked in Settings. -->
     <div class="card matbook-only" id="matBookCard">
-      <div class="quick-sell-head">📒 Materials book</div>
-      <div class="folder-hint mat-list-only" style="margin:0 0 8px;">Write each purchase of a part down once. Put its code (M-001) on the bag, and note where its safety papers are kept: a folder on the computer or a link to your online drive. Then pick it on an item's parts instead of typing it out.</div>
-      <input type="text" id="matSearch" class="mat-list-only" placeholder="Find a purchase: code, part, supplier or batch" autocomplete="off">
-      <div id="matList" class="mat-list-only" style="font-size:13px;line-height:1.45;margin-top:8px;"></div>
+      <div class="mat-top">
+        <div class="quick-sell-head">📒 Materials book</div>
+        <button class="btn btn-primary mat-list-only" id="matAdd" type="button">＋ Add a purchase</button>
+      </div>
+      <input type="text" id="matSearch" class="mat-list-only" placeholder="🔎 Find: code, part, shop, supplier or batch" autocomplete="off" style="margin:0;">
+      <div id="matList" class="mat-list-only"></div>
       <!-- The form (v1.98.1). Every box is named above it, because a filled-in
-           box has lost its placeholder. While a purchase is being changed the
-           card gets .mat-editing: the list and the rest of Records are hidden
-           and the form is outlined, so only that purchase is on the screen. -->
+           box has lost its placeholder. While a purchase is added or changed
+           the card gets .mat-editing: the list and the rest of Records are
+           hidden and the form is outlined, so only that purchase is on the
+           screen. Shut otherwise (v1.100.0). -->
       <div id="matForm">
-        <div id="matEditHead" class="mat-edit-only">
-          <div style="font-size:12px;font-weight:600;color:var(--muted);">✏ Changing</div>
+        <div id="matEditHead">
+          <div id="matEditKind" style="font-size:12px;font-weight:600;color:var(--muted);"></div>
           <div id="matEditWhat" style="font-size:17px;font-weight:700;"></div>
-          <div class="folder-hint" style="margin:2px 0 0;">Change any box, then Save changes. The items made from it are updated too.</div>
+          <div id="matEditHint" class="folder-hint" style="margin:2px 0 0;"></div>
+          <div id="matEditLinks" class="mat-links"></div>
         </div>
-        <label id="matFormTitle" for="matPart" class="mat-add-only" style="margin-top:12px;font-size:14px;color:var(--ink);">Add a purchase</label>
         <label for="matPart" class="mat-field">Part</label>
         <input type="text" id="matPart" list="partOptions" placeholder="e.g. 100% acrylic yarn" autocomplete="off">
         <label for="matShop" class="mat-field" style="margin-top:8px;">Purchased from</label>
@@ -1364,14 +1383,18 @@ if (window.top !== window.self) {
         <div class="folder-hint" style="margin:4px 0 0;">A folder on the computer, e.g. <b>Safety papers\Bead Shop\M-001 Glass beads</b>, or a web link to your online drive. Naming the folder after the code makes it easy to find. Tip: in File Explorer, click the address bar of the folder, copy it and paste it here.</div>
         <label for="matNote" class="mat-field" style="margin-top:8px;">Note</label>
         <input type="text" id="matNote" placeholder="e.g. supplier says nickel-free" autocomplete="off">
-        <button class="btn btn-secondary" id="matSave" type="button" style="width:100%;margin-top:10px;">＋ Add to the book</button>
+        <button class="btn btn-primary" id="matSave" type="button" style="width:100%;margin-top:10px;">＋ Add to the book</button>
         <div class="btn-row" style="margin-top:8px;">
-          <button class="btn btn-secondary" id="matCancel" type="button" style="display:none;">Cancel, back to the book</button>
+          <button class="btn btn-secondary" id="matCancel" type="button">Cancel, back to the book</button>
           <button class="btn btn-danger" id="matDelete" type="button" style="display:none;">Delete</button>
         </div>
       </div>
-      <button class="btn btn-primary mat-list-only" id="matExport" style="width:100%;margin-top:10px;">⤓ Export the book</button>
-      <div class="folder-hint mat-list-only">Synced to every till with Team sync. Items keep their own part words too, so they read the same if the book is switched off. Export the book now and then and keep it with your sold items records.</div>
+      <button class="btn btn-secondary mat-list-only" id="matExport" style="width:100%;margin-top:10px;">⤓ Export the book</button>
+      <details class="folder-hint mat-list-only" style="margin-top:8px;">
+        <summary style="cursor:pointer;">How the book works</summary>
+        <p style="margin:6px 0 0;">Write each purchase of a part down once. Put its code (M-001) on the bag, and note where its safety papers are kept: a folder on the computer or a link to your online drive. Then pick it on an item's parts instead of typing it out.</p>
+        <p style="margin:6px 0 0;">Tap a purchase to see its links or change it. Synced to every till with Team sync. Items keep their own part words too, so they read the same if the book is switched off. Export the book now and then and keep it with your sold items records.</p>
+      </details>
     </div>
 
     <div class="card">
@@ -5031,9 +5054,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.99.0';
+  const APP_VERSION = '1.100.0';
   const BUILD_DATE  = '1 Nov 2026';
-  const BUILD_TIME  = '16:00';
+  const BUILD_TIME  = '20:18';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -18123,31 +18146,32 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   }
   // ---- Materials book (v1.97.0) ----
   let matEditing = null;   // the id being changed, or null for a new purchase
+  let matOpen = false;     // the form is showing (adding or changing)
   function renderMatBook(){
     const want = document.getElementById('matSearch').value.trim().toLowerCase();
     const all = MatBook.live();
     const shown = want ? all.filter(l => [l.code, l.part, l.shop, l.from, l.site, l.batch, l.note, ukDay(l.bought)].some(v => String(v || '').toLowerCase().indexOf(want) > -1)) : all;
     const box = document.getElementById('matList');
+    // v1.100.0: one short line per purchase; tapping it opens the purchase,
+    // where its links and the Change boxes are.
     box.innerHTML = !all.length
-      ? '<div class="empty-state" style="padding:14px;">Nothing in the book yet. Add your first purchase below.</div>'
-      : !shown.length ? '<span style="color:var(--muted);">No purchase matches that.</span>'
-      : '<div style="max-height:360px;overflow-y:auto;">' + shown.map(l => {
+      ? '<div class="empty-state" style="padding:14px;">Nothing in the book yet. Tap ＋ Add a purchase to start.</div>'
+      : '<div class="mat-count">' + (want ? shown.length + ' of ' + all.length + ' purchases' : all.length + ' purchase' + (all.length === 1 ? '' : 's') + ', newest first') + '</div>'
+        + (!shown.length ? '<span style="color:var(--muted);font-size:13px;">No purchase matches that.</span>'
+        : '<div class="mat-rows">' + shown.map(l => {
           const used = lotUsedIn(items, l.id).length;
-          return '<div style="border-top:1px solid var(--line);padding:8px 0;"><b>' + escapeHtml(l.code) + '</b> · ' + escapeHtml(l.part)
-            + '<br><span style="color:var(--muted);">' + escapeHtml([l.shop ? 'purchased from ' + l.shop : '', l.from, l.batch ? 'batch ' + l.batch : '', l.bought ? 'bought ' + ukDay(l.bought) : ''].filter(Boolean).join(' · ') || 'No supplier or batch yet') + '</span>'
-            + (l.note ? '<br><span style="color:var(--muted);">' + escapeHtml(l.note) + '</span>' : '')
-            + (l.papersAt ? '<br><span style="color:var(--muted);word-break:break-all;">📁 Papers: ' + escapeHtml(l.papersAt) + '</span>' : '')
-            + '<div class="btn-row" style="margin-top:6px;">'
-            + (docsLink(l.site) ? '<a class="btn btn-secondary" href="' + escapeAttr(docsLink(l.site)) + '" target="_blank" rel="noopener noreferrer">🌐 Supplier website</a>' : '')
-            + (l.docs ? '<a class="btn btn-secondary" href="' + escapeAttr(l.docs) + '" target="_blank" rel="noopener noreferrer">📎 Safety papers</a>' : '')
-            + '<button type="button" class="btn btn-secondary" data-mat-trace="' + escapeAttr(l.code) + '">' + (used ? 'In ' + used + ' item' + (used === 1 ? '' : 's') : 'Not on any item') + '</button>'
-            + '<button type="button" class="btn btn-secondary" data-mat-edit="' + escapeAttr(l.id) + '">✏ Change</button></div></div>';
-        }).join('') + '</div>';
+          return '<button type="button" class="mat-row" data-mat-edit="' + escapeAttr(l.id) + '">'
+            + '<span class="mat-code">' + escapeHtml(l.code) + '</span>'
+            + '<span class="mat-what"><b>' + escapeHtml(l.part) + '</b>'
+            + '<span>' + escapeHtml([l.shop, l.from, l.batch ? 'batch ' + l.batch : '', ukDay(l.bought)].filter(Boolean).join(' · ') || 'No supplier or batch yet') + '</span></span>'
+            + '<span class="mat-used">' + (used ? used + ' item' + (used === 1 ? '' : 's') : '') + ' ›</span></button>';
+        }).join('') + '</div>');
     document.getElementById('matExport').style.display = all.length ? '' : 'none';
   }
-  // Changing a purchase hides the list and the rest of Records (see the
-  // .mat-editing CSS); coming back puts the book where it was.
+  // Adding or changing a purchase hides the list and the rest of Records (see
+  // the .mat-editing CSS); coming back puts the book where it was.
   function showMatEditing(on){
+    matOpen = on;
     document.getElementById('matBookCard').classList.toggle('mat-editing', on);
     document.getElementById('tab-records').classList.toggle('mat-editing', on);
     // Below the sticky header, which would otherwise cover the heading.
@@ -18156,14 +18180,21 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     window.scrollTo({ top: Math.max(0, top) });
   }
   function resetMatForm(){
-    if(matEditing) showMatEditing(false);
+    if(matOpen) showMatEditing(false);
     matEditing = null;
     ['matPart', 'matShop', 'matFrom', 'matSite', 'matBatch', 'matDocs', 'matNote'].forEach(id => { document.getElementById(id).value = ''; });
     document.getElementById('matBought').value = new Date().toISOString().slice(0, 10);
-    document.getElementById('matFormTitle').textContent = 'Add a purchase (' + MatBook.nextCode() + ')';
     document.getElementById('matSave').textContent = '＋ Add to the book';
-    document.getElementById('matCancel').style.display = 'none';
     document.getElementById('matDelete').style.display = 'none';
+  }
+  function startMatAdd(){
+    resetMatForm();
+    document.getElementById('matEditKind').textContent = '＋ New purchase';
+    document.getElementById('matEditWhat').textContent = MatBook.nextCode();
+    document.getElementById('matEditHint').textContent = 'Only the part is needed. Write the code on the bag once it is added.';
+    document.getElementById('matEditLinks').innerHTML = '';
+    showMatEditing(true);
+    document.getElementById('matPart').focus({ preventScroll: true });
   }
   function startMatEdit(id){
     const l = MatBook.byId(id);
@@ -18177,9 +18208,15 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     document.getElementById('matBought').value = l.bought || '';
     document.getElementById('matDocs').value = l.docs || l.papersAt || '';
     document.getElementById('matNote').value = l.note || '';
+    const used = lotUsedIn(items, l.id).length;
+    document.getElementById('matEditKind').textContent = '✏ Changing';
     document.getElementById('matEditWhat').textContent = l.code + ' · ' + (l.part || '');
+    document.getElementById('matEditHint').textContent = 'Change any box, then Save changes. The items made from it are updated too.';
+    document.getElementById('matEditLinks').innerHTML =
+        (docsLink(l.site) ? '<a class="btn btn-secondary" href="' + escapeAttr(docsLink(l.site)) + '" target="_blank" rel="noopener noreferrer">🌐 Supplier website</a>' : '')
+      + (l.docs ? '<a class="btn btn-secondary" href="' + escapeAttr(l.docs) + '" target="_blank" rel="noopener noreferrer">📎 Safety papers</a>' : '')
+      + '<button type="button" class="btn btn-secondary" data-mat-trace="' + escapeAttr(l.code) + '"' + (used ? '' : ' disabled') + '>' + (used ? 'Show the ' + used + ' item' + (used === 1 ? '' : 's') + ' made from it' : 'Not on any item yet') + '</button>';
     document.getElementById('matSave').textContent = 'Save changes to ' + l.code;
-    document.getElementById('matCancel').style.display = '';
     document.getElementById('matDelete').style.display = '';
     showMatEditing(true);
   }
@@ -18232,18 +18269,22 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       resetMatForm(); renderMatBook();
     });
   });
+  document.getElementById('matAdd').addEventListener('click', startMatAdd);
   document.getElementById('matList').addEventListener('click', e => {
     // (v1.98.4: Copy folder taken out, as it could not give File Explorer a
-    // whole address; the papers folder is shown as words under the purchase.)
+    // whole address; the papers folder is shown in its box when opened.)
     const ed = e.target.closest('[data-mat-edit]');
-    if(ed){ startMatEdit(ed.dataset.matEdit); return; }
+    if(ed) startMatEdit(ed.dataset.matEdit);
+  });
+  // From an opened purchase: back to the book, then the items made from it.
+  document.getElementById('matEditLinks').addEventListener('click', e => {
     const tr = e.target.closest('[data-mat-trace]');
-    if(tr){
-      const s = document.getElementById('traceSearch');
-      s.value = tr.dataset.matTrace;
-      renderTrace();
-      s.scrollIntoView({ block:'start' });
-    }
+    if(!tr) return;
+    resetMatForm();
+    const s = document.getElementById('traceSearch');
+    s.value = tr.dataset.matTrace;
+    renderTrace();
+    s.scrollIntoView({ block:'start' });
   });
   document.getElementById('matExport').addEventListener('click', () => {
     const cols = [{ h:'Code' }, { h:'Part' }, { h:'Purchased from' }, { h:'Supplier name' }, { h:'Supplier website' }, { h:'Batch' }, { h:'Bought on' }, { h:'Safety papers' }, { h:'Note' }, { h:'Used in' }];
@@ -18286,7 +18327,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     renderComplaintsLog();
     renderTrace();
     renderMatBook();
-    if(!matEditing) resetMatForm();
+    if(!matOpen) resetMatForm();
     document.getElementById('complaintItemOptions').innerHTML = Object.keys(items).sort()
       .map(bc => `<option value="${escapeAttr(bc + ' · ' + (items[bc].name || ''))}"></option>`).join('');
     if(!document.getElementById('recComplaintDate').value)

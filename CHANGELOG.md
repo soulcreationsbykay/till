@@ -10,6 +10,19 @@ fixes.
 
 ---
 
+## v1.100.0 - 1 November 2026
+
+**Materials book: tidier, built for hundreds of purchases.** The book is now one short
+line per purchase (code, part, then shop, supplier, batch and date in small print, and
+how many items use it), in a scrolling box with a count above it. A green "＋ Add a
+purchase" button sits at the top beside the title; the form only opens when that is
+tapped, or when a purchase is tapped to see or change it. An opened purchase shows its
+Supplier website, Safety papers and "Show the items made from it" buttons above its
+boxes. The long explanations are folded under "How the book works". Nothing stored has
+changed.
+
+---
+
 ## v1.99.0 - 1 November 2026
 
 **Materials book: Purchased from.** A new box under Part for where it was bought, for
