@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-OW6I0GHN3qlNowSA0f8hevX+BMabiER+C9HhRVta9bY=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-rUhQ0lUl0Pi6AgZgo4CrwbVG3f7TVTgUDu6vcIqLvJo=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -1409,18 +1409,29 @@ if (window.top !== window.self) {
       <div class="folder-hint">Finds every item still in the till made with that part, batch or supplier, sold or not, from its parts lines. Items already cleared out are in your sold items record files.</div>
     </div>
 
+    <!-- v1.101.0: shut down to one line until a complaint is logged; the
+         form opens from its button. -->
     <div class="card">
-      <div class="quick-sell-head">⚠️ Safety complaints</div>
+      <div class="mat-top" style="margin:0;">
+        <div class="quick-sell-head">⚠️ Safety complaints</div>
+        <button class="btn btn-secondary" id="recComplaintOpen" type="button">＋ Log a complaint</button>
+      </div>
       <div id="complaintsBody"></div>
-      <label for="recComplaintItem" style="margin-top:12px;">Log a complaint</label>
-      <input type="text" id="recComplaintItem" list="complaintItemOptions" placeholder="Which item? Type its code or name" autocomplete="off">
-      <datalist id="complaintItemOptions"></datalist>
-      <input type="date" id="recComplaintDate" style="margin-top:8px;">
-      <input type="text" id="recComplaintWhat" placeholder="What went wrong, e.g. clasp broke after a week" autocomplete="off" style="margin-top:8px;">
-      <input type="text" id="recComplaintDone" placeholder="What you did, e.g. refunded, changed clasp supplier" autocomplete="off" style="margin-top:8px;">
-      <button class="btn btn-secondary" id="recComplaintAdd" type="button" style="width:100%;margin-top:8px;">＋ Log this complaint</button>
-      <button class="btn btn-primary" id="complaintsExport" style="width:100%;margin-top:10px;">⤓ Export the log</button>
-      <div class="folder-hint">Newest first. You can also log one from the item: Edit → More → Safety complaints. An item with a complaint stays in the till for good. Export the log now and then and keep the file with your sold items records.</div>
+      <div id="recComplaintForm" style="display:none;border:2px solid var(--moss);border-radius:var(--radius);padding:12px;margin-top:10px;">
+        <label for="recComplaintItem" style="margin-top:0;">Which item?</label>
+        <input type="text" id="recComplaintItem" list="complaintItemOptions" placeholder="Type its code or name" autocomplete="off">
+        <datalist id="complaintItemOptions"></datalist>
+        <label for="recComplaintDate" class="mat-field">When</label>
+        <input type="date" id="recComplaintDate">
+        <label for="recComplaintWhat" class="mat-field">What went wrong</label>
+        <input type="text" id="recComplaintWhat" placeholder="e.g. clasp broke after a week" autocomplete="off">
+        <label for="recComplaintDone" class="mat-field">What you did</label>
+        <input type="text" id="recComplaintDone" placeholder="e.g. refunded, changed clasp supplier" autocomplete="off">
+        <button class="btn btn-primary" id="recComplaintAdd" type="button" style="width:100%;margin-top:10px;">＋ Log this complaint</button>
+        <button class="btn btn-secondary" id="recComplaintCancel" type="button" style="width:100%;margin-top:8px;">Cancel</button>
+        <div class="folder-hint">You can also log one from the item: Edit → More → Safety complaints. An item with a complaint stays in the till for good.</div>
+      </div>
+      <button class="btn btn-secondary" id="complaintsExport" style="width:100%;margin-top:10px;">⤓ Export the log</button>
     </div>
 
     <div class="card">
@@ -5059,9 +5070,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.100.1';
+  const APP_VERSION = '1.101.0';
   const BUILD_DATE  = '1 Nov 2026';
-  const BUILD_TIME  = '20:24';
+  const BUILD_TIME  = '20:29';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -18134,7 +18145,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
           + escapeHtml(c.bc) + ' · ' + escapeHtml(c.name) + '<br>' + escapeHtml(c.what)
           + (c.done ? '<br><span style="color:var(--muted);">Done: ' + escapeHtml(c.done) + '</span>' : '') + '</div>').join('')
         + '</div>'
-      : '<div class="empty-state" style="padding:14px;">No complaints logged.</div>';
+      : '<div style="font-size:13px;color:var(--muted);margin-top:4px;">None logged. Newest first when there are some; export the log now and then with your sold items records.</div>';
     document.getElementById('complaintsExport').style.display = list.length ? '' : 'none';
   }
   function renderTrace(){
@@ -18369,7 +18380,18 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     ['recComplaintItem','recComplaintWhat','recComplaintDone'].forEach(id => { document.getElementById(id).value = ''; });
     document.getElementById('recComplaintDate').value = new Date().toISOString().slice(0, 10);
     renderComplaintsLog();
+    showComplaintForm(false);
     showToast('Complaint logged against ' + bc, 'success');
+  });
+  function showComplaintForm(on){
+    document.getElementById('recComplaintForm').style.display = on ? '' : 'none';
+    document.getElementById('recComplaintOpen').style.display = on ? 'none' : '';
+    if(on) document.getElementById('recComplaintItem').focus();
+  }
+  document.getElementById('recComplaintOpen').addEventListener('click', () => showComplaintForm(true));
+  document.getElementById('recComplaintCancel').addEventListener('click', () => {
+    ['recComplaintItem','recComplaintWhat','recComplaintDone'].forEach(id => { document.getElementById(id).value = ''; });
+    showComplaintForm(false);
   });
   document.getElementById('complaintsExport').addEventListener('click', () => {
     const t = complaintsTable(allComplaints(items));

@@ -10,6 +10,15 @@ fixes.
 
 ---
 
+## v1.101.0 - 1 November 2026
+
+**Records: Safety complaints folded shut.** The card is now one line with a "＋ Log a
+complaint" button beside its title, plus the log itself once there is anything in it.
+The form (Which item? / When / What went wrong / What you did) only opens from that
+button and closes again after logging or Cancel. Nothing stored has changed.
+
+---
+
 ## v1.100.1 - 1 November 2026
 
 **Materials book: Show the items made from it.** Tapping it on an opened purchase now
