@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-tIf7E3noguyfm35iGyPEsrY8JVIBp8t9fUC5FsK0Gg8=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-U4K2EdDCwxP3UMQrcsrfJXXT3pQo1sPjMsmD8Zxo0Jo=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -1347,6 +1347,8 @@ if (window.top !== window.self) {
         <label id="matFormTitle" for="matPart" class="mat-add-only" style="margin-top:12px;font-size:14px;color:var(--ink);">Add a purchase</label>
         <label for="matPart" class="mat-field">Part</label>
         <input type="text" id="matPart" list="partOptions" placeholder="e.g. 100% acrylic yarn" autocomplete="off">
+        <label for="matShop" class="mat-field" style="margin-top:8px;">Purchased from</label>
+        <input type="text" id="matShop" placeholder="Where it was bought, e.g. Amazon, eBay, a craft fair" autocomplete="off">
         <div class="btn-row" style="margin-top:8px;">
           <div style="flex:1;min-width:0;"><label for="matFrom" class="mat-field">Supplier name</label>
             <input type="text" id="matFrom" list="supplierOptions" placeholder="e.g. Bead Shop" autocomplete="off" style="margin:0;"></div>
@@ -5029,9 +5031,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.98.5';
+  const APP_VERSION = '1.99.0';
   const BUILD_DATE  = '1 Nov 2026';
-  const BUILD_TIME  = '15:50';
+  const BUILD_TIME  = '16:00';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -7044,7 +7046,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // Each purchase of a part written down once, with a short code (M-001) to
   // write on the bag and a link to where its safety papers are kept (a Google
   // Drive folder, say - the papers themselves never come into the till).
-  //   { id, code, part, from, site, batch, bought, docs, papersAt, note, updatedAt, deleted? }
+  //   { id, code, part, shop, from, site, batch, bought, docs, papersAt, note, updatedAt, deleted? }
   // from is the supplier's name, site (v1.98.0) their https:// website.
   // docs is a web link to the papers; papersAt (v1.97.1) is where they are
   // kept when that is a folder on the computer, which a web page cannot open,
@@ -7083,6 +7085,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const siteLink = docsLink(site);
     if(site && (!siteLink || !/^https:\/\/[^\/\s]+\.[^\/\s]+/i.test(siteLink))) throw new Error('That supplier website does not look right, e.g. beadshop.co.uk');
     const o = { id: id, code: code, part: part, from: t(raw.from, 100), batch: t(raw.batch, 100), updatedAt: Number(now) || 0 };
+    // Purchased from (v1.99.0): where it was bought, e.g. Amazon, when that is
+    // not the supplier who made or sold it.
+    const shop = t(raw.shop, 100);
+    if(shop) o.shop = shop;
     if(siteLink) o.site = siteLink;
     const bought = partDate(raw.bought);
     if(bought) o.bought = bought;
@@ -18120,7 +18126,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   function renderMatBook(){
     const want = document.getElementById('matSearch').value.trim().toLowerCase();
     const all = MatBook.live();
-    const shown = want ? all.filter(l => [l.code, l.part, l.from, l.site, l.batch, l.note, ukDay(l.bought)].some(v => String(v || '').toLowerCase().indexOf(want) > -1)) : all;
+    const shown = want ? all.filter(l => [l.code, l.part, l.shop, l.from, l.site, l.batch, l.note, ukDay(l.bought)].some(v => String(v || '').toLowerCase().indexOf(want) > -1)) : all;
     const box = document.getElementById('matList');
     box.innerHTML = !all.length
       ? '<div class="empty-state" style="padding:14px;">Nothing in the book yet. Add your first purchase below.</div>'
@@ -18128,7 +18134,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       : '<div style="max-height:360px;overflow-y:auto;">' + shown.map(l => {
           const used = lotUsedIn(items, l.id).length;
           return '<div style="border-top:1px solid var(--line);padding:8px 0;"><b>' + escapeHtml(l.code) + '</b> · ' + escapeHtml(l.part)
-            + '<br><span style="color:var(--muted);">' + escapeHtml([l.from, l.batch ? 'batch ' + l.batch : '', l.bought ? 'bought ' + ukDay(l.bought) : ''].filter(Boolean).join(' · ') || 'No supplier or batch yet') + '</span>'
+            + '<br><span style="color:var(--muted);">' + escapeHtml([l.shop ? 'purchased from ' + l.shop : '', l.from, l.batch ? 'batch ' + l.batch : '', l.bought ? 'bought ' + ukDay(l.bought) : ''].filter(Boolean).join(' · ') || 'No supplier or batch yet') + '</span>'
             + (l.note ? '<br><span style="color:var(--muted);">' + escapeHtml(l.note) + '</span>' : '')
             + (l.papersAt ? '<br><span style="color:var(--muted);word-break:break-all;">📁 Papers: ' + escapeHtml(l.papersAt) + '</span>' : '')
             + '<div class="btn-row" style="margin-top:6px;">'
@@ -18152,7 +18158,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   function resetMatForm(){
     if(matEditing) showMatEditing(false);
     matEditing = null;
-    ['matPart', 'matFrom', 'matSite', 'matBatch', 'matDocs', 'matNote'].forEach(id => { document.getElementById(id).value = ''; });
+    ['matPart', 'matShop', 'matFrom', 'matSite', 'matBatch', 'matDocs', 'matNote'].forEach(id => { document.getElementById(id).value = ''; });
     document.getElementById('matBought').value = new Date().toISOString().slice(0, 10);
     document.getElementById('matFormTitle').textContent = 'Add a purchase (' + MatBook.nextCode() + ')';
     document.getElementById('matSave').textContent = '＋ Add to the book';
@@ -18164,6 +18170,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if(!l || l.deleted) return;
     matEditing = id;
     document.getElementById('matPart').value = l.part || '';
+    document.getElementById('matShop').value = l.shop || '';
     document.getElementById('matFrom').value = l.from || '';
     document.getElementById('matSite').value = l.site || '';
     document.getElementById('matBatch').value = l.batch || '';
@@ -18200,7 +18207,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     try{
       rec = cleanLot({
         id: was ? was.id : uid('L'), code: was ? was.code : MatBook.nextCode(),
-        part: document.getElementById('matPart').value, from: document.getElementById('matFrom').value,
+        part: document.getElementById('matPart').value, shop: document.getElementById('matShop').value,
+        from: document.getElementById('matFrom').value,
         site: document.getElementById('matSite').value, batch: document.getElementById('matBatch').value, bought: document.getElementById('matBought').value,
         docs: document.getElementById('matDocs').value, note: document.getElementById('matNote').value
       }, Date.now());
@@ -18238,8 +18246,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     }
   });
   document.getElementById('matExport').addEventListener('click', () => {
-    const cols = [{ h:'Code' }, { h:'Part' }, { h:'Supplier name' }, { h:'Supplier website' }, { h:'Batch' }, { h:'Bought on' }, { h:'Safety papers' }, { h:'Note' }, { h:'Used in' }];
-    const rows = MatBook.live().map(l => [l.code, l.part, l.from, l.site || '', l.batch, ukDay(l.bought), l.docs || l.papersAt || '', l.note || '', lotUsedIn(items, l.id).join(', ')]);
+    const cols = [{ h:'Code' }, { h:'Part' }, { h:'Purchased from' }, { h:'Supplier name' }, { h:'Supplier website' }, { h:'Batch' }, { h:'Bought on' }, { h:'Safety papers' }, { h:'Note' }, { h:'Used in' }];
+    const rows = MatBook.live().map(l => [l.code, l.part, l.shop || '', l.from, l.site || '', l.batch, ukDay(l.bought), l.docs || l.papersAt || '', l.note || '', lotUsedIn(items, l.id).join(', ')]);
     const name = 'materials-book-' + new Date().toISOString().slice(0, 10);
     askFormat('Export the Materials book', fmt => {
       if(fmt === 'xlsx') downloadBlob(buildXlsx([{ name:'Materials book', cols: cols, rows: rows }]), name + '.xlsx');

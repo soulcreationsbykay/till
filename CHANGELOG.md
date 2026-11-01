@@ -10,6 +10,15 @@ fixes.
 
 ---
 
+## v1.99.0 - 1 November 2026
+
+**Materials book: Purchased from.** A new box under Part for where it was bought, for
+example Amazon, eBay or a craft fair, when that is not the supplier who made or sold
+it. It shows under the purchase as "purchased from …", can be searched for, and has its
+own column in the export. Part lines on items are unchanged.
+
+---
+
 ## v1.98.5 - 1 November 2026
 
 **Materials book: simpler safety papers box.** The folder picker and the **📁 Main Safety

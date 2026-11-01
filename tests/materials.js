@@ -53,6 +53,9 @@ threw = '';
 try { T.cleanLot({ id: 'Labc123', code: 'M-001', part: 'Clasp', docs: 'http://drive.google.com/x' }, 1); } catch (e) { threw = e.message; }
 check('an http:// link is refused with a message', /https/.test(threw), threw);
 const pc = T.cleanLot({ id: 'Labc123', code: 'M-001', part: 'Clasp', docs: ' C:\\Users\\Kay\\Safety papers\\M-001 ' }, 1);
+const sh = T.cleanLot({ id: 'Labc123', code: 'M-001', part: 'Clasp', shop: '  Amazon  ', from: 'Findings Co' }, 1);
+check('purchased from is kept, tidied', sh.shop === 'Amazon' && sh.from === 'Findings Co', J(sh));
+check('no purchased from, no shop field', !('shop' in T.cleanLot({ id: 'Labc123', code: 'M-001', part: 'Clasp', shop: ' ' }, 1)));
 const st = T.cleanLot({ id: 'Labc123', code: 'M-001', part: 'Clasp', site: ' beadshop.co.uk/shop ' }, 1);
 check('a supplier website gets https:// added', st.site === 'https://beadshop.co.uk/shop', J(st));
 check('an http:// supplier website becomes https://', T.cleanLot({ id: 'Labc123', code: 'M-001', part: 'Clasp', site: 'http://x.co.uk' }, 1).site === 'https://x.co.uk');
