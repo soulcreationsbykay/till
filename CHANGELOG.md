@@ -10,6 +10,26 @@ fixes.
 
 ---
 
+## v1.103.0 - 1 November 2026
+
+**Extra website photos go online by themselves.** With Team sync on, each "More photos
+for the website" picture now goes online the moment it is taken, the same way Etsy
+photos always have: its own online record, read only when wanted, with just a short
+list of them on the item. The website reads them from there, so there is no more
+Export → import → publish to get them on the website; they show within about a quarter
+of an hour. Every till sees them, not only the one that took them.
+
+- Settings → **☁ Put extra photos online** sends the ones taken before this version
+  (or with sync off). It only shows when there are some.
+- The un-exported warning now only counts photos that are not online yet, because an
+  online photo is no longer the device's only copy. Export extra photos stays as a spare.
+- A photo that is online can only be removed with Team sync on, so its online copy
+  comes off too. Removing it removes it from the website and every till.
+- The ★ cover works with online photos too (no publishing step).
+- Needs the catalogue service and website updates of the same day.
+
+---
+
 ## v1.102.0 - 1 November 2026
 
 **A cover photo for a colour group.** On an item in a colour group (named "Chip

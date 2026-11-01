@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-/sTI4DElSlpAfdFWGFITEwmBuF2eQhsM0Jfkr+T9u1g=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-617LmdG9nwdKVktInTqePypEJ7i++O/y1miVvl0+n8w=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -1457,6 +1457,9 @@ if (window.top !== window.self) {
       <input type="file" id="restoreInput" accept="application/json,.json" style="display:none;">
       <button class="btn btn-secondary" id="importItemsBtn" style="width:100%;margin-top:8px;">⤒ Import items (JSON)</button>
       <input type="file" id="importItemsInput" accept="application/json,.json" style="display:none;">
+      <!-- v1.103.0: extras go online as they are taken; this sends the ones
+           taken before, or with sync off. Shown only when there are some. -->
+      <button class="btn btn-primary" id="sendExtrasBtn" style="width:100%;margin-top:8px;display:none;">☁ Put extra photos online</button>
       <button class="btn btn-secondary" id="exportExtrasBtn" style="width:100%;margin-top:8px;">🖼 Export extra photos</button>
       <div class="storage-note" id="extrasNote"></div>
       <div class="storage-note" id="durableNote"></div>
@@ -5074,9 +5077,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.102.0';
+  const APP_VERSION = '1.103.0';
   const BUILD_DATE  = '1 Nov 2026';
-  const BUILD_TIME  = '21:22';
+  const BUILD_TIME  = '22:01';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -5929,7 +5932,70 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   var EXPORTED_KEY = 'stockTakeExtrasExportedAt';
 
   function extraKey(code, fp){ return String(code) + '#' + String(fp); }
-  function extrasFor(code){ return (extrasIndex[code] || []).slice(); }
+
+  // ONLINE AS WELL (v1.103.0). The worry above was the pictures riding on the
+  // record. The Etsy photos solved that the other way: each picture is its own
+  // document in `webPhotos`, read only when wanted, and the record carries just
+  // `webPics`, the fingerprints in order - a few dozen bytes. With Team sync on,
+  // an extra goes up the moment it is taken; the website's catalogue service
+  // reads it from there, so there is nothing to export. The copy on this device
+  // stays as its own cache, and anything taken with sync off waits here until
+  // Settings -> Put extra photos online. `webPics` is replaced whole like the
+  // rest of the record, the same accepted risk `etsyPics` carries.
+  function webPicsOf(it){
+    const a = it && Array.isArray(it.webPics) ? it.webPics : [];
+    return a.filter(function(s, i){ return typeof s === 'string' && s && a.indexOf(s) === i; });
+  }
+  function extraOnline(code, fp){ return webPicsOf(items[code]).indexOf(fp) > -1; }
+  // Online ones in their order, then any still only here.
+  function extrasFor(code){
+    var online = webPicsOf(items[code]);
+    return online.concat((extrasIndex[code] || []).filter(function(fp){ return online.indexOf(fp) < 0; }));
+  }
+  // One picture, from this device or else from online.
+  var webPicCache = {};
+  async function extraPicture(code, fp){
+    var v = await PhotoDB.xget(extraKey(code, fp)).catch(function(){ return null; });
+    if(v && v.data) return v.data;
+    var id = etsyPhotoDocId(code, fp);
+    if(webPicCache[id]) return webPicCache[id];
+    if(!extraOnline(code, fp) || !Sync.isConnected()) return '';
+    var uri = await Sync.getWebPhoto(code, fp).catch(function(){ return ''; });
+    if(uri) webPicCache[id] = uri;
+    return uri;
+  }
+  // Up it goes, and onto the record's list. Not waited on: offline, Firestore
+  // holds the write and sends it on reconnect. The caller saves the record.
+  function putExtraOnline(code, fp, uri){
+    var it = items[code];
+    if(!it || !Sync.isConnected()) return false;
+    Sync.putWebPhoto(code, fp, uri).catch(function(){
+      showToast('An extra photo could not go online. It is kept on this device.', 'error');
+    });
+    var a = webPicsOf(it);
+    if(a.indexOf(fp) < 0){ a.push(fp); it.webPics = a; }
+    return true;
+  }
+  // The ones only this device has, for items that still exist.
+  function extrasNotOnline(){
+    var out = [];
+    Object.keys(extrasIndex).forEach(function(code){
+      if(!items[code]) return;
+      extrasIndex[code].forEach(function(fp){ if(!extraOnline(code, fp)) out.push({ code: code, fp: fp }); });
+    });
+    return out;
+  }
+  // Settings -> Put extra photos online: everything this device holds that is
+  // not online yet, in each item's own order.
+  async function sendExtrasOnline(){
+    var todo = extrasNotOnline(), n = 0;
+    for(var i = 0; i < todo.length; i++){
+      var v = await PhotoDB.xget(extraKey(todo[i].code, todo[i].fp)).catch(function(){ return null; });
+      if(v && v.data && putExtraOnline(todo[i].code, todo[i].fp, v.data)) n++;
+    }
+    if(n) saveItems();
+    return n;
+  }
   function extrasTotal(){
     return Object.keys(extrasIndex).reduce(function(n, c){ return n + extrasIndex[c].length; }, 0);
   }
@@ -5980,38 +6046,61 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if(uri.indexOf('data:image/') !== 0) throw new Error('that is not a picture');
     var fp = photoFingerprint(uri);
     var list = extrasIndex[code] || (extrasIndex[code] = []);
-    if(list.indexOf(fp) > -1) return { fp: fp, already: true };
+    if(list.indexOf(fp) > -1 || extraOnline(code, fp)) return { fp: fp, already: true };
     var now = Date.now();
     await PhotoDB.xset(extraKey(code, fp),
       { code: code, fp: fp, data: uri, at: now, n: list.length });
     list.push(fp);
     extrasAt[extraKey(code, fp)] = now;
     extrasBytes += uri.length;
-    return { fp: fp, already: false };
+    var online = putExtraOnline(code, fp, uri);
+    if(online) saveItems();
+    return { fp: fp, already: false, online: online };
   }
 
   async function removeExtra(code, fp){
     var list = extrasIndex[code] || [];
     var at = list.indexOf(fp);
-    if(at < 0) return false;
-    var held = await PhotoDB.xget(extraKey(code, fp)).catch(function(){ return null; });
-    await PhotoDB.xdel(extraKey(code, fp));
-    list.splice(at, 1);
-    delete extrasAt[extraKey(code, fp)];
-    if(!list.length) delete extrasIndex[code];
-    if(held && held.data) extrasBytes -= held.data.length;
-    await persistExtraOrder(code);
+    var online = extraOnline(code, fp);
+    if(at < 0 && !online) return false;
+    if(at > -1){
+      var held = await PhotoDB.xget(extraKey(code, fp)).catch(function(){ return null; });
+      await PhotoDB.xdel(extraKey(code, fp));
+      list.splice(at, 1);
+      delete extrasAt[extraKey(code, fp)];
+      if(!list.length) delete extrasIndex[code];
+      if(held && held.data) extrasBytes -= held.data.length;
+      await persistExtraOrder(code);
+    }
+    if(online){
+      var it = items[code], a = webPicsOf(it).filter(function(x){ return x !== fp; });
+      if(a.length) it.webPics = a; else delete it.webPics;
+      if(it.webCover === fp) delete it.webCover;
+      saveItems();
+      delete webPicCache[etsyPhotoDocId(code, fp)];
+      if(Sync.isConnected()) Sync.deleteWebPhoto(code, fp).catch(function(){});
+    }
     return true;
   }
 
   // delta is -1 or +1. Moving the first one left, or the last one right, is not
   // an error -- it simply does nothing, so a button never needs disabling.
   async function moveExtra(code, fp, delta){
-    var list = extrasIndex[code] || [];
-    var at = list.indexOf(fp), to = at + delta;
-    if(at < 0 || to < 0 || to >= list.length) return false;
-    list.splice(to, 0, list.splice(at, 1)[0]);
-    await persistExtraOrder(code);
+    var order = extrasFor(code);
+    var at = order.indexOf(fp), to = at + delta;
+    if(at < 0 || to < 0 || to >= order.length) return false;
+    order.splice(to, 0, order.splice(at, 1)[0]);
+    // Each store keeps its own share of the new order.
+    var online = webPicsOf(items[code]);
+    if(online.length){
+      items[code].webPics = order.filter(function(x){ return online.indexOf(x) > -1; });
+      saveItems();
+    }
+    var local = extrasIndex[code];
+    if(local && local.length){
+      extrasIndex[code] = order.filter(function(x){ return local.indexOf(x) > -1; });
+      await persistExtraOrder(code);
+    }
     return true;
   }
 
@@ -6046,7 +6135,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     var n = 0;
     Object.keys(extrasIndex).forEach(function(code){
       extrasIndex[code].forEach(function(fp){
-        if((extrasAt[extraKey(code, fp)] || 0) > since) n++;
+        // Online is safe: it is no longer this device's only copy (v1.103.0).
+        if((extrasAt[extraKey(code, fp)] || 0) > since && !extraOnline(code, fp)) n++;
       });
     });
     return n;
@@ -8921,9 +9011,11 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       img.alt = '';
       // Set as a property, never through innerHTML - same rule as everywhere
       // else in this file. The picture is read back out of the store because
-      // the index holds fingerprints, not the pictures themselves.
-      PhotoDB.xget(extraKey(code, fp)).then(function(v){
-        if(v && v.data && currentEditBarcode === code) img.src = v.data;
+      // the index holds fingerprints, not the pictures themselves - this
+      // device's copy first, else the online one (v1.103.0).
+      extraPicture(code, fp).then(function(uri){
+        if(currentEditBarcode !== code) return;
+        if(uri) img.src = uri; else img.alt = 'Needs Team sync to show';
       }).catch(function(){});
       cell.appendChild(img);
 
@@ -8949,9 +9041,13 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
             showToast(isCover ? 'Cover photo taken off' : 'Cover photo: on the shop list, for every colour', 'success');
           }));
       }
-      tools.appendChild(extraBtn('✕', 'Remove this photo', false, function(){
-        // Worth a confirm, and worth saying why: this really is the only copy.
-        if(!confirm('Remove this photograph?\n\nIt is only on this device, so it cannot be got back.')) return;
+      // An online photo can only come off with sync on, or its online copy
+      // would be left behind with nothing pointing at it.
+      const isOnline = extraOnline(code, fp);
+      tools.appendChild(extraBtn('✕', 'Remove this photo', isOnline && !Sync.isConnected(), function(){
+        // Worth a confirm, and worth saying why.
+        if(!confirm(isOnline ? 'Remove this photograph?\n\nIt comes off the website and every till.'
+          : 'Remove this photograph?\n\nIt is only on this device, so it cannot be got back.')) return;
         removeExtra(code, fp).then(function(){
           if(it && it.webCover === fp){ delete it.webCover; saveItems(); }
           renderEditExtras(); renderExtrasNote();
@@ -8963,17 +9059,19 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
 
     const full = list.length >= EXTRA_MAX;
     add.style.display = full ? 'none' : '';
+    const here = list.filter(function(fp){ return !extraOnline(code, fp); }).length;
     hint.textContent = full
       ? 'That is the ' + EXTRA_MAX + ' this item can show. Remove one to add another.'
       : (list.length
-          ? list.length + ' extra photo' + (list.length === 1 ? '' : 's') + ', shown on the '
-            + 'website under the main one. Saved as you take them, and they stay on this '
-            + 'device until you export them in Settings.'
-          : 'The website shows these under the main photograph. They stay on this device '
-            + 'until you export them in Settings.')
+          ? list.length + ' extra photo' + (list.length === 1 ? '' : 's') + ', shown on the website under the main one.'
+            + (here
+              ? ' ' + here + ' only on this device so far: with Team sync on, use Settings → ☁ Put extra photos online.'
+              : ' Online, so the website and every till have them.')
+          : 'The website shows these under the main photograph.'
+            + (Sync.isConnected() ? ' They go online as you take them.' : ' Turn on Team sync and they go online as you take them.'))
         + (!grouped ? ''
           : cover && cover.bc !== code ? ' The card\'s main photo is the ★ cover on ' + (items[cover.bc].name || cover.bc) + '.'
-          : cover ? ' ★ is the main photo of the whole card on the shop list; choosing a colour shows that colour\'s own photo. It shows once the photos are exported and published.'
+          : cover ? ' ★ is the main photo of the whole card on the shop list; choosing a colour shows that colour\'s own photo. The website shows it within about a quarter of an hour of it going online.'
           : ' Have a photo of all the colours together? Add it here and tap ☆ to make it the main photo of the whole card.');
   }
 
@@ -8993,7 +9091,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       const r = await addExtra(code, uri);
       if(currentEditBarcode === code) renderEditExtras();
       renderExtrasNote();
-      showToast(r.already ? 'That photograph is already on this item' : 'Photo added', r.already ? 'error' : 'success');
+      showToast(r.already ? 'That photograph is already on this item'
+        : r.online ? 'Photo added and put online' : 'Photo added on this device. Turn on Team sync to put it online',
+        r.already ? 'error' : 'success');
     }catch(err){
       showToast(err && err.message ? err.message : 'Could not use that image', 'error');
     }
@@ -9007,13 +9107,33 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if(!el) return;
     if(!extrasStoreOK){ el.textContent = ''; return; }
     const total = extrasTotal(), onItems = extrasItems(), waiting = extrasUnexported();
+    const notOnline = extrasNotOnline().length;
+    const btn = document.getElementById('sendExtrasBtn');
+    if(btn) btn.style.display = notOnline ? '' : 'none';
     if(!total){ el.textContent = 'No extra photographs on this device.'; return; }
+    // v1.103.0: online is the safe copy now; the export is only a spare.
     el.textContent = total + ' extra photo' + (total === 1 ? '' : 's') + ' on '
       + onItems + ' item' + (onItems === 1 ? '' : 's') + '. '
-      + (waiting
-          ? waiting + ' not exported yet — until you do, this device is the only copy.'
-          : 'All exported.');
+      + (notOnline
+          ? notOnline + ' not online yet' + (Sync.isConnected() ? ': tap ☁ Put extra photos online.' : ': turn on Team sync, then tap ☁ Put extra photos online.')
+            + (waiting ? ' Until then, this device is the only copy.' : '')
+          : 'All online, so the website and every till have them.');
   }
+  document.getElementById('sendExtrasBtn').addEventListener('click', async function(){
+    if(!Sync.isConnected()){ showToast('Turn on Team sync first', 'error'); return; }
+    this.disabled = true;
+    try{
+      const n = await sendExtrasOnline();
+      showToast(n ? n + ' extra photo' + (n === 1 ? '' : 's') + ' put online. The website shows them within about a quarter of an hour.'
+        : 'Nothing to put online', 'success');
+    }catch(e){
+      showToast('Could not put them all online: ' + (e && e.message ? e.message : 'try again'), 'error');
+    }finally{
+      this.disabled = false;
+      renderExtrasNote();
+      try{ refreshBackupBanner(); }catch(e){}
+    }
+  });
 
   // ---- the Etsy box on the edit form (v1.55.0) ----
   //
@@ -9215,6 +9335,11 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       if(currentEditBarcode && document.getElementById('editItemModal').style.display === 'flex') renderEditEtsy();
     }catch(e){}
     try{ renderAddEtsy(); }catch(e){}
+    // The extra photos too (v1.103.0): online ones load, and the counts change.
+    try{
+      if(currentEditBarcode && document.getElementById('editItemModal').style.display === 'flex') renderEditExtras();
+    }catch(e){}
+    try{ renderExtrasNote(); }catch(e){}
   }
 
   // ---- Only what matters for Etsy (v1.57.1), on Edit ('edit') and Add ('manual') ----
@@ -18180,7 +18305,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     }
     const xf = extrasFor(bc)[0];
     if(xf){
-      try{ const v = await PhotoDB.xget(extraKey(bc, xf)); if(v && v.data) return await soldShrink(v.data); }catch(e){}
+      try{ const uri = await extraPicture(bc, xf); if(uri) return await soldShrink(uri); }catch(e){}
     }
     const ef = etsyPicsOf(it)[0];
     if(ef && Sync.isConnected()){
@@ -18635,6 +18760,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     let oldest = 0;
     Object.keys(extrasIndex).forEach(code => {
       extrasIndex[code].forEach(fp => {
+        if(extraOnline(code, fp)) return;
         const at = extrasAt[extraKey(code, fp)] || 0;
         if(at > since && (oldest === 0 || at < oldest)) oldest = at;
       });
@@ -20080,6 +20206,26 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     function deleteEtsyPhoto(bc, fp){
       return etsyCol().doc(etsyPhotoDocId(bc, fp)).delete();
     }
+    // The website's extra photos (v1.103.0), kept online exactly like the Etsy
+    // ones: one document each in `webPhotos`, never listened to, the record's
+    // `webPics` saying which exist and in what order. The website's catalogue
+    // service reads them from here, so nothing has to be exported.
+    function webCol(){
+      if(!connected || !db) throw new Error('Turn on Team sync first.');
+      return db.collection('workspaces').doc(workspacePath()).collection('webPhotos');
+    }
+    function putWebPhoto(bc, fp, uri){
+      return webCol().doc(etsyPhotoDocId(bc, fp))
+        .set({ key: String(bc), fp: String(fp), photo: uri, at: Date.now(), by: clientId });
+    }
+    async function getWebPhoto(bc, fp){
+      var doc = await webCol().doc(etsyPhotoDocId(bc, fp)).get();
+      var d = doc.exists ? (doc.data() || {}) : {};
+      return typeof d.photo === 'string' && d.photo.indexOf('data:image/') === 0 ? d.photo : '';
+    }
+    function deleteWebPhoto(bc, fp){
+      return webCol().doc(etsyPhotoDocId(bc, fp)).delete();
+    }
 
     // ---- Expenses (v1.67.0) ----
     // One document each in `expenses`, listened to like sales so every till
@@ -20114,6 +20260,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     return {
       connect:connect, disconnect:disconnect, syncNow:syncNow,
       putEtsyPhoto:putEtsyPhoto, getEtsyPhoto:getEtsyPhoto, deleteEtsyPhoto:deleteEtsyPhoto,
+      putWebPhoto:putWebPhoto, getWebPhoto:getWebPhoto, deleteWebPhoto:deleteWebPhoto,
       putExpense:putExpense, putExpensePhoto:putExpensePhoto, getExpensePhoto:getExpensePhoto, deleteExpensePhoto:deleteExpensePhoto,
       putMaterial:putMaterial,
       saveSettings:saveSettings, onLocalItems:onLocalItems, onLocalSales:onLocalSales,
