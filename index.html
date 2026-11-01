@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-yW/MIAAcfPJzgyInNz22d1VhRwoOc1RSopC3yhJj4co=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-PiMTpMHD95DFafAWirTY2OB9g37hQ9kta7Nbu6F6xy8=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -1360,6 +1360,15 @@ if (window.top !== window.self) {
         <label for="matDocs" class="mat-field" style="margin-top:8px;">Where its safety papers are</label>
         <input type="text" id="matDocs" placeholder="A folder or a https:// link" autocomplete="off" autocapitalize="none" spellcheck="false">
         <div class="folder-hint" style="margin:4px 0 0;">A folder on the computer, e.g. <b>Safety papers\Bead Shop\M-001 Glass beads</b>, or a web link to your online drive. Naming the folder after the code makes it easy to find.<span class="mat-pick-only" style="display:none;"> On the computer, click the box to choose the folder (or make a New folder) instead of typing it.</span></div>
+        <!-- v1.98.2: a browser never tells the till where a folder is, so its
+             full address is pasted once per computer and the chosen folder is
+             added on the end. -->
+        <details id="matBaseBox" class="mat-pick-only" style="display:none;margin-top:6px;">
+          <summary style="font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;">📁 Main Safety papers folder on this computer</summary>
+          <label for="matBase" style="margin-top:6px;">Its full address</label>
+          <input type="text" id="matBase" placeholder="e.g. C:\Users\Kay\OneDrive\Safety papers" autocomplete="off" autocapitalize="none" spellcheck="false">
+          <div class="folder-hint" style="margin:4px 0 0;">In File Explorer, open your main Safety papers folder, click the address bar at the top, copy the address and paste it here. Done once on each computer. Folders you choose are then filled in with their whole address.</div>
+        </details>
         <label for="matNote" class="mat-field" style="margin-top:8px;">Note</label>
         <input type="text" id="matNote" placeholder="e.g. supplier says nickel-free" autocomplete="off">
         <button class="btn btn-secondary" id="matSave" type="button" style="width:100%;margin-top:10px;">＋ Add to the book</button>
@@ -5029,9 +5038,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.98.1';
+  const APP_VERSION = '1.98.2';
   const BUILD_DATE  = '1 Nov 2026';
-  const BUILD_TIME  = '14:41';
+  const BUILD_TIME  = '14:58';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -18192,8 +18201,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // Choosing the papers folder (v1.98.0). Chrome and Edge on the computer can
   // show the folder picker, but only ever tell a web page the folder's own
   // name, never where it is. So the main Safety papers folder is chosen once
-  // and remembered on this device, and a folder chosen inside it is written
-  // as "Safety papers\Bead Shop\M-001". The iPad has no picker: type it there.
+  // and remembered on this device, with its full address pasted once, and a
+  // folder chosen inside it is written as that address + "\Bead Shop\M-001".
+  // The iPad has no picker: type it there.
   const PapersFolder = (function(){
     const DB = 'tillPapersFolder', STORE = 'handles', KEY = 'root';
     function open(){
@@ -18220,6 +18230,29 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     papersRoot = h;
     return PapersFolder.setRoot(h).catch(() => {});
   }
+  // The main folder's full address on this computer (v1.98.2), pasted from
+  // File Explorer's address bar ("Copy as path" adds quotes; they come off).
+  const PAPERS_BASE_KEY = 'matPapersBase';
+  function papersBase(){
+    try{ return localStorage.getItem(PAPERS_BASE_KEY) || ''; }catch(e){ return ''; }
+  }
+  function setPapersBase(v){
+    const s = String(v || '').replace(/[\u0000-\u001f]/g, '').trim().replace(/^"+|"+$/g, '').replace(/[\\\/]+$/, '').slice(0, 250);
+    try{ s ? localStorage.setItem(PAPERS_BASE_KEY, s) : localStorage.removeItem(PAPERS_BASE_KEY); }catch(e){}
+    document.getElementById('matBase').value = s;
+    return s;
+  }
+  // Ask for the address: open the box under the papers box and put the cursor in it.
+  function askPapersBase(){
+    const box = document.getElementById('matBaseBox');
+    box.open = true;
+    document.getElementById('matBase').focus();
+  }
+  // The whole address of a folder chosen inside the main one.
+  function papersPath(root, inside){
+    const base = papersBase();
+    return (base ? [base] : [root.name]).concat(inside).join('\\');
+  }
   function pickPapersFolder(){
     if(matPicking) return;
     const box = document.getElementById('matDocs');
@@ -18230,14 +18263,24 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const root = papersRoot;
     (!root
       ? window.showDirectoryPicker({ id: 'matPapersRoot', startIn: 'documents' }).then(h => setPapersRoot(h).then(() => {
-          showToast('Main folder is "' + h.name + '". Click the box again to choose this purchase\'s folder inside it', 'success');
+          setPapersBase('');
+          askPapersBase();
+          showToast('Main folder is "' + h.name + '". Paste its full address below, then click the papers box again', 'success');
         }))
       : window.showDirectoryPicker({ id: 'matPapers', startIn: root }).then(h => root.resolve(h).then(inside => {
-          if(inside){ box.value = [root.name].concat(inside).join('\\'); return; }
+          if(inside){
+            box.value = papersPath(root, inside);
+            if(!papersBase()){ askPapersBase(); showToast('Paste the main folder\'s full address below to get the whole address', 'error'); }
+            return;
+          }
           box.value = h.name;
           askConfirm('Make "' + h.name + '" the main folder?', 'That folder is not inside "' + root.name + '", so only its name was filled in. '
-            + 'Make it the main Safety papers folder on this computer instead?', 'Make it the main folder', () => {
-            setPapersRoot(h).then(() => showToast('Main folder is now "' + h.name + '"', 'success'));
+            + 'Make it the main Safety papers folder on this computer instead? You will then paste its full address once.', 'Make it the main folder', () => {
+            setPapersRoot(h).then(() => {
+              setPapersBase('');
+              askPapersBase();
+              showToast('Main folder is now "' + h.name + '". Paste its full address below', 'success');
+            });
           });
         }))
     ).catch(err => {
@@ -18248,6 +18291,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     PapersFolder.root().then(h => { if(h && !papersRoot) papersRoot = h; });
     document.querySelectorAll('.mat-pick-only').forEach(el => { el.style.display = ''; });
     document.getElementById('matDocs').addEventListener('click', pickPapersFolder);
+    document.getElementById('matBase').value = papersBase();
+    document.getElementById('matBase').addEventListener('change', e => {
+      if(setPapersBase(e.target.value)) showToast('Main folder address saved on this computer', 'success');
+    });
   }
   document.getElementById('matSearch').addEventListener('input', renderMatBook);
   document.getElementById('matSave').addEventListener('click', () => {

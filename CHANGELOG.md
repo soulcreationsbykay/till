@@ -10,6 +10,19 @@ fixes.
 
 ---
 
+## v1.98.2 - 1 November 2026
+
+**Materials book: a chosen folder fills in its whole address.** A web browser never
+tells the till where a folder is on the computer, only its name. So under the papers
+box there is now **📁 Main Safety papers folder on this computer**: paste the main
+folder's full address there once, copied from File Explorer's address bar (for example
+`C:\Users\Kay\OneDrive\Safety papers`). After that, choosing a folder inside it fills in
+the whole address, e.g. `C:\Users\Kay\OneDrive\Safety papers\Bead Shop\M-001 Glass beads`,
+ready for Copy folder. The address is kept on that computer only. Purchases filled in
+before this keep the short version until you choose their folder again.
+
+---
+
 ## v1.98.1 - 1 November 2026
 
 **Materials book: changing a purchase is clearer.** Pressing **✏ Change** now hides the
