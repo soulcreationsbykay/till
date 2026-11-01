@@ -10,6 +10,16 @@ fixes.
 
 ---
 
+## v1.103.1 - 1 November 2026
+
+**Extra photos taken before v1.103.0 now go online by themselves.** Whenever Team sync
+is on, the till sends any website extra photos that are only on this device, a few
+seconds after connecting (so it can see what the other tills already sent), and shows
+"N extra photos put online for the website". Each one goes once. There is nothing to
+press; Settings → ☁ Put extra photos online stays as a spare.
+
+---
+
 ## v1.103.0 - 1 November 2026
 
 **Extra website photos go online by themselves.** With Team sync on, each "More photos

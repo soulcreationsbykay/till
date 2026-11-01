@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-617LmdG9nwdKVktInTqePypEJ7i++O/y1miVvl0+n8w=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-sfaI2WbhyPmh7H11sIcJEFHBBrsmE+WfEB0diDFLVpo=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -5077,9 +5077,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.103.0';
+  const APP_VERSION = '1.103.1';
   const BUILD_DATE  = '1 Nov 2026';
-  const BUILD_TIME  = '22:01';
+  const BUILD_TIME  = '22:40';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -5996,6 +5996,28 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if(n) saveItems();
     return n;
   }
+  // AUTOMATIC (v1.103.1): no button to remember. Whenever Team sync is
+  // connected and this device holds extras that are not online, they go up by
+  // themselves - once each, because once online they are no longer counted.
+  // Run a little after connecting, so the other tills' lists have arrived
+  // first and a photo already online is not sent again. One run at a time.
+  var autoExtrasTimer = null, autoExtrasBusy = false;
+  function autoSendExtras(){
+    clearTimeout(autoExtrasTimer);
+    autoExtrasTimer = setTimeout(async function(){
+      if(autoExtrasBusy || !extrasStoreOK || !Sync.isConnected() || !extrasNotOnline().length) return;
+      autoExtrasBusy = true;
+      try{
+        var n = await sendExtrasOnline();
+        if(n) showToast(n + ' extra photo' + (n === 1 ? '' : 's') + ' put online for the website', 'success');
+      }catch(e){}
+      finally{
+        autoExtrasBusy = false;
+        try{ renderExtrasNote(); }catch(e){}
+        try{ refreshBackupBanner(); }catch(e){}
+      }
+    }, 8000);
+  }
   function extrasTotal(){
     return Object.keys(extrasIndex).reduce(function(n, c){ return n + extrasIndex[c].length; }, 0);
   }
@@ -6220,6 +6242,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
           return n + ((r && r.val && r.val.data) ? r.val.data.length : 0);
         }, 0);
         extrasStoreOK = true;
+        autoSendExtras();
       }catch(e){ extrasStoreOK = false; }
       try{ renderExtrasNote(); }catch(e){}
       // Only now is the extras index real, so this is the first point at which
@@ -9065,7 +9088,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       : (list.length
           ? list.length + ' extra photo' + (list.length === 1 ? '' : 's') + ', shown on the website under the main one.'
             + (here
-              ? ' ' + here + ' only on this device so far: with Team sync on, use Settings → ☁ Put extra photos online.'
+              ? ' ' + here + ' only on this device so far: they go online by themselves once Team sync is on.'
               : ' Online, so the website and every till have them.')
           : 'The website shows these under the main photograph.'
             + (Sync.isConnected() ? ' They go online as you take them.' : ' Turn on Team sync and they go online as you take them.'))
@@ -9115,7 +9138,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     el.textContent = total + ' extra photo' + (total === 1 ? '' : 's') + ' on '
       + onItems + ' item' + (onItems === 1 ? '' : 's') + '. '
       + (notOnline
-          ? notOnline + ' not online yet' + (Sync.isConnected() ? ': tap ☁ Put extra photos online.' : ': turn on Team sync, then tap ☁ Put extra photos online.')
+          ? notOnline + ' not online yet' + (Sync.isConnected() ? ': going up by themselves now (or tap ☁ Put extra photos online).' : ': they go up by themselves once Team sync is on.')
             + (waiting ? ' Until then, this device is the only copy.' : '')
           : 'All online, so the website and every till have them.');
   }
@@ -9340,6 +9363,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       if(currentEditBarcode && document.getElementById('editItemModal').style.display === 'flex') renderEditExtras();
     }catch(e){}
     try{ renderExtrasNote(); }catch(e){}
+    try{ autoSendExtras(); }catch(e){}
   }
 
   // ---- Only what matters for Etsy (v1.57.1), on Edit ('edit') and Add ('manual') ----
