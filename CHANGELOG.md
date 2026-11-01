@@ -10,6 +10,18 @@ fixes.
 
 ---
 
+## v1.98.3 - 1 November 2026
+
+**Materials book: Copy folder always gives the whole address.** Purchases saved with the
+short version (`Safety papers\Bead Shop\M-001`) now show and copy the whole address,
+using the main folder address pasted on that computer, so
+`C:\Users\Kay\OneDrive\Safety papers\Bead Shop\M-001` is what goes into File Explorer.
+The message after copying shows exactly what was copied. If the computer has no main
+folder address yet, Copy folder says so and opens the box to paste it, instead of
+copying a short one that File Explorer cannot find.
+
+---
+
 ## v1.98.2 - 1 November 2026
 
 **Materials book: a chosen folder fills in its whole address.** A web browser never
