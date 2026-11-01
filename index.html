@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-q3NmQNQAVfVZk+J+/xOz4ftNiQf3qOnAjZinPHksVR8=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-cOtkaTWNEMhec5v5ZgSWLLt+NcOSytceNYnB9zkKCGQ=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -5038,9 +5038,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.98.3';
+  const APP_VERSION = '1.98.4';
   const BUILD_DATE  = '1 Nov 2026';
-  const BUILD_TIME  = '15:31';
+  const BUILD_TIME  = '15:47';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -7057,7 +7057,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // from is the supplier's name, site (v1.98.0) their https:// website.
   // docs is a web link to the papers; papersAt (v1.97.1) is where they are
   // kept when that is a folder on the computer, which a web page cannot open,
-  // so it is shown as words to copy. A purchase has one or the other.
+  // so it is shown as words. A purchase has one or the other.
   // A part line that came from the book carries the purchase's id as `lot` AND
   // a copy of its part, supplier, batch and date, so the item reads the same
   // with the book switched off. Synced one document each in `materials`.
@@ -18143,7 +18143,6 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
             + '<div class="btn-row" style="margin-top:6px;">'
             + (docsLink(l.site) ? '<a class="btn btn-secondary" href="' + escapeAttr(docsLink(l.site)) + '" target="_blank" rel="noopener noreferrer">🌐 Supplier website</a>' : '')
             + (l.docs ? '<a class="btn btn-secondary" href="' + escapeAttr(l.docs) + '" target="_blank" rel="noopener noreferrer">📎 Safety papers</a>' : '')
-            + (l.papersAt ? '<button type="button" class="btn btn-secondary" data-mat-copy="' + escapeAttr(l.papersAt) + '">📋 Copy folder</button>' : '')
             + '<button type="button" class="btn btn-secondary" data-mat-trace="' + escapeAttr(l.code) + '">' + (used ? 'In ' + used + ' item' + (used === 1 ? '' : 's') : 'Not on any item') + '</button>'
             + '<button type="button" class="btn btn-secondary" data-mat-edit="' + escapeAttr(l.id) + '">✏ Change</button></div></div>';
         }).join('') + '</div>';
@@ -18343,25 +18342,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     });
   });
   document.getElementById('matList').addEventListener('click', e => {
-    // A computer folder cannot be opened from the till, so it is copied, ready
-    // to paste into File Explorer's address bar.
-    const cp = e.target.closest('[data-mat-copy]');
-    if(cp){
-      const v = fullPapersAt(cp.dataset.matCopy);
-      // Still short on a computer with no main folder address yet. (The iPad
-      // has no File Explorer and no address box, so it copies what there is.)
-      if(PapersFolder.supported() && !/^[A-Za-z]:\\|^\\\\/.test(v)){
-        showNotice('The whole address is not known yet', 'This purchase only has "' + v + '". Paste the full address of your main Safety papers folder into '
-          + '"📁 Main Safety papers folder on this computer" (under the papers box, in the form below), then press Copy folder again.');
-        const box = document.getElementById('matBaseBox');
-        if(box){ box.open = true; }
-        return;
-      }
-      Promise.resolve().then(() => navigator.clipboard.writeText(v))
-        .then(() => showToast('Copied ' + v + ': paste it into File Explorer\'s address bar', 'success'))
-        .catch(() => showToast('Could not copy. The folder is: ' + v, 'error'));
-      return;
-    }
+    // (v1.98.4: Copy folder taken out, as it could not give File Explorer a
+    // whole address; the papers folder is shown as words under the purchase.)
     const ed = e.target.closest('[data-mat-edit]');
     if(ed){ startMatEdit(ed.dataset.matEdit); return; }
     const tr = e.target.closest('[data-mat-trace]');

@@ -10,6 +10,14 @@ fixes.
 
 ---
 
+## v1.98.4 - 1 November 2026
+
+**Materials book: Copy folder taken out.** It could not reliably give File Explorer the
+whole address. Each purchase still shows **📁 Papers:** with where its safety papers
+are kept, and the papers box, folder picker and web links work as before.
+
+---
+
 ## v1.98.3 - 1 November 2026
 
 **Materials book: Copy folder always gives the whole address.** Purchases saved with the
