@@ -10,6 +10,23 @@ fixes.
 
 ---
 
+## v1.98.0 - 1 November 2026
+
+**Materials book: supplier name and website, and choose the papers folder.**
+- "Bought from" is now **Supplier name**, and there is a new **Supplier website** box
+  (beadshop.co.uk is fine, https:// is added). The purchase shows a **🌐 Supplier
+  website** button, and the export has Supplier name and Supplier website columns.
+  Part lines on items are unchanged.
+- On the computer (Chrome or Edge), clicking the safety papers box opens the folder
+  picker, where you can choose a folder or make a New folder. The first time, choose
+  your main Safety papers folder; the till remembers it on that computer. After that a
+  folder chosen inside it is filled in as `Safety papers\Bead Shop\M-001 Glass beads`.
+  The browser only ever tells the till a folder's name, which is why the main folder
+  is chosen once. On the iPad there is no picker: type the folder or paste a link as
+  before. Typing still works on the computer too: cancel the picker and type.
+
+---
+
 ## v1.97.1 - 29 October 2026
 
 **Materials book: keep the safety papers in a folder on the computer.** The box on a

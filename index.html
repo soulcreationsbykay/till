@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-aVJN3pVZlJpXCj+3A/+YeP2PhlW8rdg7uEpYW6RhzmA=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-7SXiq88Ddsc3PqiZVzjwBAMX1W+hVIgAT7ULOn8JTAk=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -1329,13 +1329,14 @@ if (window.top !== window.self) {
       <label id="matFormTitle" for="matPart" style="margin-top:12px;">Add a purchase</label>
       <input type="text" id="matPart" list="partOptions" placeholder="Part, e.g. 100% acrylic yarn" autocomplete="off">
       <div class="btn-row" style="margin-top:8px;">
-        <input type="text" id="matFrom" list="supplierOptions" placeholder="Bought from" autocomplete="off" style="flex:1;min-width:0;margin:0;">
+        <input type="text" id="matFrom" list="supplierOptions" placeholder="Supplier name" autocomplete="off" style="flex:1;min-width:0;margin:0;">
         <input type="text" id="matBatch" placeholder="Batch / order no." autocomplete="off" style="flex:1;min-width:0;margin:0;">
       </div>
+      <input type="url" id="matSite" placeholder="Supplier website, e.g. beadshop.co.uk" autocomplete="off" autocapitalize="none" spellcheck="false" style="margin-top:8px;">
       <label for="matBought" style="margin-top:8px;">Bought on</label>
       <input type="date" id="matBought">
       <input type="text" id="matDocs" placeholder="Where its safety papers are: a folder or a https:// link" autocomplete="off" autocapitalize="none" spellcheck="false" style="margin-top:8px;">
-      <div class="folder-hint" style="margin:4px 0 0;">A folder on the computer, e.g. <b>Safety papers\Bead Shop\M-001 Glass beads</b>, or a web link to your online drive. Naming the folder after the code makes it easy to find.</div>
+      <div class="folder-hint" style="margin:4px 0 0;">A folder on the computer, e.g. <b>Safety papers\Bead Shop\M-001 Glass beads</b>, or a web link to your online drive. Naming the folder after the code makes it easy to find.<span class="mat-pick-only" style="display:none;"> On the computer, click the box to choose the folder (or make a New folder) instead of typing it.</span></div>
       <input type="text" id="matNote" placeholder="Note, e.g. supplier says nickel-free" autocomplete="off" style="margin-top:8px;">
       <button class="btn btn-secondary" id="matSave" type="button" style="width:100%;margin-top:8px;">＋ Add to the book</button>
       <div class="btn-row" style="margin-top:8px;">
@@ -5003,9 +5004,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.97.1';
-  const BUILD_DATE  = '29 Oct 2026';
-  const BUILD_TIME  = '16:22';
+  const APP_VERSION = '1.98.0';
+  const BUILD_DATE  = '1 Nov 2026';
+  const BUILD_TIME  = '14:36';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -7018,7 +7019,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // Each purchase of a part written down once, with a short code (M-001) to
   // write on the bag and a link to where its safety papers are kept (a Google
   // Drive folder, say - the papers themselves never come into the till).
-  //   { id, code, part, from, batch, bought, docs, papersAt, note, updatedAt, deleted? }
+  //   { id, code, part, from, site, batch, bought, docs, papersAt, note, updatedAt, deleted? }
+  // from is the supplier's name, site (v1.98.0) their https:// website.
   // docs is a web link to the papers; papersAt (v1.97.1) is where they are
   // kept when that is a folder on the computer, which a web page cannot open,
   // so it is shown as words to copy. A purchase has one or the other.
@@ -7050,7 +7052,13 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const papersAt = looksWeb ? '' : typedDocs.replace(/[\u0000-\u001f]/g, '').slice(0, 300);
     const id = String(raw.id || ''), code = String(raw.code || '');
     if(!LOT_ID_RE.test(id) || !LOT_CODE_RE.test(code)) throw new Error('Something went wrong: no code.');
+    // Supplier website (v1.98.0): beadshop.co.uk is fine, https:// is added.
+    let site = String(raw.site || '').trim().replace(/^http:\/\//i, 'https://');
+    if(site && !/^https:\/\//i.test(site)) site = 'https://' + site;
+    const siteLink = docsLink(site);
+    if(site && (!siteLink || !/^https:\/\/[^\/\s]+\.[^\/\s]+/i.test(siteLink))) throw new Error('That supplier website does not look right, e.g. beadshop.co.uk');
     const o = { id: id, code: code, part: part, from: t(raw.from, 100), batch: t(raw.batch, 100), updatedAt: Number(now) || 0 };
+    if(siteLink) o.site = siteLink;
     const bought = partDate(raw.bought);
     if(bought) o.bought = bought;
     if(docs) o.docs = docs;
@@ -18087,7 +18095,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   function renderMatBook(){
     const want = document.getElementById('matSearch').value.trim().toLowerCase();
     const all = MatBook.live();
-    const shown = want ? all.filter(l => [l.code, l.part, l.from, l.batch, l.note, ukDay(l.bought)].some(v => String(v || '').toLowerCase().indexOf(want) > -1)) : all;
+    const shown = want ? all.filter(l => [l.code, l.part, l.from, l.site, l.batch, l.note, ukDay(l.bought)].some(v => String(v || '').toLowerCase().indexOf(want) > -1)) : all;
     const box = document.getElementById('matList');
     box.innerHTML = !all.length
       ? '<div class="empty-state" style="padding:14px;">Nothing in the book yet. Add your first purchase below.</div>'
@@ -18099,6 +18107,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
             + (l.note ? '<br><span style="color:var(--muted);">' + escapeHtml(l.note) + '</span>' : '')
             + (l.papersAt ? '<br><span style="color:var(--muted);word-break:break-all;">📁 Papers: ' + escapeHtml(l.papersAt) + '</span>' : '')
             + '<div class="btn-row" style="margin-top:6px;">'
+            + (docsLink(l.site) ? '<a class="btn btn-secondary" href="' + escapeAttr(docsLink(l.site)) + '" target="_blank" rel="noopener noreferrer">🌐 Supplier website</a>' : '')
             + (l.docs ? '<a class="btn btn-secondary" href="' + escapeAttr(l.docs) + '" target="_blank" rel="noopener noreferrer">📎 Safety papers</a>' : '')
             + (l.papersAt ? '<button type="button" class="btn btn-secondary" data-mat-copy="' + escapeAttr(l.papersAt) + '">📋 Copy folder</button>' : '')
             + '<button type="button" class="btn btn-secondary" data-mat-trace="' + escapeAttr(l.code) + '">' + (used ? 'In ' + used + ' item' + (used === 1 ? '' : 's') : 'Not on any item') + '</button>'
@@ -18108,7 +18117,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   }
   function resetMatForm(){
     matEditing = null;
-    ['matPart', 'matFrom', 'matBatch', 'matDocs', 'matNote'].forEach(id => { document.getElementById(id).value = ''; });
+    ['matPart', 'matFrom', 'matSite', 'matBatch', 'matDocs', 'matNote'].forEach(id => { document.getElementById(id).value = ''; });
     document.getElementById('matBought').value = new Date().toISOString().slice(0, 10);
     document.getElementById('matFormTitle').textContent = 'Add a purchase (' + MatBook.nextCode() + ')';
     document.getElementById('matSave').textContent = '＋ Add to the book';
@@ -18121,6 +18130,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     matEditing = id;
     document.getElementById('matPart').value = l.part || '';
     document.getElementById('matFrom').value = l.from || '';
+    document.getElementById('matSite').value = l.site || '';
     document.getElementById('matBatch').value = l.batch || '';
     document.getElementById('matBought').value = l.bought || '';
     document.getElementById('matDocs').value = l.docs || l.papersAt || '';
@@ -18143,6 +18153,66 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if(n) saveItems();
     return n;
   }
+  // Choosing the papers folder (v1.98.0). Chrome and Edge on the computer can
+  // show the folder picker, but only ever tell a web page the folder's own
+  // name, never where it is. So the main Safety papers folder is chosen once
+  // and remembered on this device, and a folder chosen inside it is written
+  // as "Safety papers\Bead Shop\M-001". The iPad has no picker: type it there.
+  const PapersFolder = (function(){
+    const DB = 'tillPapersFolder', STORE = 'handles', KEY = 'root';
+    function open(){
+      return new Promise((res, rej) => {
+        const r = indexedDB.open(DB, 1);
+        r.onupgradeneeded = () => { r.result.createObjectStore(STORE); };
+        r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+      });
+    }
+    function tx(mode, fn){
+      return open().then(db => new Promise((res, rej) => {
+        const r = fn(db.transaction(STORE, mode).objectStore(STORE));
+        r.onsuccess = () => res(r.result == null ? null : r.result); r.onerror = () => rej(r.error);
+      }));
+    }
+    return {
+      supported: () => typeof window.showDirectoryPicker === 'function' && typeof indexedDB !== 'undefined',
+      root: () => tx('readonly', st => st.get(KEY)).catch(() => null),
+      setRoot: h => tx('readwrite', st => st.put(h, KEY))
+    };
+  })();
+  let matPicking = false, papersRoot = null;
+  function setPapersRoot(h){
+    papersRoot = h;
+    return PapersFolder.setRoot(h).catch(() => {});
+  }
+  function pickPapersFolder(){
+    if(matPicking) return;
+    const box = document.getElementById('matDocs');
+    if(/^https?:/i.test(box.value.trim())) return;   // a web link is being typed
+    matPicking = true;
+    // The main folder is already loaded, so the picker opens straight from the
+    // click, as the browser insists.
+    const root = papersRoot;
+    (!root
+      ? window.showDirectoryPicker({ id: 'matPapersRoot', startIn: 'documents' }).then(h => setPapersRoot(h).then(() => {
+          showToast('Main folder is "' + h.name + '". Click the box again to choose this purchase\'s folder inside it', 'success');
+        }))
+      : window.showDirectoryPicker({ id: 'matPapers', startIn: root }).then(h => root.resolve(h).then(inside => {
+          if(inside){ box.value = [root.name].concat(inside).join('\\'); return; }
+          box.value = h.name;
+          askConfirm('Make "' + h.name + '" the main folder?', 'That folder is not inside "' + root.name + '", so only its name was filled in. '
+            + 'Make it the main Safety papers folder on this computer instead?', 'Make it the main folder', () => {
+            setPapersRoot(h).then(() => showToast('Main folder is now "' + h.name + '"', 'success'));
+          });
+        }))
+    ).catch(err => {
+      if(!err || err.name !== 'AbortError') showToast('Could not choose a folder here. Type where the papers are instead.', 'error');
+    }).then(() => { matPicking = false; });
+  }
+  if(PapersFolder.supported()){
+    PapersFolder.root().then(h => { if(h && !papersRoot) papersRoot = h; });
+    document.querySelectorAll('.mat-pick-only').forEach(el => { el.style.display = ''; });
+    document.getElementById('matDocs').addEventListener('click', pickPapersFolder);
+  }
   document.getElementById('matSearch').addEventListener('input', renderMatBook);
   document.getElementById('matSave').addEventListener('click', () => {
     const was = matEditing ? MatBook.byId(matEditing) : null;
@@ -18151,7 +18221,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       rec = cleanLot({
         id: was ? was.id : uid('L'), code: was ? was.code : MatBook.nextCode(),
         part: document.getElementById('matPart').value, from: document.getElementById('matFrom').value,
-        batch: document.getElementById('matBatch').value, bought: document.getElementById('matBought').value,
+        site: document.getElementById('matSite').value, batch: document.getElementById('matBatch').value, bought: document.getElementById('matBought').value,
         docs: document.getElementById('matDocs').value, note: document.getElementById('matNote').value
       }, Date.now());
     }catch(err){ showToast(err.message, 'error'); return; }
@@ -18196,8 +18266,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     }
   });
   document.getElementById('matExport').addEventListener('click', () => {
-    const cols = [{ h:'Code' }, { h:'Part' }, { h:'Bought from' }, { h:'Batch' }, { h:'Bought on' }, { h:'Safety papers' }, { h:'Note' }, { h:'Used in' }];
-    const rows = MatBook.live().map(l => [l.code, l.part, l.from, l.batch, ukDay(l.bought), l.docs || l.papersAt || '', l.note || '', lotUsedIn(items, l.id).join(', ')]);
+    const cols = [{ h:'Code' }, { h:'Part' }, { h:'Supplier name' }, { h:'Supplier website' }, { h:'Batch' }, { h:'Bought on' }, { h:'Safety papers' }, { h:'Note' }, { h:'Used in' }];
+    const rows = MatBook.live().map(l => [l.code, l.part, l.from, l.site || '', l.batch, ukDay(l.bought), l.docs || l.papersAt || '', l.note || '', lotUsedIn(items, l.id).join(', ')]);
     const name = 'materials-book-' + new Date().toISOString().slice(0, 10);
     askFormat('Export the Materials book', fmt => {
       if(fmt === 'xlsx') downloadBlob(buildXlsx([{ name:'Materials book', cols: cols, rows: rows }]), name + '.xlsx');
