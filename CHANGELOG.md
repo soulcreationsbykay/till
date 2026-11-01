@@ -10,6 +10,27 @@ fixes.
 
 ---
 
+## v1.102.0 - 1 November 2026
+
+**A cover photo for a colour group.** On an item in a colour group (named "Chip
+bracelet — Tiger eye" and so on), every Etsy photo and every website extra photo gets
+a fourth button, ☆. Add a photo of all the colours together to one of them and tap ☆:
+
+- **Etsy:** it goes first on the colour listing as its main photo, belonging to no
+  colour, and each colour is still linked to its own photo, so choosing one on Etsy
+  shows that bracelet. The Send box says which photo will be the main one. The cover
+  is not sent again among its colour's own photos, so that colour still needs a photo
+  of its own. Needs the Etsy service update of the same day.
+- **Website:** it fronts the card on the shop list (ahead of "Show this photo on the
+  shop list") and the product page opens on it; choosing a colour shows that colour's
+  own photo. It appears once the extra photos are exported and published, as extras
+  always do. Needs the website and catalogue updates of the same day.
+
+One cover per group for each, like the shop-list tick: starring one unstars the rest.
+Starred photos have a gold outline. Removing the photo removes the star.
+
+---
+
 ## v1.101.0 - 1 November 2026
 
 **Records: Safety complaints folded shut.** The card is now one line with a "＋ Log a

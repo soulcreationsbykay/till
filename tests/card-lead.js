@@ -139,5 +139,28 @@ console.log('\nA lone item cannot take anyone else down with it');
     leads() === 'CA-999=item KA-048=item', leads());
 }
 
+// v1.102.0: the group's ★ cover - one photo of every colour together. The
+// same one-per-card rule as `lead`, for each of the two kinds separately.
+console.log('\nThe ★ cover photo');
+{
+  const covers = (f) => Object.keys(ctx.items).filter((bc) => ctx.items[bc][f])
+    .map((bc) => bc + '=' + ctx.items[bc][f]).sort().join(' ');
+  ctx.items = crochet();
+  ctx.setGroupCover('KA-048', 'etsyCover', 'fpA');
+  check('starring sets it on that member', covers('etsyCover') === 'KA-048=fpA', covers('etsyCover'));
+  ctx.setGroupCover('KA-055', 'etsyCover', 'fpB');
+  check('starring another member of the card unstars the first', covers('etsyCover') === 'KA-055=fpB', covers('etsyCover'));
+  check('found from any member of the card',
+    JSON.stringify(ctx.groupCoverOf('KA-049', 'etsyCover')) === '{"bc":"KA-055","fp":"fpB"}');
+  ctx.setGroupCover('KA-048', 'webCover', 'fpW');
+  check('the website cover is kept apart from the Etsy one',
+    covers('webCover') === 'KA-048=fpW' && covers('etsyCover') === 'KA-055=fpB');
+  ctx.setGroupCover('KA-055', 'etsyCover', '');
+  check('unstarring leaves no Etsy cover', covers('etsyCover') === '' && ctx.groupCoverOf('KA-048', 'etsyCover') === null);
+  ctx.items['CA-999'].webCover = 'fpX';
+  ctx.setGroupCover('KA-048', 'webCover', 'fpY');
+  check('another card is never touched', ctx.items['CA-999'].webCover === 'fpX');
+}
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed\n');
 process.exit(fail ? 1 : 0);

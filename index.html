@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-rUhQ0lUl0Pi6AgZgo4CrwbVG3f7TVTgUDu6vcIqLvJo=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-/sTI4DElSlpAfdFWGFITEwmBuF2eQhsM0Jfkr+T9u1g=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -703,6 +703,10 @@ if (window.top !== window.self) {
   }
   .extra-tools button:last-child{border-right:0;color:var(--danger);}
   .extra-tools button:disabled{opacity:.3;cursor:default;}
+  /* v1.102.0: a colour group's photos carry a fourth button, ☆ cover. */
+  .extra-pic.four{width:116px;}
+  .extra-pic.is-cover{border:2px solid #c9a227;}
+  .extra-pic.is-cover .extra-tools button:nth-child(3){color:#c9a227;}
   /* v1.67.4: a switched-off button must LOOK switched off; the reason is in
      the line under it. Before this, a disabled Send to Etsy looked live. */
   .btn:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.5);box-shadow:none;}
@@ -5070,9 +5074,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.101.0';
+  const APP_VERSION = '1.102.0';
   const BUILD_DATE  = '1 Nov 2026';
-  const BUILD_TIME  = '20:29';
+  const BUILD_TIME  = '21:22';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -5378,6 +5382,25 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     });
   }
 
+  // THE GROUP'S COVER (v1.102.0): a photo of every colour together, kept as
+  // one of a member's own photos and starred. `webCover` names one of its
+  // website extras, `etsyCover` one of its Etsy photos. It fronts the whole
+  // card or listing; choosing a colour still shows that colour's photo. One
+  // per group, like `lead`, so starring here unstars the rest.
+  function setGroupCover(barcode, field, fp){
+    itemsInGroupOf(barcode).forEach(function(bc){
+      if(items[bc]) delete items[bc][field];
+    });
+    if(fp && items[barcode]) items[barcode][field] = fp;
+  }
+  // The starred photo for this item's group, or null: { bc, fp }.
+  function groupCoverOf(barcode, field){
+    const hit = itemsInGroupOf(barcode).filter(function(bc){
+      return items[bc] && typeof items[bc][field] === 'string' && items[bc][field];
+    })[0];
+    return hit ? { bc: hit, fp: items[hit][field] } : null;
+  }
+
   // WHICH PHOTOGRAPH FRONTS A CATEGORY on the website's front page.
   //
   // The category is the SECOND level of the folder (Kay/Crochet -> Crochet),
@@ -5557,6 +5580,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   function etsyRemovePic(it, fp){
     const a = etsyPicsOf(it).filter(function(s){ return s !== fp; });
     if(a.length) it.etsyPics = a; else delete it.etsyPics;
+    if(it.etsyCover === fp) delete it.etsyCover;
   }
   function etsyMovePic(it, fp, dir){
     const a = etsyPicsOf(it), i = a.indexOf(fp), j = i + dir;
@@ -8887,6 +8911,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     }
 
     const list = extrasFor(code);
+    const it = items[code];
+    const grouped = !!(it && variantSplit(it.name).group);
+    const cover = grouped ? groupCoverOf(code, 'webCover') : null;
     list.forEach(function(fp, i){
       const cell = document.createElement('div');
       cell.className = 'extra-pic';
@@ -8908,10 +8935,27 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       tools.appendChild(extraBtn('▶', 'Move this photo later', i === list.length - 1, function(){
         moveExtra(code, fp, +1).then(renderEditExtras);
       }));
+      // ★ the cover of the whole card on the website (v1.102.0), only in a group.
+      if(grouped){
+        cell.classList.add('four');
+        const isCover = it.webCover === fp;
+        if(isCover) cell.classList.add('is-cover');
+        tools.appendChild(extraBtn(isCover ? '★' : '☆',
+          isCover ? 'Stop using this as the main photo of the whole card' : 'Use this as the main photo of the whole card',
+          false, function(){
+            setGroupCover(code, 'webCover', isCover ? '' : fp);
+            saveItems();
+            renderEditExtras();
+            showToast(isCover ? 'Cover photo taken off' : 'Cover photo: on the shop list, for every colour', 'success');
+          }));
+      }
       tools.appendChild(extraBtn('✕', 'Remove this photo', false, function(){
         // Worth a confirm, and worth saying why: this really is the only copy.
         if(!confirm('Remove this photograph?\n\nIt is only on this device, so it cannot be got back.')) return;
-        removeExtra(code, fp).then(function(){ renderEditExtras(); renderExtrasNote(); });
+        removeExtra(code, fp).then(function(){
+          if(it && it.webCover === fp){ delete it.webCover; saveItems(); }
+          renderEditExtras(); renderExtrasNote();
+        });
       }));
       cell.appendChild(tools);
       strip.appendChild(cell);
@@ -8926,7 +8970,11 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
             + 'website under the main one. Saved as you take them, and they stay on this '
             + 'device until you export them in Settings.'
           : 'The website shows these under the main photograph. They stay on this device '
-            + 'until you export them in Settings.');
+            + 'until you export them in Settings.')
+        + (!grouped ? ''
+          : cover && cover.bc !== code ? ' The card\'s main photo is the ★ cover on ' + (items[cover.bc].name || cover.bc) + '.'
+          : cover ? ' ★ is the main photo of the whole card on the shop list; choosing a colour shows that colour\'s own photo. It shows once the photos are exported and published.'
+          : ' Have a photo of all the colours together? Add it here and tap ☆ to make it the main photo of the whole card.');
   }
 
   document.getElementById('editExtraAdd').addEventListener('click', function(){
@@ -9045,6 +9093,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
 
     const live = Sync.isConnected();
     const pics = etsyPicsOf(it);
+    const grouped = !!variantSplit(it.name).group;
+    const cover = grouped ? groupCoverOf(code, 'etsyCover') : null;
     pics.forEach(function(fp, i){
       const id = etsyPhotoDocId(code, fp);
       const cell = document.createElement('div');
@@ -9070,6 +9120,20 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       tools.appendChild(extraBtn('▶', 'Move this photo later', i === pics.length - 1, function(){
         if(etsyMovePic(it, fp, +1)){ saveItems(); renderEditEtsy(); }
       }));
+      // ★ the cover of the whole colour listing (v1.102.0), only in a group.
+      if(grouped){
+        cell.classList.add('four');
+        const isCover = it.etsyCover === fp;
+        if(isCover) cell.classList.add('is-cover');
+        tools.appendChild(extraBtn(isCover ? '★' : '☆',
+          isCover ? 'Stop using this as the main photo of the whole colour listing' : 'Use this as the main photo of the whole colour listing',
+          false, function(){
+            setGroupCover(code, 'etsyCover', isCover ? '' : fp);
+            saveItems();
+            renderEditEtsy();
+            showToast(isCover ? 'Cover photo taken off' : 'Cover photo: first on the Etsy listing, for every colour', 'success');
+          }));
+      }
       tools.appendChild(extraBtn('✕', 'Remove this photo', !live, function(){
         if(!confirm('Remove this Etsy photo?')) return;
         etsyRemovePic(it, fp);
@@ -9090,9 +9154,13 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       ? 'Team sync is not connected on this device, so Etsy photos cannot be added or shown here yet. They are kept online so they can be sent to Etsy.'
       : full
         ? 'That is the ' + ETSY_PHOTO_MAX + ' an Etsy listing can show. Remove one to add another.'
-        : pics.length
+        : (pics.length
           ? pics.length + ' real photo' + (pics.length === 1 ? '' : 's') + '. The first is the main one on Etsy. Saved as you take them.'
-          : 'Etsy suggests 3 to 5: the front, the back or side, a close-up, and one that shows the size.';
+          : 'Etsy suggests 3 to 5: the front, the back or side, a close-up, and one that shows the size.')
+          + (!grouped ? ''
+            : cover && cover.bc !== code ? ' The whole listing\'s main photo is the ★ cover on ' + (items[cover.bc].name || cover.bc) + '.'
+            : cover ? ' ★ is the main photo of the whole colour listing; choosing a colour on Etsy shows that colour\'s own photo.'
+            : ' Have a photo of all the colours together? Add it here and tap ☆ to make it the main photo of the whole listing.');
   }
 
   document.getElementById('editEtsyOn').addEventListener('change', function(){
@@ -15251,6 +15319,11 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         lines.unshift('Goes as ONE listing, "' + (view.etsyTitle || grp.group) + '", with a Colour choice: '
           + (grp.ready.length ? grp.ready.map(s => s.label).join(', ') : 'none ready yet') + '.');
         if(grp.waiting.length) lines.splice(1, 0, 'Left out: ' + grp.waiting.map(w => w.label + ' (' + w.why + ')').join(', ') + '.');
+        // The ★ cover (v1.102.0): the listing's main photo.
+        const cov = groupCoverOf(currentEditBarcode, 'etsyCover');
+        lines.splice(1, 0, cov && etsyPicsOf(items[cov.bc]).indexOf(cov.fp) > -1
+          ? 'Main photo: the ★ cover on ' + (variantSplit(items[cov.bc].name).label || cov.bc) + ', then each colour\'s own.'
+          : 'Main photo: the first colour\'s. Star (☆) a photo of all of them together to make it the main one.');
         // The listing is a parcel if any colour in it is (etsyGroupPayload).
         const parcel = grp.ready.filter(s => s.bc !== currentEditBarcode && all[s.bc].post !== 'letter');
         if(view.post === 'letter' && parcel.length){
@@ -15418,15 +15491,23 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const grp = etsyColourGroup(bc, items);
     if(grp && grp.sent.length){ showToast('Its other colours are already on Etsy as one listing', 'error'); return; }
     showToast('Sending to Etsy…', 'success');
+    // The group's ★ cover (v1.102.0): sent on its own, first on the listing,
+    // and left out of its colour's photos so it is not there twice.
+    const cov = grp ? groupCoverOf(bc, 'etsyCover') : null;
+    const coverOk = !!(cov && etsyPicsOf(items[cov.bc]).indexOf(cov.fp) > -1);
+    async function picOf(b, fp){
+      const id = etsyPhotoDocId(b, fp);
+      let uri = etsyPicCache[id];
+      if(!uri){ uri = await Sync.getEtsyPhoto(b, fp); if(uri) etsyPicCache[id] = uri; }
+      if(!uri) throw new Error('One of ' + (b === bc ? 'its' : items[b].name + '\'s') + ' Etsy photos has not finished uploading. Try again in a minute.');
+      return uri;
+    }
     // One item's real photos, from this device's copy or the workspace.
     async function photosOf(b){
       const out = [];
       for(const fp of etsyPicsOf(items[b])){
-        const id = etsyPhotoDocId(b, fp);
-        let uri = etsyPicCache[id];
-        if(!uri){ uri = await Sync.getEtsyPhoto(b, fp); if(uri) etsyPicCache[id] = uri; }
-        if(!uri) throw new Error('One of ' + (b === bc ? 'its' : items[b].name + '\'s') + ' Etsy photos has not finished uploading. Try again in a minute.');
-        out.push(uri);
+        if(coverOk && b === cov.bc && fp === cov.fp) continue;
+        out.push(await picOf(b, fp));
       }
       return out;
     }
@@ -15435,6 +15516,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       if(grp){
         payload = etsyGroupPayload(it, bc, c, grp, items);
         for(const v of payload.variants) v.photos = await photosOf(v.barcode);
+        if(coverOk) payload.cover = await picOf(cov.bc, cov.fp);
       } else {
         payload = etsyDraftPayload(it, bc, c);
         payload.photos = await photosOf(bc);
