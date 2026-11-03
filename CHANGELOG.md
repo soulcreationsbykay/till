@@ -10,6 +10,16 @@ fixes.
 
 ---
 
+## v1.104.0 - 3 November 2026
+
+**Change the price of many items at once.** Stock → tick the items → ✏ Edit now has a
+Price (£) box at the top. Fill it in and every ticked item gets that price on the till
+and the website (the till asks you to confirm first). Leave it blank to keep each
+item's own price. Items already on Etsy keep their Etsy price; change those in the
+Etsy app.
+
+---
+
 ## v1.103.1 - 1 November 2026
 
 **Extra photos taken before v1.103.0 now go online by themselves.** Whenever Team sync

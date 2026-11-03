@@ -24,7 +24,7 @@
 
      Not possible in a <meta>: frame-ancestors (other sites framing the till).
      The first script below covers that instead. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-sfaI2WbhyPmh7H11sIcJEFHBBrsmE+WfEB0diDFLVpo=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AAIr9gGEN4nA0TVea7/BkJDUz3MkWde5f9MfO0vriEg=' 'sha256-brIKZel3JnZ6XKoKRtsWXVCDdVB+Yz62N9M1HwJBfF0=' 'sha256-o7B7b2fIZhq4TEL0NvpXWSEpgB4bNrx5N2SKX54F3e8=' 'sha256-UI8H3aGSJb1Ri35Qsv9D0rtZZ0xtnQvJhupPLFu9l24=' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.soulcreations-sales.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>
 /* Never shown inside another site's frame: a framed till could be overlaid to
    trick a tap onto Charge or Delete. Break out if allowed, and hide if not. */
@@ -1998,6 +1998,9 @@ if (window.top !== window.self) {
     <p style="font-size:13px;color:var(--muted);line-height:1.45;margin:6px 0 14px;">
       Only the boxes you fill in are changed — everything else on the items stays as it is.
     </p>
+    <label for="bulkPriceInput">Price (£)</label>
+    <input type="number" id="bulkPriceInput" inputmode="decimal" step="0.01" min="0" placeholder="Leave blank to keep current">
+    <div class="folder-hint">Every ticked item gets this price on the till and the website. Items already on Etsy keep their Etsy price — change those in the Etsy app.</div>
     <label>Move to folder</label>
     <input type="text" id="bulkFolderInput" list="folderOptions" placeholder="Leave blank to keep current" autocomplete="off">
     <div class="folder-hint">Use / for a subfolder, e.g. Kay/Bracelets. Type just / to move items out of every folder.</div>
@@ -5077,9 +5080,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   // one. 24-hour clock, local time, so there is no am/pm to misread across a
   // counter. All three are set by hand — there is no build step to fill them
   // in, so publishing means editing them.
-  const APP_VERSION = '1.103.1';
-  const BUILD_DATE  = '1 Nov 2026';
-  const BUILD_TIME  = '22:40';
+  const APP_VERSION = '1.104.0';
+  const BUILD_DATE  = '3 Nov 2026';
+  const BUILD_TIME  = '15:55';
   const versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = `v${APP_VERSION} · ${BUILD_DATE}, ${BUILD_TIME}`;
 
@@ -10798,6 +10801,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const n = Object.keys(bulkPicked).length;
     if(!n){ showToast('Tap some items first to tick them', 'error'); return; }
     document.getElementById('bulkEditTitle').textContent = 'Edit ' + n + ' item' + (n===1?'':'s');
+    document.getElementById('bulkPriceInput').value = '';
     document.getElementById('bulkFolderInput').value = '';
     document.getElementById('bulkMakerInput').value = '';
     document.getElementById('bulkWebInput').value = '';
@@ -10869,6 +10873,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if(e.target === e.currentTarget) e.currentTarget.style.display = 'none';
   });
   document.getElementById('bulkEditApply').addEventListener('click', () => {
+    const pr = document.getElementById('bulkPriceInput').value.trim();
+    const prNew = round2(Number(pr));
+    if(pr && !(prNew > 0)){ showToast('The price must be more than £0', 'error'); return; }
     const f = document.getElementById('bulkFolderInput').value.trim();
     const m = document.getElementById('bulkMakerInput').value.trim();
     const w = document.getElementById('bulkWebInput').value;
@@ -10902,10 +10909,15 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
                   + ' — they should know before this goes on the shelf.\n\nSet the deal?')) return;
     }
 
-    if(!f && !m && !w && !ps && !dt && !lb && !pw.length && !pclear){ showToast('Fill in a folder, a made-by, the website setting, the postage size, a label, the parts or a deal first', 'error'); return; }
+    // A price for many items at once is easy to get wrong, so say it back first.
+    if(pr && !confirm('Set the price of ' + Object.keys(bulkPicked).length + ' item'
+                      + (Object.keys(bulkPicked).length===1?'':'s') + ' to ' + money(prNew) + '?')) return;
+
+    if(!pr && !f && !m && !w && !ps && !dt && !lb && !pw.length && !pclear){ showToast('Fill in a price, a folder, a made-by, the website setting, the postage size, a label, the parts or a deal first', 'error'); return; }
     const bcs = Object.keys(bulkPicked);
     bcs.forEach(bc => {
       if(!items[bc]) return;
+      if(pr) items[bc].price = prNew;
       if(f) items[bc].folder = (f === '/') ? '' : normFolder(f);
       if(m) items[bc].maker = (m === '-') ? '' : m;
       if(w === 'on') items[bc].web = 1;
